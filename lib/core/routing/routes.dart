@@ -7,12 +7,12 @@ class Routes {
   static const String orderCompleteScreen = '/order-complete';
   static const String shopSearchScreen = '/shop-search';
   static const String itemDetailsScreen = '/item-details';
-  static const String navBar = '/nav-bar';
+  static const String navBar = '/';
   static const String trackorder = '/track-order';
   static const String exchangeOrRefund = '/exchange-or-refund';
   static const String cancelSubscription = '/cancel-subscription';
   static const String commentsScreen = 'comment';
-  static const String landingScreen = '/';
+  static const String landingScreen = '/landing-screen';
   static const String authScreen = '/auth';
   static const String deleteAccount = '/delete-account';
 }

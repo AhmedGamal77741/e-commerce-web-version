@@ -9,7 +9,6 @@ import 'package:ecommerece_app/features/home/widgets/post_actions.dart';
 import 'package:ecommerece_app/features/home/widgets/show_post_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
@@ -49,10 +48,10 @@ class PostItem extends StatelessWidget {
                     // User Avatar
                     Flexible(
                       child: Padding(
-                        padding: EdgeInsets.only(top: 20.h),
+                        padding: EdgeInsets.only(top: 20),
                         child: Container(
-                          width: 56.w,
-                          height: 55.h,
+                          width: 56,
+                          height: 55,
                           decoration: ShapeDecoration(
                             image: DecorationImage(
                               image: NetworkImage(myuser.url.toString()),
@@ -76,7 +75,7 @@ class PostItem extends StatelessWidget {
                           }
                         },
                         child: Padding(
-                          padding: EdgeInsets.only(right: 10.w),
+                          padding: EdgeInsets.only(right: 10),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -109,11 +108,11 @@ class PostItem extends StatelessWidget {
                                   postData['text'],
                                   style: TextStyle(
                                     color: const Color(0xFF343434),
-                                    fontSize: 16.sp,
+                                    fontSize: 16,
                                     fontFamily: 'NotoSans',
                                     fontWeight: FontWeight.w400,
-                                    height: 1.40.h,
-                                    letterSpacing: -0.09.w,
+                                    height: 1.40,
+                                    letterSpacing: -0.09,
                                   ),
                                 ),
                               verticalSpace(5),
@@ -123,8 +122,8 @@ class PostItem extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(8),
                                   child: Image.network(
                                     postData['imgUrl'],
-                                    width: 200.w,
-                                    height: 272.h,
+                                    width: 200,
+                                    height: 272,
                                     fit: BoxFit.cover,
                                   ),
                                 ),

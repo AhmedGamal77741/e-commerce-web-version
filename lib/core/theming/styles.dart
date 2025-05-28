@@ -1,6 +1,5 @@
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class TextStyles {
   static TextStyle _textStyle({
@@ -11,7 +10,7 @@ class TextStyles {
     String fontFamily = 'NotoSans',
   }) {
     return TextStyle(
-      fontSize: fontSize.sp,
+      fontSize: fontSize,
       decoration: TextDecoration.none,
       fontFamily: fontFamily,
       fontStyle: FontStyle.normal,
@@ -33,7 +32,7 @@ class TextStyles {
   );
   static final TextStyle abeezee14px400wW = _textStyle(
     color: ColorsManager.white,
-    fontSize: 14.sp,
+    fontSize: 14,
     fontWeight: FontWeight.w400,
   );
   static final TextStyle abeezee16px400wP600 = _textStyle(
@@ -53,7 +52,7 @@ class TextStyles {
   );
   static final TextStyle abeezee12px400wW = _textStyle(
     color: ColorsManager.white,
-    fontSize: 12.sp,
+    fontSize: 12,
     fontWeight: FontWeight.w400,
   );
   static final TextStyle abeezee20px400wPblack = _textStyle(
@@ -63,7 +62,7 @@ class TextStyles {
   );
   static final TextStyle abeezee23px400wW = _textStyle(
     color: ColorsManager.white,
-    fontSize: 23.sp,
+    fontSize: 23,
     fontWeight: FontWeight.w400,
   );
   static final TextStyle abeezee16px400wPred = _textStyle(

@@ -9,43 +9,41 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
-Future<String> uploadImageToImgBB() async {
-  final userId = FirebaseAuth.instance.currentUser!.uid;
-  final CollectionReference usersCollection = FirebaseFirestore.instance
-      .collection('users');
-  final XFile? image = await ImagePicker().pickImage(
-    source: ImageSource.gallery,
-  );
-  if (image == null) return "";
-
-  Uint8List bytes;
-  if (kIsWeb) {
-    // On web, use image.readAsBytes() directly
-    bytes = await image.readAsBytes();
-  } else {
-    // On mobile, File is available
-    bytes = await image.readAsBytes(); // no need for dart:io File
-  }
-
-  final base64Image = base64Encode(bytes);
-
-  final response = await http.post(
-    Uri.parse('https://api.imgbb.com/1/upload'),
-    body: {'key': 'df668aeecb751b64bc588772056a32df', 'image': base64Image},
-  );
-
-  if (response.statusCode == 200) {
-    final jsonData = jsonDecode(response.body);
-    await FirebaseFirestore.instance.collection('users').doc(userId).update({
-      'url': jsonData['data']['url'],
-    });
-    await FirebaseAuth.instance.currentUser!.updatePhotoURL(
-      jsonData['data']['url'],
+Future<String> uploadImageToFirebaseStorage() async {
+  try {
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+    final XFile? image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
     );
-    return jsonData['data']['url'];
-  } else {
-    throw Exception('Failed to upload: ${response.body}');
+
+    if (image == null) return "";
+
+    // Get reference to Firebase Storage location
+    final Reference storageRef = FirebaseStorage.instance
+        .ref()
+        .child('user_profile_images')
+        .child('$userId.jpg'); // Using user ID as filename
+
+    // Upload the file
+    final UploadTask uploadTask = storageRef.putData(await image.readAsBytes());
+    final TaskSnapshot snapshot = await uploadTask;
+
+    // Get download URL
+    final String downloadUrl = await snapshot.ref.getDownloadURL();
+
+    // Update Firestore and Auth
+    await FirebaseFirestore.instance.collection('users').doc(userId).update({
+      'url': downloadUrl,
+    });
+
+    await FirebaseAuth.instance.currentUser!.updatePhotoURL(downloadUrl);
+
+    return downloadUrl;
+  } catch (e) {
+    print('Error uploading image: $e');
+    throw Exception('Failed to upload image: $e');
   }
 }
 
@@ -92,6 +90,7 @@ class FirebaseUserRepo {
                       ?.map((e) => e as String)
                       .toList() ??
                   <String>[],
+              payerId: data['payerId'] as String? ?? '',
             );
 
             yield user;
@@ -201,15 +200,6 @@ class FirebaseUserRepo {
       print('Generic exception during sign up: ${e.toString()}');
       return errorUnknown; // Generic error for non-Firebase Auth issues
     }
-  }
-
-  // Assuming uploadImageToImgBB is also in this class or accessible
-  // This is a placeholder, ensure your actual implementation exists
-  Future<String> uploadImageToImgBB() async {
-    // Simulate image upload
-    await Future.delayed(const Duration(seconds: 1));
-    // return "https://i.ibb.co/your-actual-image-url.png"; // Replace with actual upload logic
-    return ""; // Return empty if you want to test default
   }
 
   Future signIn(String email, String password) async {

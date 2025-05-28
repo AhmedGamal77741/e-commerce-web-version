@@ -4,7 +4,7 @@ class MyUserEntity {
   String email;
 
   String name;
-
+  String? payerId;
   String url;
   List<String>? blocked = [];
   bool isSub;
@@ -17,6 +17,7 @@ class MyUserEntity {
     this.blocked,
     this.isSub = false,
     this.defaultAddressId,
+    this.payerId,
   });
 
   Map<String, Object?> toDocument() {
@@ -28,6 +29,7 @@ class MyUserEntity {
       'blocked': blocked,
       'isSub': isSub,
       'defaultAddressId': defaultAddressId ?? '',
+      'payerId': payerId,
     };
   }
 
@@ -41,6 +43,7 @@ class MyUserEntity {
           (doc['blocked'] as List<dynamic>?)?.map((e) => e as String).toList(),
       isSub: doc['isSub'],
       defaultAddressId: doc['defaultAddressId'],
+      payerId: doc['payerId'],
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class WideTextButton extends StatelessWidget {
   final String txt;
@@ -23,7 +22,7 @@ class WideTextButton extends StatelessWidget {
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.all(color),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        minimumSize: WidgetStateProperty.all(Size(double.infinity, 45.h)),
+        minimumSize: WidgetStateProperty.all(Size(double.infinity, 45)),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

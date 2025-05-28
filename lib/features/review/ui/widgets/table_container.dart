@@ -4,19 +4,26 @@ import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/core/widgets/table_text_row.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
-class TableContainer extends StatelessWidget {
-  final user = FirebaseAuth.instance.currentUser;
+class TableContainer extends StatefulWidget {
   final String orderId;
 
   TableContainer({super.key, required this.orderId});
+
+  @override
+  State<TableContainer> createState() => _TableContainerState();
+}
+
+class _TableContainerState extends State<TableContainer> {
+  final user = FirebaseAuth.instance.currentUser;
 
   @override
   Widget build(BuildContext context) {
     final orderStream =
         FirebaseFirestore.instance
             .collection('orders')
-            .doc(orderId)
+            .doc(widget.orderId)
             .snapshots();
 
     return Container(
@@ -49,22 +56,33 @@ class TableContainer extends StatelessWidget {
               }
 
               final data = snapshot.data!.data() as Map<String, dynamic>;
-              final trackOrder = data['trackOrder'] as List<dynamic>?;
-
+              final trackOrder =
+                  data['trackingEvents']['edges'] as List<dynamic>?;
+              print('${trackOrder} 5555');
               if (trackOrder == null || trackOrder.isEmpty) {
                 return Center(child: Text('No tracking updates yet.'));
               }
 
               return ListView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
                 itemCount: trackOrder.length,
                 itemBuilder: (context, index) {
                   final event = trackOrder[index];
-                  return TbaleTextRow(
-                    firstElment: event['time'],
-                    secondElment: event['time'],
-                    thirdElment: event['status'],
-                    style: TextStyles.abeezee16px400wP600,
-                  );
+
+                  return index % 2 == 0
+                      ? TbaleTextRow(
+                        firstElment: formatIsoDateTime(event['node']['time']),
+                        secondElment: event['node']['status']['name'],
+                        thirdElment: event['node']['description'],
+                        style: TextStyles.abeezee16px400wP600,
+                      )
+                      : TbaleTextRow(
+                        firstElment: formatIsoDateTime(event['node']['time']),
+                        secondElment: event['node']['status']['name'],
+                        thirdElment: event['node']['description'],
+                        style: TextStyles.abeezee16px400wPblack,
+                      );
                 },
               );
             },
@@ -72,5 +90,18 @@ class TableContainer extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+String formatIsoDateTime(
+  String isoString, {
+  String pattern = 'yyyy-MM-dd HH:mm',
+}) {
+  try {
+    final dateTime = DateTime.parse(isoString);
+    final formatter = DateFormat(pattern);
+    return formatter.format(dateTime);
+  } catch (e) {
+    return 'Invalid date';
   }
 }

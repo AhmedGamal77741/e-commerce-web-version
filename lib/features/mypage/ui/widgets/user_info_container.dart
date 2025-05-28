@@ -7,7 +7,7 @@ import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart'
 import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:provider/provider.dart';
 
 class UserInfoContainer extends StatefulWidget {
@@ -73,7 +73,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 20.h),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
         child: Form(
           key: _formKey,
           child: Column(
@@ -201,7 +201,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
 
               if (error.isNotEmpty)
                 Padding(
-                  padding: EdgeInsets.only(top: 8.h),
+                  padding: EdgeInsets.only(top: 8),
                   child: Text(error, style: const TextStyle(color: Colors.red)),
                 ),
             ],

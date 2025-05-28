@@ -24,61 +24,117 @@ class PostsProvider extends ChangeNotifier {
       _loadingCommentPosts.contains(postId);
   MyUserEntity? getUser(String userId) => _users[userId];
   bool hasPostChanged(String postId) => _changedPostIds.contains(postId);
+  bool _resetting = false;
 
-  // Start listening to posts
+  void resetListening() {
+    // Avoid multiple resets at once
+    if (_resetting) return;
+
+    _resetting = true;
+    _isListening = false;
+    _posts.clear();
+    _changedPostIds.clear();
+
+    // Schedule notification for the next frame instead of immediate notification
+    Future.microtask(() {
+      notifyListeners();
+      _resetting = false;
+    });
+  }
+
   void startListening() {
-    if (_isListening) return;
-
-    _isListening = true;
-
+    // Check if we're already listening, but allow restart after user changes
     final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
+
+    // If we're already listening but either:
+    // 1. User logged out (currentUser is null)
+    // 2. Different user logged in
+    // Then we should reset the listening state
+    if (_isListening) {
+      if (currentUser == null) {
+        resetListening(); // Clear everything if user logged out
+        return; // Don't try to load posts without a user
+      }
+      return; // Otherwise, we're already listening for the current user
+    }
+
+    // Don't start listening if no user is logged in
+    if (currentUser == null) {
+      print("No user logged in, not loading posts yet");
+      return;
+    }
+
+    // Start listening now
+    _isListening = true;
     final currentUserId = currentUser.uid;
 
-    FirebaseFirestore.instance.collection('users').doc(currentUserId).get().then(
-      (userDoc) {
-        if (!userDoc.exists) return;
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUserId)
+        .get()
+        .then(
+          (userDoc) {
+            if (!userDoc.exists) {
+              print("User document doesn't exist for ID: $currentUserId");
+              return;
+            }
 
-        // Extract blocked user IDs
-        List<String> blockedUsers = List<String>.from(
-          userDoc.data()?['blocked'] ?? [],
-        );
+            // Extract blocked user IDs
+            List<String> blockedUsers = List<String>.from(
+              userDoc.data()?['blocked'] ?? [],
+            );
 
-        _firestore
-            .collection('posts')
-            .orderBy('createdAt', descending: true)
-            .snapshots()
-            .listen((snapshot) {
-              for (var change in snapshot.docChanges) {
-                final postData = change.doc.data()!;
-                final String postUserId = postData['userId'];
-                final String postId = change.doc.id;
+            // Listen to posts collection
+            _firestore
+                .collection('posts')
+                .orderBy('createdAt', descending: true)
+                .snapshots()
+                .listen(
+                  (snapshot) {
+                    for (var change in snapshot.docChanges) {
+                      final postData = change.doc.data()!;
+                      final String postUserId = postData['userId'];
+                      final String postId = change.doc.id;
 
-                // Skip posts from blocked users
-                if (blockedUsers.contains(postUserId)) {
-                  continue;
-                }
+                      // Skip posts from blocked users
+                      if (blockedUsers.contains(postUserId)) {
+                        continue;
+                      }
 
-                List<dynamic> notInterestedBy = List<dynamic>.from(
-                  postData['notInterestedBy'] ?? [],
+                      List<dynamic> notInterestedBy = List<dynamic>.from(
+                        postData['notInterestedBy'] ?? [],
+                      );
+                      if (notInterestedBy.contains(currentUserId)) {
+                        continue;
+                      }
+
+                      _posts[postId] = change.doc.data()!;
+                      _changedPostIds.add(postId);
+
+                      // If we're already loading comments for this post, refresh them
+                      if (_comments.containsKey(postId)) {
+                        loadComments(postId);
+                      }
+                    }
+                    notifyListeners();
+                    _changedPostIds.clear();
+                  },
+                  onError: (e) {
+                    print("Error listening to posts: $e");
+                    _isListening = false; // Reset listening state on error
+                  },
+                  onDone: () {
+                    print("Posts stream closed");
+                    _isListening =
+                        false; // Reset listening state when stream closes
+                  },
                 );
-                if (notInterestedBy.contains(currentUserId)) {
-                  continue;
-                }
-
-                _posts[postId] = change.doc.data()!;
-                _changedPostIds.add(postId);
-
-                // If we're already loading comments for this post, refresh them
-                if (_comments.containsKey(postId)) {
-                  loadComments(postId);
-                }
-              }
-              notifyListeners();
-              _changedPostIds.clear();
-            });
-      },
-    );
+          },
+          onError: (e) {
+            print("Error getting user document: $e");
+            _isListening = false; // Reset listening state on error
+          },
+        );
   }
 
   // Load comments for a specific post

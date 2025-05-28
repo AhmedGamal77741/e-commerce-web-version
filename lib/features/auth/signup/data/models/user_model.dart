@@ -11,11 +11,13 @@ class MyUser {
   List<String>? blocked = [];
   bool isSub;
   String? defaultAddressId;
+  String? payerId;
   MyUser({
     required this.userId,
     required this.email,
     required this.name,
     required this.url,
+    this.payerId,
     this.isSub = false,
     this.defaultAddressId,
     this.blocked,
@@ -29,6 +31,7 @@ class MyUser {
     blocked: [],
     defaultAddressId: '',
     isSub: false,
+    payerId: '',
   );
 
   MyUserEntity toEntity() {
@@ -40,6 +43,7 @@ class MyUser {
       isSub: isSub,
       defaultAddressId: defaultAddressId,
       blocked: blocked,
+      payerId: payerId ?? '',
     );
   }
 
@@ -52,6 +56,7 @@ class MyUser {
       isSub: entity.isSub,
       defaultAddressId: entity.defaultAddressId,
       blocked: entity.blocked,
+      payerId: entity.payerId,
     );
   }
 

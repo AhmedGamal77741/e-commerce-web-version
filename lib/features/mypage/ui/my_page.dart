@@ -6,7 +6,7 @@ import 'package:ecommerece_app/features/mypage/ui/widgets/user_info_container.da
 import 'package:ecommerece_app/features/mypage/ui/widgets/user_options_container.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 class MyPage extends StatelessWidget {
@@ -36,7 +36,7 @@ class MyPage extends StatelessWidget {
 
         return SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 20.h),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
             child: Column(
               children: [
                 isSub

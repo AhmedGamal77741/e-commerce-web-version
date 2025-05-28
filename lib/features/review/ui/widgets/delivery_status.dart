@@ -1,6 +1,5 @@
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class DeliveryStatus extends StatelessWidget {
   final String orderStatus;
@@ -8,13 +7,13 @@ class DeliveryStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return orderStatus == 'orderComplete'
+    return orderStatus == 'OUT_FOR_DELIVERY'
         ? Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 100.w,
-              height: 100.h,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 color: ColorsManager.primaryblack,
@@ -26,16 +25,16 @@ class DeliveryStatus extends StatelessWidget {
               ),
             ),
             Container(
-              width: 50.w,
-              height: 15.h,
-              decoration: BoxDecoration(color: ColorsManager.primary300),
+              width: 50,
+              height: 15,
+              decoration: BoxDecoration(color: ColorsManager.primaryblack),
             ),
             Container(
-              width: 100.w,
-              height: 100.h,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primary300,
+                color: ColorsManager.primaryblack,
               ),
               child: Icon(
                 Icons.local_shipping,
@@ -44,13 +43,13 @@ class DeliveryStatus extends StatelessWidget {
               ),
             ),
             Container(
-              width: 50.w,
-              height: 15.h,
+              width: 50,
+              height: 15,
               decoration: BoxDecoration(color: ColorsManager.primary300),
             ),
             Container(
-              width: 100.w,
-              height: 100.h,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 color: ColorsManager.primary300,
@@ -63,13 +62,13 @@ class DeliveryStatus extends StatelessWidget {
             ),
           ],
         )
-        : orderStatus == 'OnDelivery'
+        : orderStatus == 'DELIVERED'
         ? Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 100.w,
-              height: 100.h,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 color: ColorsManager.primaryblack,
@@ -81,13 +80,13 @@ class DeliveryStatus extends StatelessWidget {
               ),
             ),
             Container(
-              width: 50.w,
-              height: 15.h,
+              width: 50,
+              height: 15,
               decoration: BoxDecoration(color: ColorsManager.primaryblack),
             ),
             Container(
-              width: 100.w,
-              height: 100.h,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 color: ColorsManager.primaryblack,
@@ -99,16 +98,16 @@ class DeliveryStatus extends StatelessWidget {
               ),
             ),
             Container(
-              width: 50.w,
-              height: 15.h,
-              decoration: BoxDecoration(color: ColorsManager.primary300),
+              width: 50,
+              height: 15,
+              decoration: BoxDecoration(color: ColorsManager.primaryblack),
             ),
             Container(
-              width: 100.w,
-              height: 100.h,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primary300,
+                color: ColorsManager.primaryblack,
               ),
               child: Icon(
                 Icons.checklist_rounded,
@@ -122,8 +121,8 @@ class DeliveryStatus extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 100.w,
-              height: 100.h,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 color: ColorsManager.primaryblack,
@@ -135,16 +134,16 @@ class DeliveryStatus extends StatelessWidget {
               ),
             ),
             Container(
-              width: 50.w,
-              height: 15.h,
-              decoration: BoxDecoration(color: ColorsManager.primaryblack),
+              width: 50,
+              height: 15,
+              decoration: BoxDecoration(color: ColorsManager.primary300),
             ),
             Container(
-              width: 100.w,
-              height: 100.h,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primaryblack,
+                color: ColorsManager.primary300,
               ),
               child: Icon(
                 Icons.local_shipping,
@@ -153,16 +152,16 @@ class DeliveryStatus extends StatelessWidget {
               ),
             ),
             Container(
-              width: 50.w,
-              height: 15.h,
-              decoration: BoxDecoration(color: ColorsManager.primaryblack),
+              width: 50,
+              height: 15,
+              decoration: BoxDecoration(color: ColorsManager.primary300),
             ),
             Container(
-              width: 100.w,
-              height: 100.h,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primaryblack,
+                color: ColorsManager.primary300,
               ),
               child: Icon(
                 Icons.checklist_rounded,

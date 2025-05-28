@@ -5,7 +5,6 @@ import 'package:ecommerece_app/features/review/ui/widgets/img_and_text.dart';
 import 'package:ecommerece_app/features/review/ui/widgets/rating_and_complete.dart';
 import 'package:ecommerece_app/features/review/ui/widgets/rep_filed.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class LeaveReview extends StatelessWidget {
   const LeaveReview({super.key});
@@ -13,7 +12,7 @@ class LeaveReview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: SingleChildScrollView(
         child: Column(
           children: [

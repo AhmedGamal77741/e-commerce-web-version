@@ -9,7 +9,7 @@ import 'package:ecommerece_app/features/home/models/comment_model.dart';
 import 'package:ecommerece_app/features/home/widgets/comment_item.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:provider/provider.dart';
 
 class Comments extends StatefulWidget {
@@ -98,17 +98,17 @@ class _CommentsState extends State<Comments> {
               child: ListView(
                 children: [
                   Padding(
-                    padding: EdgeInsets.only(right: 10.w),
+                    padding: EdgeInsets.only(right: 10),
                     child: PostItem(postId: widget.postId, fromComments: true),
                   ),
-                  Divider(height: 50.h),
+                  Divider(height: 50),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     spacing: 10,
                     children: [
                       Padding(
-                        padding: EdgeInsets.only(left: 20.0.w),
+                        padding: EdgeInsets.only(left: 20.0),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.start,
@@ -143,7 +143,7 @@ class _CommentsState extends State<Comments> {
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.only(right: 20.0.w),
+                        padding: EdgeInsets.only(right: 20.0),
                         child: InkWell(
                           onTap: () {
                             context.pop();
@@ -162,7 +162,7 @@ class _CommentsState extends State<Comments> {
                           comments.isEmpty) {
                         return Center(
                           child: Padding(
-                            padding: EdgeInsets.all(16.h),
+                            padding: EdgeInsets.all(16),
                             child: CircularProgressIndicator(),
                           ),
                         );
@@ -171,12 +171,12 @@ class _CommentsState extends State<Comments> {
                       if (comments.isEmpty) {
                         return Center(
                           child: Padding(
-                            padding: EdgeInsets.all(16.h),
+                            padding: EdgeInsets.all(16),
                             child: Text(
                               '아직 댓글이 없습니다. 첫 번째 댓글을 남겨보세요!',
                               style: TextStyle(
                                 color: Colors.grey,
-                                fontSize: 14.sp,
+                                fontSize: 14,
                                 fontFamily: 'NotoSans',
                               ),
                             ),
@@ -203,14 +203,14 @@ class _CommentsState extends State<Comments> {
             ),
 
             Container(
-              height: 60.h,
-              padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 15.w),
+              height: 60,
+              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
               child: Row(
                 children: [
                   // Comment icon
                   Container(
-                    width: 30.w,
-                    height: 30.h,
+                    width: 30,
+                    height: 30,
                     decoration: ShapeDecoration(
                       image: DecorationImage(
                         image: NetworkImage(currentUser!.url.toString()),
@@ -219,7 +219,7 @@ class _CommentsState extends State<Comments> {
                       shape: OvalBorder(),
                     ),
                   ),
-                  SizedBox(width: 10.w),
+                  SizedBox(width: 10),
 
                   // Comment input field
                   Expanded(
@@ -228,8 +228,8 @@ class _CommentsState extends State<Comments> {
                       controller: _commentController,
                       decoration: InputDecoration(
                         contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12.w,
-                          vertical: 10.h,
+                          horizontal: 12,
+                          vertical: 10,
                         ),
                         labelText: "댓글 추가",
                         labelStyle: TextStyles.abeezee16px400wP600,
@@ -246,13 +246,13 @@ class _CommentsState extends State<Comments> {
                       ),
                     ),
                   ),
-                  SizedBox(width: 10.w),
+                  SizedBox(width: 10),
                   IconButton(
                     padding: EdgeInsets.zero,
                     constraints: BoxConstraints(),
                     icon: Icon(Icons.send),
                     color: ColorsManager.primary600,
-                    iconSize: 25.sp,
+                    iconSize: 25,
                     onPressed: _isSubmitting ? null : _submitComment,
                   ),
                 ],

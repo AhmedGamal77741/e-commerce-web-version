@@ -6,7 +6,6 @@ import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/core/widgets/underline_text_filed.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class RefundBody extends StatelessWidget {
   final reasonController = TextEditingController();
@@ -36,10 +35,7 @@ class RefundBody extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 20.w,
-                    vertical: 25.h,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 25),
                   child: Text('사유', style: TextStyles.abeezee16px400wPblack),
                 ),
                 Divider(color: ColorsManager.primary100),
@@ -80,7 +76,7 @@ class RefundBody extends StatelessWidget {
               ),
             ),
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 20),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class TbaleTextRow extends StatelessWidget {
   final String firstElment;
@@ -17,7 +16,7 @@ class TbaleTextRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       child: Row(
         children: [
           Expanded(

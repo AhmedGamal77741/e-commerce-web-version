@@ -1,6 +1,5 @@
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class BlackTextButton extends StatelessWidget {
   final String txt;
@@ -20,7 +19,7 @@ class BlackTextButton extends StatelessWidget {
       onPressed: func,
       style: TextButton.styleFrom(
         backgroundColor: ColorsManager.primaryblack,
-        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),

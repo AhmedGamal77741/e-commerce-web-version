@@ -11,7 +11,7 @@ import 'package:ecommerece_app/features/review/ui/track_order.dart';
 import 'package:ecommerece_app/features/review/ui/widgets/text_and_buttons.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:intl/intl.dart';
 
 class OrderHistory extends StatefulWidget {
@@ -26,7 +26,7 @@ class _OrderHistoryState extends State<OrderHistory> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      return Center(child: Text('You must be logged in to view orders.'));
+      return Center(child: Text('주문을 보려면 로그인해야 합니다.'));
     }
 
     final orderStream =
@@ -43,13 +43,13 @@ class _OrderHistoryState extends State<OrderHistory> {
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('No orders found.'));
+          return const Center(child: Text('주문이 없습니다'));
         }
 
         final orders = snapshot.data!.docs;
 
         return Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           child: ListView.separated(
             itemCount: orders.length,
             separatorBuilder:
@@ -82,8 +82,8 @@ class _OrderHistoryState extends State<OrderHistory> {
                         borderRadius: BorderRadius.circular(10),
                         child: Image.network(
                           product['imgUrl'],
-                          width: 120.w,
-                          height: 120.h,
+                          width: 120,
+                          height: 120,
                           fit: BoxFit.cover,
                         ),
                       ),

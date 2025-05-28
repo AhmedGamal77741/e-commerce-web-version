@@ -5,7 +5,6 @@ import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ExchangeBody extends StatelessWidget {
   final String userId;
@@ -32,10 +31,7 @@ class ExchangeBody extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 20.w,
-                    vertical: 25.h,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 25),
                   child: Text('사유', style: TextStyles.abeezee16px400wPblack),
                 ),
                 Divider(color: ColorsManager.primary100),

@@ -12,7 +12,6 @@ import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
@@ -87,12 +86,12 @@ class _ShopState extends State<Shop> {
 
       child: Scaffold(
         appBar: AppBar(
-          toolbarHeight: 70.h,
+          toolbarHeight: 70,
           backgroundColor: ColorsManager.white,
           title: TabBar(
             padding: EdgeInsets.zero,
             labelStyle: TextStyle(
-              fontSize: 16.sp,
+              fontSize: 16,
               decoration: TextDecoration.none,
               fontFamily: 'NotoSans',
               fontStyle: FontStyle.normal,
@@ -162,7 +161,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         child: Image.asset('assets/010.png'),
       ),
       body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.w),
+        padding: EdgeInsets.symmetric(horizontal: 12),
         child: StreamBuilder<QuerySnapshot>(
           stream:
               FirebaseFirestore.instance
@@ -236,7 +235,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                     // );
                   },
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 1.h),
+                    padding: EdgeInsets.symmetric(vertical: 1),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -244,12 +243,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                           borderRadius: BorderRadius.circular(10),
                           child: Image.network(
                             p.imgUrl!,
-                            width: 106.w,
-                            height: 106.h,
+                            width: 106,
+                            height: 106,
                             fit: BoxFit.cover,
                           ),
                         ),
-                        SizedBox(width: 10.w),
+                        SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

@@ -8,7 +8,7 @@ import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/mypage/data/firebas_funcs.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:go_router/go_router.dart';
 
 class DeleteAccountScreen extends StatefulWidget {
@@ -35,7 +35,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       ),
 
       body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -60,8 +60,8 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                   children: [
                     Padding(
                       padding: EdgeInsets.symmetric(
-                        horizontal: 20.w,
-                        vertical: 25.h,
+                        horizontal: 20,
+                        vertical: 25,
                       ),
                       child: Text(
                         '사유',

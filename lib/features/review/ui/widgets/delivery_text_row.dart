@@ -1,6 +1,5 @@
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class DeliveryTextRow extends StatelessWidget {
   final String orderStatus;
@@ -8,9 +7,9 @@ class DeliveryTextRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return orderStatus == 'orderComplete'
+    return orderStatus == "OUT_FOR_DELIVERY"
         ? Padding(
-          padding: EdgeInsets.symmetric(horizontal: 30.w),
+          padding: EdgeInsets.symmetric(horizontal: 30),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -21,7 +20,7 @@ class DeliveryTextRow extends StatelessWidget {
               ),
               Text(
                 '배송 중',
-                style: TextStyles.abeezee16px400wP600,
+                style: TextStyles.abeezee16px400wPblack,
                 textAlign: TextAlign.center,
               ),
               Text(
@@ -32,9 +31,9 @@ class DeliveryTextRow extends StatelessWidget {
             ],
           ),
         )
-        : orderStatus == "OnDelivery"
+        : orderStatus == 'DELIVERED'
         ? Padding(
-          padding: EdgeInsets.symmetric(horizontal: 30.w),
+          padding: EdgeInsets.symmetric(horizontal: 30),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -50,14 +49,14 @@ class DeliveryTextRow extends StatelessWidget {
               ),
               Text(
                 '배송\n 완료',
-                style: TextStyles.abeezee16px400wP600,
+                style: TextStyles.abeezee16px400wPblack,
                 textAlign: TextAlign.center,
               ),
             ],
           ),
         )
         : Padding(
-          padding: EdgeInsets.symmetric(horizontal: 30.w),
+          padding: EdgeInsets.symmetric(horizontal: 30),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -68,12 +67,12 @@ class DeliveryTextRow extends StatelessWidget {
               ),
               Text(
                 '배송 중',
-                style: TextStyles.abeezee16px400wPblack,
+                style: TextStyles.abeezee16px400wP600,
                 textAlign: TextAlign.center,
               ),
               Text(
                 '배송\n 완료',
-                style: TextStyles.abeezee16px400wPblack,
+                style: TextStyles.abeezee16px400wP600,
                 textAlign: TextAlign.center,
               ),
             ],

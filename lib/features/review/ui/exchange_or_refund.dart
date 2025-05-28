@@ -6,7 +6,6 @@ import 'package:ecommerece_app/features/review/ui/widgets/exchage_body.dart';
 import 'package:ecommerece_app/features/review/ui/widgets/refund_body.dart';
 import 'package:ecommerece_app/features/review/ui/widgets/req_button.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ExchangeOrRefund extends StatefulWidget {
   final String userId;
@@ -33,7 +32,7 @@ class _ExchangeOrRefundState extends State<ExchangeOrRefund> {
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           child: Center(
             child: Column(
               children: [

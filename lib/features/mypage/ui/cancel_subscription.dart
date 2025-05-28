@@ -5,7 +5,7 @@ import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:go_router/go_router.dart';
 
 class CancelSubscription extends StatefulWidget {
@@ -29,7 +29,7 @@ class _CancelSubscriptionState extends State<CancelSubscription> {
       ),
       body: Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -101,7 +101,7 @@ class _CancelSubscriptionState extends State<CancelSubscription> {
               ),
               verticalSpace(30),
               WideTextButton(
-                txt: '로그인',
+                txt: '해지하기',
                 color: Colors.white,
                 txtColor: ColorsManager.primaryblack,
                 func: () async {

@@ -5,7 +5,6 @@ import 'package:ecommerece_app/core/widgets/underline_text_filed.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -33,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 20.h),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
         child: Column(
           children: [
             Container(
@@ -45,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 20.h),
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
                 child: Form(
                   key: _formKey,
                   child: Column(

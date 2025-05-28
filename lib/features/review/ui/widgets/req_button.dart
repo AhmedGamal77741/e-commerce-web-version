@@ -1,6 +1,5 @@
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ReqButton extends StatelessWidget {
   final String txt;
@@ -19,7 +18,7 @@ class ReqButton extends StatelessWidget {
       onPressed: func,
       style: TextButton.styleFrom(
         backgroundColor: color,
-        fixedSize: Size(177.w, 83.h),
+        fixedSize: Size(177, 83),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       child: Text(txt, style: TextStyles.abeezee23px400wW),

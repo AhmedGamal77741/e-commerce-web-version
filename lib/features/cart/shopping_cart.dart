@@ -13,7 +13,7 @@ import 'package:ecommerece_app/features/shop/item_details.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -44,11 +44,15 @@ class _ShoppingCartState extends State<ShoppingCart> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return Center(child: Text('장바구니를 보려면 로그인해야 합니다.'));
+    }
     return Column(
       children: [
         Expanded(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: StreamBuilder(
               stream:
                   FirebaseFirestore.instance
@@ -133,13 +137,13 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                 borderRadius: BorderRadius.circular(10),
                                 child: Image.network(
                                   productData['imgUrl'],
-                                  width: 106.w,
-                                  height: 106.h,
+                                  width: 106,
+                                  height: 106,
                                   fit: BoxFit.cover,
                                 ),
                               ),
                               Padding(
-                                padding: EdgeInsets.only(left: 10.w),
+                                padding: EdgeInsets.only(left: 10),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -239,43 +243,43 @@ class _ShoppingCartState extends State<ShoppingCart> {
               future: calculateCartTotal(cartSnapshot.data!.docs),
               builder: (context, totalSnapshot) {
                 return Container(
-                  width: 428.w,
-                  height: 50.h,
+                  width: 428,
+                  height: 50,
                   decoration: BoxDecoration(color: Colors.white),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       Padding(
-                        padding: EdgeInsets.only(left: 40.w, right: 70.w),
+                        padding: EdgeInsets.only(left: 40, right: 70),
                         child: Text(
                           '총 금액: ',
                           style: TextStyle(
                             color: Colors.black,
-                            fontSize: 18.sp,
+                            fontSize: 18,
                             fontFamily: 'NotoSans',
                             fontWeight: FontWeight.w400,
-                            height: 1.40.h,
+                            height: 1.40,
                           ),
                         ),
                       ),
                       Spacer(),
                       totalSnapshot.hasData
                           ? Padding(
-                            padding: EdgeInsets.only(right: 10.w),
+                            padding: EdgeInsets.only(right: 10),
                             child: Text(
                               '${formatCurrency.format(totalSnapshot.data ?? 0)} 원',
                               style: TextStyle(
                                 color: Colors.black,
-                                fontSize: 18.sp,
+                                fontSize: 18,
                                 fontFamily: 'NotoSans',
                                 fontWeight: FontWeight.w400,
-                                height: 1.40.h,
+                                height: 1.40,
                               ),
                             ),
                           )
                           : CircularProgressIndicator(),
                       Padding(
-                        padding: EdgeInsets.only(right: 20.w),
+                        padding: EdgeInsets.only(right: 20),
                         child: TextButton(
                           onPressed: () {
                             context.go(Routes.placeOrderScreen);
@@ -285,7 +289,7 @@ class _ShoppingCartState extends State<ShoppingCart> {
                               0xFF121212,
                             ), // Background color
                             foregroundColor: Colors.white, // Text color
-                            minimumSize: Size(70.w, 40.h), // Exact dimensions
+                            minimumSize: Size(70, 40), // Exact dimensions
                             padding: EdgeInsets.zero, // Remove default padding
                             shape: RoundedRectangleBorder(
                               side: BorderSide(
@@ -302,10 +306,10 @@ class _ShoppingCartState extends State<ShoppingCart> {
                             '구매',
                             style: TextStyle(
                               color: const Color(0xFFF5F5F5),
-                              fontSize: 16.sp,
+                              fontSize: 16,
                               fontFamily: 'NotoSans',
                               fontWeight: FontWeight.w400,
-                              height: 1.40.h,
+                              height: 1.40,
                             ),
                           ),
                         ),

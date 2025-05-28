@@ -10,7 +10,6 @@ import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 class FavoritesScreen extends StatefulWidget {
@@ -25,8 +24,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return Center(child: Text('즐겨찾기를 보려면 로그인해야 합니다.'));
+    }
     return Padding(
-      padding: EdgeInsets.only(left: 10.w, top: 12.h, bottom: 12.h),
+      padding: EdgeInsets.only(left: 10, top: 12, bottom: 12),
       child: StreamBuilder(
         stream:
             FirebaseFirestore.instance
@@ -111,13 +114,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                           borderRadius: BorderRadius.circular(10),
                           child: Image.network(
                             productData['imgUrl'],
-                            width: 90.w,
-                            height: 90.h,
+                            width: 90,
+                            height: 90,
                             fit: BoxFit.cover,
                           ),
                         ),
                         Padding(
-                          padding: EdgeInsets.only(left: 5.w),
+                          padding: EdgeInsets.only(left: 5),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

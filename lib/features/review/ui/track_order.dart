@@ -5,7 +5,6 @@ import 'package:ecommerece_app/features/review/ui/widgets/delivery_status.dart';
 import 'package:ecommerece_app/features/review/ui/widgets/delivery_text_row.dart';
 import 'package:ecommerece_app/features/review/ui/widgets/table_container.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class TrackOrder extends StatefulWidget {
   final Map<String, dynamic> order;
@@ -37,18 +36,20 @@ class _TrackOrderState extends State<TrackOrder> {
         centerTitle: true,
       ),
       body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         child: Center(
-          child: Column(
-            children: [
-              Text(arrivalDate, style: TextStyles.abeezee20px400wPblack),
-              verticalSpace(40),
-              DeliveryStatus(orderStatus: order['orderStatus']),
-              verticalSpace(10),
-              DeliveryTextRow(orderStatus: order['orderStatus']),
-              verticalSpace(30),
-              TableContainer(orderId: order['orderId']),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                Text(arrivalDate, style: TextStyles.abeezee20px400wPblack),
+                verticalSpace(40),
+                DeliveryStatus(orderStatus: order['orderStatus']),
+                verticalSpace(10),
+                DeliveryTextRow(orderStatus: order['orderStatus']),
+                verticalSpace(30),
+                TableContainer(orderId: order['orderId']),
+              ],
+            ),
           ),
         ),
       ),

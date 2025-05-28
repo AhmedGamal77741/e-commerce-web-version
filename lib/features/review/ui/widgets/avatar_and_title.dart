@@ -1,7 +1,6 @@
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AvatarAndTitle extends StatelessWidget {
   const AvatarAndTitle({super.key});
@@ -10,7 +9,7 @@ class AvatarAndTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Image.asset('assets/product_image_rev.png', width: 48.w, height: 48.h),
+        Image.asset('assets/product_image_rev.png', width: 48, height: 48),
         horizontalSpace(5),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,

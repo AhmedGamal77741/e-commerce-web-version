@@ -4,7 +4,6 @@ import 'package:ecommerece_app/features/cart/sub_screens/address_search_dialog.d
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AddAddressScreen extends StatefulWidget {
   const AddAddressScreen({Key? key}) : super(key: key);
@@ -236,7 +235,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
           '주문/결제',
           style: TextStyle(
             color: Colors.black,
-            fontSize: 20.sp,
+            fontSize: 20,
             fontWeight: FontWeight.w400,
           ),
         ),
@@ -254,13 +253,13 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   child: Text(
                     '배송지 추가',
                     style: TextStyle(
-                      fontSize: 15.sp,
+                      fontSize: 15,
                       fontWeight: FontWeight.w500,
                       color: Colors.black,
                     ),
                   ),
                 ),
-                SizedBox(height: 3.h),
+                SizedBox(height: 3),
                 Divider(),
 
                 // Recipient name field
@@ -289,7 +288,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   ),
                   onChanged: (_) => _validateName(),
                 ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 12),
 
                 // Phone number field
                 TextField(
@@ -318,7 +317,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   ),
                   onChanged: (_) => _validatePhone(),
                 ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 12),
 
                 // Address field with search icon
                 TextField(
@@ -347,12 +346,12 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     suffixIcon: ImageIcon(
                       AssetImage('assets/Frame 4.png'),
                       color: Colors.black,
-                      size: 25.sp,
+                      size: 25,
                     ),
                     errorText: _addressError,
                   ),
                 ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 12),
 
                 // Detailed address field
                 TextField(
@@ -380,7 +379,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   ),
                   onChanged: (_) => _validateDetailAddress(),
                 ),
-                SizedBox(height: 16.h),
+                SizedBox(height: 16),
 
                 // Set as default address checkbox
                 Row(
@@ -402,15 +401,15 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         activeColor: Colors.black,
                       ),
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8),
                     Text(
                       '기본 배송지로 설정',
-                      style: TextStyle(fontSize: 14.sp, color: Colors.black87),
+                      style: TextStyle(fontSize: 14, color: Colors.black87),
                     ),
                   ],
                 ),
 
-                SizedBox(height: 10.h), // Save button
+                SizedBox(height: 10), // Save button
                 ElevatedButton(
                   onPressed: _isLoading ? null : _saveAddress,
                   style: ElevatedButton.styleFrom(
@@ -435,7 +434,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                           : Text(
                             '저장',
                             style: TextStyle(
-                              fontSize: 16.sp,
+                              fontSize: 16,
                               fontWeight: FontWeight.w500,
                             ),
                           ),

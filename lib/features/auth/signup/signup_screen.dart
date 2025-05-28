@@ -6,7 +6,6 @@ import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -31,7 +30,7 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 20.h),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
         child: Column(
           children: [
             Container(
@@ -43,7 +42,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 20.h),
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -55,21 +54,21 @@ class _SignupScreenState extends State<SignupScreen> {
                           Spacer(),
                           InkWell(
                             onTap: () async {
-                              imgUrl = await uploadImageToImgBB();
+                              imgUrl = await uploadImageToFirebaseStorage();
                               setState(() {});
                             },
                             child:
                                 imgUrl.isEmpty
                                     ? Image.asset(
                                       'assets/mypage_avatar.png',
-                                      height: 55.h,
-                                      width: 56.w,
+                                      height: 55,
+                                      width: 56,
                                     )
                                     : ClipOval(
                                       child: Image.network(
                                         imgUrl,
-                                        height: 55.h,
-                                        width: 56.w,
+                                        height: 55,
+                                        width: 56,
                                         fit:
                                             BoxFit
                                                 .cover, // Ensures proper filling
@@ -92,8 +91,9 @@ class _SignupScreenState extends State<SignupScreen> {
                           return null;
                         },
                       ),
-                      verticalSpace(10),
+                      verticalSpace(20),
                       Text('이메일', style: TextStyles.abeezee16px400wPblack),
+                      verticalSpace(8),
                       UnderlineTextField(
                         controller: emailController,
                         hintText: '이메일을 입력하세요',
@@ -110,8 +110,9 @@ class _SignupScreenState extends State<SignupScreen> {
                           return null;
                         },
                       ),
-                      verticalSpace(10),
+                      verticalSpace(20),
                       Text('비밀번호', style: TextStyles.abeezee16px400wPblack),
+                      verticalSpace(8),
                       UnderlineTextField(
                         controller: passwordController,
                         hintText: '영문,숫자 조합 8자 이상',

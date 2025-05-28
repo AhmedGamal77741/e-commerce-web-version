@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
@@ -7,15 +6,12 @@ import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/core/widgets/underline_text_filed.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/cart/models/address.dart';
-import 'package:ecommerece_app/features/cart/services/kakao_service.dart';
-import 'package:ecommerece_app/features/cart/sub_screens/add_address_screen.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
-import 'package:ecommerece_app/features/cart/sub_screens/address_search_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PlaceOrder extends StatefulWidget {
   const PlaceOrder({super.key});
@@ -47,6 +43,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
     '직접입력', // "Other"
   ];
   String selectedRequest = '문앞';
+  String? manualRequest;
   Future<void> _selectAddress() async {
     final result = await Navigator.push(
       context,
@@ -65,6 +62,11 @@ class _PlaceOrderState extends State<PlaceOrder> {
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final userDoc = FirebaseFirestore.instance.collection('users').doc(uid);
+    final docRef = FirebaseFirestore.instance.collection('orders').doc();
+    final orderId = docRef.id;
+
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
@@ -77,15 +79,15 @@ class _PlaceOrderState extends State<PlaceOrder> {
           title: Text("주문 결제", style: TextStyle(fontFamily: 'NotoSans')),
         ),
         body: Padding(
-          padding: EdgeInsets.only(left: 15.w, top: 30.h, right: 15.w),
+          padding: EdgeInsets.only(left: 15, top: 30, right: 15),
           child: ListView(
             children: [
               Container(
                 padding: EdgeInsets.only(
-                  left: 15.w,
-                  top: 15.h,
-                  bottom: 15.h,
-                  right: 15.w,
+                  left: 15,
+                  top: 15,
+                  bottom: 15,
+                  right: 15,
                 ),
                 decoration: ShapeDecoration(
                   color: Colors.white,
@@ -103,10 +105,10 @@ class _PlaceOrderState extends State<PlaceOrder> {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 5.h,
+                    spacing: 5,
                     children: [
                       Container(
-                        padding: EdgeInsets.only(bottom: 5.h),
+                        padding: EdgeInsets.only(bottom: 5),
                         decoration: BoxDecoration(
                           border: Border(
                             bottom: BorderSide(
@@ -173,17 +175,17 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                                   '배송지 미설정',
                                                   style: TextStyle(
                                                     color: Colors.black,
-                                                    fontSize: 15.sp,
+                                                    fontSize: 15,
                                                     fontFamily: 'NotoSans',
                                                     fontWeight: FontWeight.w400,
-                                                    height: 1.40.h,
+                                                    height: 1.40,
                                                   ),
                                                 ),
-                                                SizedBox(height: 8.h),
+                                                SizedBox(height: 8),
                                                 Text(
                                                   '배송지를 설정해주세요',
                                                   style: TextStyle(
-                                                    fontSize: 15.sp,
+                                                    fontSize: 15,
                                                     color: Color(0xFF9E9E9E),
                                                     fontFamily: 'NotoSans',
                                                   ),
@@ -242,19 +244,19 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                                     '베송지 | ${addressData!['name']}',
                                                     style: TextStyle(
                                                       color: Colors.black,
-                                                      fontSize: 15.sp,
+                                                      fontSize: 15,
                                                       fontFamily: 'NotoSans',
                                                       fontWeight:
                                                           FontWeight.w400,
-                                                      height: 1.40.h,
+                                                      height: 1.40,
                                                     ),
                                                   ),
-                                                  SizedBox(height: 8.h),
+                                                  SizedBox(height: 8),
 
                                                   Text(
                                                     addressData['phone'],
                                                     style: TextStyle(
-                                                      fontSize: 15.sp,
+                                                      fontSize: 15,
                                                       color: Color(0xFF9E9E9E),
                                                       fontFamily: 'NotoSans',
                                                     ),
@@ -262,7 +264,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                                   Text(
                                                     addressData['address'],
                                                     style: TextStyle(
-                                                      fontSize: 15.sp,
+                                                      fontSize: 15,
                                                       color: Color(0xFF9E9E9E),
                                                       fontFamily: 'NotoSans',
                                                     ),
@@ -281,18 +283,18 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                             '베송지 | ${address.name}',
                                             style: TextStyle(
                                               color: Colors.black,
-                                              fontSize: 15.sp,
+                                              fontSize: 15,
                                               fontFamily: 'NotoSans',
                                               fontWeight: FontWeight.w400,
-                                              height: 1.40.h,
+                                              height: 1.40,
                                             ),
                                           ),
-                                          SizedBox(height: 8.h),
+                                          SizedBox(height: 8),
 
                                           Text(
                                             address.phone,
                                             style: TextStyle(
-                                              fontSize: 15.sp,
+                                              fontSize: 15,
                                               color: Color(0xFF9E9E9E),
                                               fontFamily: 'NotoSans',
                                             ),
@@ -300,7 +302,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                           Text(
                                             address.detailAddress,
                                             style: TextStyle(
-                                              fontSize: 15.sp,
+                                              fontSize: 15,
                                               color: Color(0xFF9E9E9E),
                                               fontFamily: 'NotoSans',
                                             ),
@@ -312,7 +314,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                               onPressed: _selectAddress,
 
                               style: TextButton.styleFrom(
-                                fixedSize: Size(48.w, 30.h),
+                                fixedSize: Size(48, 30),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 side: BorderSide(
                                   color: Colors.grey.shade300,
@@ -327,7 +329,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                 style: TextStyle(
                                   color: ColorsManager.primaryblack,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13.sp,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
@@ -335,15 +337,15 @@ class _PlaceOrderState extends State<PlaceOrder> {
                         ),
                       ),
 
-                      SizedBox(height: 15.h),
+                      SizedBox(height: 15),
                       Text(
                         '배송 요청사항',
                         style: TextStyle(
                           color: const Color(0xFF121212),
-                          fontSize: 16.sp,
+                          fontSize: 16,
                           fontFamily: 'NotoSans',
                           fontWeight: FontWeight.w400,
-                          height: 1.40.h,
+                          height: 1.40,
                         ),
                       ),
                       StatefulBuilder(
@@ -360,10 +362,10 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                           request,
                                           style: TextStyle(
                                             color: Colors.black,
-                                            fontSize: 16.sp,
+                                            fontSize: 16,
                                             fontFamily: 'NotoSans',
                                             fontWeight: FontWeight.w400,
-                                            height: 1.40.h,
+                                            height: 1.40,
                                           ),
                                         ),
                                       ),
@@ -380,84 +382,163 @@ class _PlaceOrderState extends State<PlaceOrder> {
                             onChanged: (value) {
                               setStateDropdown(() {
                                 selectedRequest = value!;
+                                // clear manual text when switching away
+                                if (selectedRequest != '직접입력')
+                                  manualRequest = null;
                               });
+                              // also notify parent state if needed:
+                              setState(() {});
                             },
                             icon: Icon(Icons.keyboard_arrow_down),
                           );
                         },
                       ),
 
-                      Text(
-                        '배송 요청사항',
-                        style: TextStyle(
-                          color: const Color(0xFF121212),
-                          fontSize: 16.sp,
-                          fontFamily: 'NotoSans',
-                          fontWeight: FontWeight.w400,
-                          height: 1.40.h,
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: ColorsManager.primary400,
-                              width: 1.0,
+                      // only show when “직접입력” is selected:
+                      if (selectedRequest == '직접입력') ...[
+                        SizedBox(height: 12),
+                        TextFormField(
+                          initialValue: manualRequest,
+                          onChanged:
+                              (text) => setState(() => manualRequest = text),
+                          decoration: InputDecoration(
+                            labelText: '직접 입력',
+                            hintText: '배송 요청을 입력하세요',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 14,
                             ),
                           ),
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Flexible(
-                              child: TextFormField(
-                                controller: cashReceiptController,
-                                decoration: InputDecoration(
-                                  hintText: '국민은행 / 0000000000000',
-                                  hintStyle: TextStyle(
-                                    fontSize: 15.sp,
-                                    color: ColorsManager.primary400,
-                                  ),
-                                  border: InputBorder.none,
-                                ),
-                                obscureText: false,
-                                keyboardType: TextInputType.text,
-                                validator: (val) {
-                                  if (val!.isEmpty) {
-                                    return '이름을 입력하세요';
-                                  } else if (val.length > 30) {
-                                    return '이름이 너무 깁니다';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {},
-
-                              style: TextButton.styleFrom(
-                                fixedSize: Size(48.w, 30.h),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                side: BorderSide(
-                                  color: Colors.grey.shade300,
-                                  width: 1.0,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4.0),
-                                ),
-                              ),
-                              child: Text(
-                                '변경',
-                                style: TextStyle(
-                                  color: ColorsManager.primaryblack,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13.sp,
-                                ),
-                              ),
-                            ),
-                          ],
+                      ],
+                      SizedBox(height: 15),
+                      Text(
+                        '간편 계좌 결제',
+                        style: TextStyle(
+                          color: const Color(0xFF121212),
+                          fontSize: 16,
+                          fontFamily: 'NotoSans',
+                          fontWeight: FontWeight.w400,
+                          height: 1.40,
                         ),
                       ),
+                      // Container(
+                      //   decoration: BoxDecoration(
+                      //     border: Border(
+                      //       bottom: BorderSide(
+                      //         color: ColorsManager.primary400,
+                      //         width: 1.0,
+                      //       ),
+                      //     ),
+                      //   ),
+                      //   child: Row(
+                      //     crossAxisAlignment: CrossAxisAlignment.start,
+                      //     children: [
+                      //       Flexible(
+                      //         child: TextFormField(
+                      //           controller: cashReceiptController,
+                      //           enabled: false,
+                      //           decoration: InputDecoration(
+                      //             hintText: '국민은행 / 0000000000000',
+                      //             hintStyle: TextStyle(
+                      //               fontSize: 15.sp,
+                      //               color: ColorsManager.primary400,
+                      //             ),
+                      //             border: InputBorder.none,
+                      //           ),
+                      //           obscureText: false,
+                      //           keyboardType: TextInputType.text,
+                      //           // validator: (val) {
+                      //           //   if (val!.isEmpty) {
+                      //           //     return '이름을 입력하세요';
+                      //           //   } else if (val.length > 30) {
+                      //           //     return '이름이 너무 깁니다';
+                      //           //   }
+                      //           //   return null;
+                      //           // },
+                      //         ),
+                      //       ),
+                      //       StreamBuilder<DocumentSnapshot>(
+                      //         stream: userDoc.snapshots(),
+                      //         builder: (context, snapshot) {
+                      //           if (snapshot.connectionState ==
+                      //               ConnectionState.waiting) {
+                      //             return SizedBox(
+                      //               width: 48.w,
+                      //               height: 30.h,
+                      //               child: Center(
+                      //                 child: CircularProgressIndicator(
+                      //                   strokeWidth: 2,
+                      //                 ),
+                      //               ),
+                      //             );
+                      //           }
+                      //           // error
+                      //           if (snapshot.hasError ||
+                      //               !snapshot.hasData ||
+                      //               !snapshot.data!.exists) {
+                      //             return Text('Error loading status');
+                      //           }
+
+                      //           // extract payerId
+                      //           final data =
+                      //               snapshot.data!.data()
+                      //                   as Map<String, dynamic>;
+                      //           final payerId = data['payerId'] as String?;
+
+                      //           // compute isFirst
+                      //           final isFirst =
+                      //               payerId == null || payerId.isEmpty;
+                      //           return TextButton(
+                      //             onPressed: () async {
+                      //               if (!_formKey.currentState!.validate()) {
+                      //                 return;
+                      //               }
+                      //               var total = await calculateCartTotalPay();
+                      //               isFirst
+                      //                   ? _launchPaymentPage(
+                      //                     total.toString(),
+                      //                     uid,
+                      //                     phoneController.toString().trim(),
+                      //                     orderId,
+                      //                   )
+                      //                   : _launchRpaymentPage(
+                      //                     total.toString(),
+                      //                     uid,
+                      //                     phoneController.toString().trim(),
+                      //                     orderId,
+                      //                     payerId,
+                      //                   );
+                      //             },
+
+                      //             style: TextButton.styleFrom(
+                      //               fixedSize: Size(48.w, 30.h),
+                      //               tapTargetSize:
+                      //                   MaterialTapTargetSize.shrinkWrap,
+                      //               side: BorderSide(
+                      //                 color: Colors.grey.shade300,
+                      //                 width: 1.0,
+                      //               ),
+                      //               shape: RoundedRectangleBorder(
+                      //                 borderRadius: BorderRadius.circular(4.0),
+                      //               ),
+                      //             ),
+                      //             child: Text(
+                      //               '변경',
+                      //               style: TextStyle(
+                      //                 color: ColorsManager.primaryblack,
+                      //                 fontWeight: FontWeight.bold,
+                      //                 fontSize: 13.sp,
+                      //               ),
+                      //             ),
+                      //           );
+                      //         },
+                      //       ),
+                      //     ],
+                      //   ),
+                      // ),
                       StatefulBuilder(
                         builder: (context, setStateRadio) {
                           return Row(
@@ -478,7 +559,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                   Text(
                                     '현금 영수증',
                                     style: TextStyle(
-                                      fontSize: 15.sp,
+                                      fontSize: 15,
                                       fontFamily: 'NotoSans',
                                       fontWeight: FontWeight.w400,
                                       color: ColorsManager.primaryblack,
@@ -501,7 +582,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                   Text(
                                     '세금 계산서',
                                     style: TextStyle(
-                                      fontSize: 15.sp,
+                                      fontSize: 15,
                                       fontFamily: 'NotoSans',
                                       fontWeight: FontWeight.w400,
                                       color: ColorsManager.primaryblack,
@@ -534,7 +615,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
               ),
               verticalSpace(20),
               Container(
-                padding: EdgeInsets.only(left: 15.w, top: 15.h, bottom: 15.h),
+                padding: EdgeInsets.only(left: 15, top: 15, bottom: 15),
                 decoration: ShapeDecoration(
                   color: Colors.white,
                   shape: RoundedRectangleBorder(
@@ -596,16 +677,16 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                   mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  spacing: 12.h,
+                                  spacing: 12,
                                   children: [
                                     Text(
                                       '${productData['productName']} / 수량 : ${cartData['quantity'].toString()}',
                                       style: TextStyle(
                                         color: const Color(0xFF747474),
-                                        fontSize: 14.sp,
+                                        fontSize: 14,
                                         fontFamily: 'NotoSans',
                                         fontWeight: FontWeight.w400,
-                                        height: 1.40.h,
+                                        height: 1.40,
                                       ),
                                     ),
 
@@ -613,10 +694,10 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                       '${formatCurrency.format(cartData['price'] ?? 0)} 원',
                                       style: TextStyle(
                                         color: const Color(0xFF747474),
-                                        fontSize: 14.sp,
+                                        fontSize: 14,
                                         fontFamily: 'NotoSans',
                                         fontWeight: FontWeight.w600,
-                                        height: 1.40.h,
+                                        height: 1.40,
                                       ),
                                     ),
                                   ],
@@ -649,7 +730,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                       return Column(
                         mainAxisAlignment: MainAxisAlignment.center,
 
-                        spacing: 12.h,
+                        spacing: 12,
                         children: [
                           verticalSpace(20),
                           Row(
@@ -659,10 +740,10 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                 '총 결제 금액 ',
                                 style: TextStyle(
                                   color: Colors.black,
-                                  fontSize: 18.sp,
+                                  fontSize: 18,
                                   fontFamily: 'NotoSans',
                                   fontWeight: FontWeight.w400,
-                                  height: 1.40.h,
+                                  height: 1.40,
                                 ),
                               ),
                               totalSnapshot.hasData
@@ -670,10 +751,10 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                     '${formatCurrency.format(totalSnapshot.data ?? 0)} 원',
                                     style: TextStyle(
                                       color: Colors.black,
-                                      fontSize: 18.sp,
+                                      fontSize: 18,
                                       fontFamily: 'NotoSans',
                                       fontWeight: FontWeight.w400,
-                                      height: 1.40.h,
+                                      height: 1.40,
                                     ),
                                   )
                                   : CircularProgressIndicator(),
@@ -684,6 +765,34 @@ class _PlaceOrderState extends State<PlaceOrder> {
                             txt: '주문',
                             func: () async {
                               if (!_formKey.currentState!.validate()) return;
+                              String? payerId = await fetchPayerId(uid);
+                              final isFirst =
+                                  payerId == null || payerId.isEmpty;
+                              isFirst
+                                  ? _launchPaymentPage(
+                                    totalSnapshot.data.toString(),
+                                    uid,
+                                    phoneController.toString().trim(),
+                                    orderId,
+                                  )
+                                  : _launchRpaymentPage(
+                                    totalSnapshot.data.toString(),
+                                    uid,
+                                    phoneController.toString().trim(),
+                                    orderId,
+                                    payerId,
+                                  );
+
+                              if (!await isPaymentCompleted(orderId, uid)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('결제 시작'),
+                                    backgroundColor: Colors.green,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                                return;
+                              }
 
                               final user = FirebaseAuth.instance.currentUser;
                               if (user == null) return;
@@ -744,20 +853,15 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                   final quantityOrdered = item['quantity'];
                                   final price = item['price'];
 
-                                  final docRef =
-                                      FirebaseFirestore.instance
-                                          .collection('orders')
-                                          .doc();
-                                  final orderId = docRef.id;
-
                                   final orderData = {
                                     'orderId': orderId,
                                     'userId': user.uid,
                                     'deliveryAddress':
                                         deliveryAddressController.text.trim(),
                                     'deliveryInstructions':
-                                        deliveryInstructionsController.text
-                                            .trim(),
+                                        selectedRequest == '직접입력'
+                                            ? manualRequest!.trim()
+                                            : selectedRequest.trim(),
                                     'cashReceipt':
                                         cashReceiptController.text.trim(),
                                     'paymentMethod': 'naver pay',
@@ -768,10 +872,15 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                     'quantity': quantityOrdered,
                                     "courier": '',
                                     "trackingNumber": '',
-                                    "trackingEvents": [],
+                                    "trackingEvents": {},
                                     "orderStatus": "orderComplete",
                                     'isRequested': false,
-                                    'deliveryManagerId': '',
+                                    'deliveryManagerId':
+                                        item['deliveryManagerId'],
+                                    'carrierId': '',
+                                    'isSent': false,
+                                    'phoneNo':
+                                        phoneController.toString().trim(),
                                   };
 
                                   await docRef.set(orderData);
@@ -823,6 +932,35 @@ class _PlaceOrderState extends State<PlaceOrder> {
   }
 }
 
+/// Fetches all docs in users/{uid}/cart once and returns the sum of their `price` fields.
+// Future<int> calculateCartTotalPay() async {
+//   // 1. Ensure we have a logged-in user
+//   final uid = FirebaseAuth.instance.currentUser?.uid;
+//   if (uid == null) {
+//     throw StateError('No user logged in');
+//   }
+
+//   // 2. Fetch the cart subcollection
+//   final querySnap =
+//       await FirebaseFirestore.instance
+//           .collection('users')
+//           .doc(uid)
+//           .collection('cart')
+//           .get();
+
+//   // 3. Sum all price fields
+//   var total = 0;
+//   for (final doc in querySnap.docs) {
+//     final data = doc.data();
+//     final price = data['price'];
+//     if (price is num) {
+//       total += price.toInt();
+//     }
+//   }
+
+//   return total;
+// }
+
 Future<int> calculateCartTotal(List<QueryDocumentSnapshot> cartDocs) async {
   int total = 0;
 
@@ -836,4 +974,77 @@ Future<int> calculateCartTotal(List<QueryDocumentSnapshot> cartDocs) async {
   }
 
   return total;
+}
+
+void _launchPaymentPage(
+  String amount,
+  String userId,
+  String phoneNo,
+  String orderId,
+) async {
+  final url = Uri.parse(
+    'https://e-commerce-app-34fb2.web.app/p-payment.html?orderId=$orderId&amount=$amount&userId=$userId&phoneNo=$phoneNo',
+  );
+
+  if (await canLaunchUrl(url)) {
+    await launchUrl(
+      url,
+      // mode: LaunchMode.externalApplication, // Forces external browser
+    );
+  } else {
+    throw 'Could not launch $url';
+  }
+}
+
+void _launchRpaymentPage(
+  String amount,
+  String userId,
+  String phoneNo,
+  String orderId,
+  String payerId,
+) async {
+  final url = Uri.parse(
+    'https://e-commerce-app-34fb2.web.app/r-p-payment.html?orderId=$orderId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId',
+  );
+
+  if (await canLaunchUrl(url)) {
+    await launchUrl(
+      url,
+      // mode: LaunchMode.externalApplication, // Forces external browser
+    );
+  } else {
+    throw 'Could not launch $url';
+  }
+}
+
+Future<bool> isPaymentCompleted(String orderId, String uid) async {
+  final querySnapshot =
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('payments')
+          .where('orderId', isEqualTo: orderId)
+          .limit(1) // We only need to know if at least one exists
+          .get();
+
+  return querySnapshot.docs.isNotEmpty;
+}
+
+Future<String?> fetchPayerId(String uid) async {
+  try {
+    final userDoc = FirebaseFirestore.instance.collection('users').doc(uid);
+    final snapshot = await userDoc.get();
+
+    if (!snapshot.exists) {
+      print("User document doesn't exist.");
+      return null;
+    }
+
+    final data = snapshot.data();
+    final payerId = data?['payerId'] as String?;
+    return payerId;
+  } catch (e) {
+    print("Error fetching payerId: $e");
+    return null;
+  }
 }

@@ -1,7 +1,7 @@
 import 'package:ecommerece_app/features/auth/auth_screen.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
-import 'package:ecommerece_app/features/navBar/nav_bar.dart';
+import 'package:ecommerece_app/features/mypage/ui/my_page_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -24,7 +24,7 @@ class LandingScreen extends StatelessWidget {
         if (user == null) {
           return AuthScreen();
         } else {
-          return NavBar();
+          return MyPageScreen();
         }
       },
     );

@@ -19,18 +19,14 @@ import 'package:go_router/go_router.dart';
 
 class AppRouter {
   static final router = GoRouter(
-    initialLocation: Routes.landingScreen,
+    initialLocation: Routes.navBar,
     routes: [
       GoRoute(
-        name: Routes.landingScreen, // name added
-        path: Routes.landingScreen,
-        builder: (context, state) => const LandingScreen(),
+        name: Routes.navBar,
+        path: Routes.navBar, // '/nav-bar'
+        builder: (context, state) => const NavBar(),
+
         routes: [
-          GoRoute(
-            name: Routes.navBar,
-            path: Routes.navBar, // '/nav-bar'
-            builder: (context, state) => const NavBar(),
-          ),
           GoRoute(
             name: Routes.reviewScreen,
             path: Routes.reviewScreen, // '/review'
@@ -45,6 +41,11 @@ class AppRouter {
             name: Routes.addPostScreen,
             path: '${Routes.addPostScreen}', // '/add-post'
             builder: (context, state) => const AddPost(),
+          ),
+          GoRoute(
+            name: Routes.landingScreen, // name added
+            path: Routes.landingScreen,
+            builder: (context, state) => const LandingScreen(),
           ),
           GoRoute(
             name: Routes.placeOrderScreen,

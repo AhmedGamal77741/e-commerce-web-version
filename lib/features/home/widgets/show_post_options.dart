@@ -2,7 +2,7 @@ import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:provider/provider.dart';
 
 void showPostMenu(BuildContext context, String postId, String userId) {
@@ -10,7 +10,7 @@ void showPostMenu(BuildContext context, String postId, String userId) {
     context: context,
     builder:
         (context) => Container(
-          height: 233.h,
+          height: 233,
           padding: EdgeInsets.all(16),
           clipBehavior: Clip.antiAlias,
           decoration: ShapeDecoration(
@@ -23,12 +23,12 @@ void showPostMenu(BuildContext context, String postId, String userId) {
             ),
           ),
           child: SizedBox(
-            width: 393.w,
+            width: 393,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 20.h,
+              spacing: 20,
               children: [
                 Container(
                   width: double.infinity,
@@ -46,8 +46,8 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                       Container(
                         width: double.infinity,
                         padding: EdgeInsets.symmetric(
-                          horizontal: 14.w,
-                          vertical: 8.h,
+                          horizontal: 14,
+                          vertical: 8,
                         ),
                         decoration: BoxDecoration(color: Colors.white),
                         child: Row(
@@ -59,15 +59,15 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                               '링크 복사',
                               style: TextStyle(
                                 color: const Color(0xFF343434),
-                                fontSize: 16.sp,
+                                fontSize: 16,
                                 fontFamily: 'NotoSans',
                                 fontWeight: FontWeight.w400,
-                                height: 1.40.h,
+                                height: 1.40,
                               ),
                             ),
                             ImageIcon(
                               AssetImage('assets/icon=link.png'),
-                              size: 20.sp,
+                              size: 20,
                             ),
                           ],
                         ),
@@ -83,7 +83,7 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                                 content: Row(
                                   children: [
                                     CircularProgressIndicator(),
-                                    SizedBox(width: 16.w),
+                                    SizedBox(width: 16),
                                     Text(
                                       "신고 처리 중...",
                                     ), // "Processing report..."
@@ -122,8 +122,8 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                         child: Container(
                           width: double.infinity,
                           padding: EdgeInsets.symmetric(
-                            horizontal: 14.w,
-                            vertical: 8.h,
+                            horizontal: 14,
+                            vertical: 8,
                           ),
                           decoration: BoxDecoration(color: Colors.white),
                           child: Row(
@@ -136,16 +136,16 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                                   '관심 없음',
                                   style: TextStyle(
                                     color: const Color(0xFF343434),
-                                    fontSize: 16.sp,
+                                    fontSize: 16,
                                     fontFamily: 'NotoSans',
                                     fontWeight: FontWeight.w400,
-                                    height: 1.40.h,
+                                    height: 1.40,
                                   ),
                                 ),
                               ),
                               ImageIcon(
                                 AssetImage('assets/icon=no_interest.png'),
-                                size: 20.sp,
+                                size: 20,
                               ),
                             ],
                           ),
@@ -165,7 +165,7 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                           content: Row(
                             children: [
                               CircularProgressIndicator(),
-                              SizedBox(width: 16.w),
+                              SizedBox(width: 16),
                               Text("신고 처리 중..."), // "Processing report..."
                             ],
                           ),
@@ -213,8 +213,8 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                         Container(
                           width: double.infinity,
                           padding: EdgeInsets.symmetric(
-                            horizontal: 14.w,
-                            vertical: 8.h,
+                            horizontal: 14,
+                            vertical: 8,
                           ),
                           decoration: BoxDecoration(color: Colors.white),
                           child: Row(
@@ -227,16 +227,16 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                                   '차단',
                                   style: TextStyle(
                                     color: const Color(0xFFDA3A48),
-                                    fontSize: 16.sp,
+                                    fontSize: 16,
                                     fontFamily: 'NotoSans',
                                     fontWeight: FontWeight.w400,
-                                    height: 1.40.h,
+                                    height: 1.40,
                                   ),
                                 ),
                               ),
                               ImageIcon(
                                 AssetImage('assets/person_off.png'),
-                                size: 20.sp,
+                                size: 20,
                                 color: const Color(0xFFDA3A48),
                               ),
                             ],
@@ -253,7 +253,7 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                                   content: Row(
                                     children: [
                                       CircularProgressIndicator(),
-                                      SizedBox(width: 16.w),
+                                      SizedBox(width: 16),
                                       Text(
                                         "신고 처리 중...",
                                       ), // "Processing report..."
@@ -290,8 +290,8 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                           child: Container(
                             width: double.infinity,
                             padding: EdgeInsets.symmetric(
-                              horizontal: 14.w,
-                              vertical: 8.h,
+                              horizontal: 14,
+                              vertical: 8,
                             ),
                             decoration: BoxDecoration(color: Colors.white),
                             child: Row(
@@ -304,16 +304,16 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                                     '신고하기',
                                     style: TextStyle(
                                       color: const Color(0xFFDA3A48),
-                                      fontSize: 16.sp,
+                                      fontSize: 16,
                                       fontFamily: 'NotoSans',
                                       fontWeight: FontWeight.w400,
-                                      height: 1.40.h,
+                                      height: 1.40,
                                     ),
                                   ),
                                 ),
                                 ImageIcon(
                                   AssetImage('assets/report.png'),
-                                  size: 20.sp,
+                                  size: 20,
                                   color: const Color(0xFFDA3A48),
                                 ),
                               ],

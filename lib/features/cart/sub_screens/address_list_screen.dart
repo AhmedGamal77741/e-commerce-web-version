@@ -5,7 +5,6 @@ import 'package:ecommerece_app/features/cart/sub_screens/add_address_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AddressListScreen extends StatefulWidget {
   const AddressListScreen({Key? key}) : super(key: key);
@@ -34,12 +33,12 @@ class _AddressListScreenState extends State<AddressListScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black, size: 21.sp),
+          icon: Icon(Icons.arrow_back, color: Colors.black, size: 21),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           '배송지 변경',
-          style: TextStyle(color: Colors.black, fontSize: 16.sp),
+          style: TextStyle(color: Colors.black, fontSize: 16),
         ),
         centerTitle: true,
       ),
@@ -53,7 +52,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.black,
                 side: const BorderSide(color: Colors.black87),
-                minimumSize: Size.fromHeight(48.h),
+                minimumSize: Size.fromHeight(48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -61,9 +60,9 @@ class _AddressListScreenState extends State<AddressListScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add, size: 14.sp),
-                  SizedBox(width: 4.w),
-                  Text('배송지 추가', style: TextStyle(fontSize: 14.sp)),
+                  Icon(Icons.add, size: 14),
+                  SizedBox(width: 4),
+                  Text('기본배송지 등록', style: TextStyle(fontSize: 14)),
                 ],
               ),
             ),
@@ -184,7 +183,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
                                                       },
 
                                               style: TextButton.styleFrom(
-                                                fixedSize: Size(48.w, 30.h),
+                                                fixedSize: Size(48, 30),
                                                 tapTargetSize:
                                                     MaterialTapTargetSize
                                                         .shrinkWrap,
@@ -200,13 +199,13 @@ class _AddressListScreenState extends State<AddressListScreen> {
                                                 ),
                                               ),
                                               child: Text(
-                                                '선택',
+                                                '삭제',
                                                 style: TextStyle(
                                                   color:
                                                       ColorsManager
                                                           .primaryblack,
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 13.sp,
+                                                  fontSize: 13,
                                                 ),
                                               ),
                                             ),
@@ -253,7 +252,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
                                             });
                                           },
                                           style: TextButton.styleFrom(
-                                            fixedSize: Size(48.w, 30.h),
+                                            fixedSize: Size(48, 30),
                                             tapTargetSize:
                                                 MaterialTapTargetSize
                                                     .shrinkWrap,
@@ -271,7 +270,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
                                             style: TextStyle(
                                               color: ColorsManager.primaryblack,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 13.sp,
+                                              fontSize: 13,
                                             ),
                                           ),
                                         ),

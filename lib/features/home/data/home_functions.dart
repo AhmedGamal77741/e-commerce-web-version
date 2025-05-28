@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_entity.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -169,24 +170,38 @@ Future<void> uploadPost({required String text, required String imgUrl}) async {
   }
 }
 
-Future<String> uploadImageToImgBB() async {
-  final XFile? image = await ImagePicker().pickImage(
-    source: ImageSource.gallery,
-  );
-  if (image == null) return "";
+Future<String> uploadImageToFirebaseStorage() async {
+  try {
+    // 1. Pick image from gallery
+    final XFile? image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+    );
+    if (image == null) return "";
 
-  final bytes = await File(image.path).readAsBytes();
-  final base64Image = base64Encode(bytes);
+    // 2. Prepare storage reference with unique filename
+    final String fileName =
+        '${DateTime.now().millisecondsSinceEpoch}${FirebaseAuth.instance.currentUser!.uid}.jpg';
+    final Reference storageRef = FirebaseStorage.instance
+        .ref()
+        .child('uploads')
+        .child(fileName);
 
-  final response = await http.post(
-    Uri.parse('https://api.imgbb.com/1/upload'),
-    body: {'key': 'df668aeecb751b64bc588772056a32df', 'image': base64Image},
-  );
+    // 3. Read image bytes (works for both mobile and web)
+    final bytes = await image.readAsBytes();
 
-  if (response.statusCode == 200) {
-    final jsonData = jsonDecode(response.body);
-    return jsonData['data']['url'];
-  } else {
-    throw Exception('Failed to upload: ${response.body}');
+    // 4. Upload to Firebase Storage
+    final UploadTask uploadTask = storageRef.putData(
+      bytes,
+      SettableMetadata(contentType: 'image/jpeg'), // Set MIME type
+    );
+
+    // 5. Get download URL when upload completes
+    final TaskSnapshot snapshot = await uploadTask;
+    final String downloadUrl = await snapshot.ref.getDownloadURL();
+
+    return downloadUrl;
+  } catch (e) {
+    print('Error uploading image: $e');
+    throw Exception('Failed to upload image: $e');
   }
 }

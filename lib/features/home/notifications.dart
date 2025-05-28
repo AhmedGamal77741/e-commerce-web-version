@@ -1,6 +1,5 @@
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class Notifications extends StatefulWidget {
   const Notifications({super.key});
@@ -31,12 +30,12 @@ class _NotificationsState extends State<Notifications> {
           ),
         ),
         body: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 5.w),
+          padding: EdgeInsets.symmetric(horizontal: 5),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 20.h,
+            spacing: 20,
             children: [
               verticalSpace(5),
               Column(
@@ -48,20 +47,20 @@ class _NotificationsState extends State<Notifications> {
                     '00님 외  2명이 내 이야기에 댓글을 남겼습니다',
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 20.sp,
+                      fontSize: 20,
                       fontFamily: 'NotoSans',
                       fontWeight: FontWeight.w400,
-                      height: 1.40.h,
+                      height: 1.40,
                     ),
                   ),
                   Text(
                     '댓글 : 꿀팁 공유 감사합니다 오늘 하루도 화이팅! ',
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 20.sp,
+                      fontSize: 20,
                       fontFamily: 'NotoSans',
                       fontWeight: FontWeight.w400,
-                      height: 1.40.h,
+                      height: 1.40,
                     ),
                   ),
                 ],
@@ -72,15 +71,15 @@ class _NotificationsState extends State<Notifications> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    width: 420.w,
+                    width: 420,
                     child: Text(
                       '00님 외 1,324명이 내 이야기에 좋아요를 눌렀습니다',
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 20.sp,
+                        fontSize: 20,
                         fontFamily: 'NotoSans',
                         fontWeight: FontWeight.w400,
-                        height: 1.40.h,
+                        height: 1.40,
                       ),
                     ),
                   ),
@@ -92,15 +91,15 @@ class _NotificationsState extends State<Notifications> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    width: 420.w,
+                    width: 420,
                     child: Text(
                       '00님 외 2명이 내 이야기에 좋아요를 눌렀습니다',
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 20.sp,
+                        fontSize: 20,
                         fontFamily: 'NotoSans',
                         fontWeight: FontWeight.w400,
-                        height: 1.40.h,
+                        height: 1.40,
                       ),
                     ),
                   ),

@@ -7,7 +7,7 @@ import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:intl/intl.dart';
 
 class ShopSearch extends StatefulWidget {
@@ -72,7 +72,7 @@ class _ShopSearchState extends State<ShopSearch> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: 40.w,
+        leadingWidth: 40,
         backgroundColor: Colors.white,
         titleSpacing: 0,
 
@@ -87,10 +87,7 @@ class _ShopSearchState extends State<ShopSearch> {
           onChanged: _searchProduct,
           decoration: InputDecoration(
             hintText: '검색...',
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 12.w,
-              vertical: 5.h,
-            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             border: OutlineInputBorder(
               borderSide: BorderSide(color: Colors.grey),
               borderRadius: BorderRadius.zero,
@@ -108,7 +105,7 @@ class _ShopSearchState extends State<ShopSearch> {
         actions: [
           IconButton(
             icon: ImageIcon(AssetImage('assets/Frame 4.png')),
-            iconSize: 30.sp,
+            iconSize: 30,
             onPressed: () {},
           ),
         ],
@@ -129,8 +126,8 @@ class _ShopSearchState extends State<ShopSearch> {
                     subtitle: Text('${formatCurrency.format(product.price)} 원'),
                     leading: Image.network(
                       product.imgUrl!,
-                      width: 50.w,
-                      height: 50.h,
+                      width: 50,
+                      height: 50,
                       fit: BoxFit.cover,
                     ),
                     onTap: () async {

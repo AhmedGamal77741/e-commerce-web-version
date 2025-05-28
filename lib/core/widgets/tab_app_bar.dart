@@ -1,13 +1,12 @@
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class TabAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? imgUrl;
   final String firstTab;
   final String? secondTab;
   @override
-  Size get preferredSize => Size.fromHeight(kToolbarHeight + 48.h);
+  Size get preferredSize => Size.fromHeight(kToolbarHeight + 48);
   const TabAppBar({
     super.key,
     this.imgUrl,
@@ -19,11 +18,11 @@ class TabAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return imgUrl == null
         ? AppBar(
-          toolbarHeight: 130.h,
+          toolbarHeight: 130,
           backgroundColor: ColorsManager.white,
           title: TabBar(
             labelStyle: TextStyle(
-              fontSize: 16.sp,
+              fontSize: 16,
               decoration: TextDecoration.none,
               fontFamily: 'NotoSans',
               fontStyle: FontStyle.normal,
@@ -42,11 +41,11 @@ class TabAppBar extends StatelessWidget implements PreferredSizeWidget {
         )
         : AppBar(
           backgroundColor: ColorsManager.white,
-          title: Image.asset('assets/$imgUrl', width: 39.w, height: 39.h),
+          title: Image.asset('assets/$imgUrl', width: 39, height: 39),
           centerTitle: true,
           bottom: TabBar(
             labelStyle: TextStyle(
-              fontSize: 16.sp,
+              fontSize: 16,
               decoration: TextDecoration.none,
               fontFamily: 'NotoSans',
               fontStyle: FontStyle.normal,

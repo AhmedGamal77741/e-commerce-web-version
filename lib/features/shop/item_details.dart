@@ -7,7 +7,6 @@ import 'package:ecommerece_app/features/shop/cart_func.dart';
 import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
@@ -73,7 +72,7 @@ class _ItemDetailsState extends State<ItemDetails> {
       body: ListView(
         children: [
           SizedBox(
-            height: 428.h,
+            height: 428,
             child: Stack(
               children: [
                 if (imageUrls.isNotEmpty)
@@ -104,7 +103,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                     child: Align(
                       alignment: Alignment.bottomCenter,
                       child: Container(
-                        height: 60.h,
+                        height: 60,
                         // decoration: BoxDecoration(), // Empty decoration, can be removed
                         child: Center(
                           child: SmoothPageIndicator(
@@ -113,8 +112,8 @@ class _ItemDetailsState extends State<ItemDetails> {
                             effect: ScrollingDotsEffect(
                               activeDotColor: Colors.black,
                               dotColor: Colors.grey,
-                              dotHeight: 10.h,
-                              dotWidth: 10.w,
+                              dotHeight: 10,
+                              dotWidth: 10,
                             ),
                           ),
                         ),
@@ -136,13 +135,13 @@ class _ItemDetailsState extends State<ItemDetails> {
                 } else {
                   // Handle case where user is not logged in, e.g., show a message
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Please log in to proceed.")),
+                    const SnackBar(content: Text("계속하려면 로그인해 주세요.")),
                   );
                 }
               },
               child: Container(
                 width: double.infinity,
-                height: 33.h,
+                height: 33,
                 color: Colors.black,
                 child: Center(
                   child: Text(
@@ -153,7 +152,7 @@ class _ItemDetailsState extends State<ItemDetails> {
               ),
             ),
           Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 14.h),
+            padding: EdgeInsets.fromLTRB(20, 14, 20, 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,29 +167,29 @@ class _ItemDetailsState extends State<ItemDetails> {
                         widget.product.sellerName,
                         style: TextStyle(
                           color: const Color(0xFF121212),
-                          fontSize: 14.sp,
+                          fontSize: 14,
                           fontFamily: 'NotoSans',
                           fontWeight: FontWeight.w400,
                           height: 1.40, // Removed .h as height is a factor
                         ),
                       ),
-                      SizedBox(height: 10.h),
+                      SizedBox(height: 10),
                       Text(
                         widget.product.productName,
                         style: TextStyle(
                           color: const Color(0xFF121212),
-                          fontSize: 16.sp,
+                          fontSize: 16,
                           fontFamily: 'NotoSans',
                           fontWeight: FontWeight.w400,
                           height: 1.40, // Removed .h
                         ),
                       ),
-                      SizedBox(height: 10.h),
+                      SizedBox(height: 10),
                       Text(
                         '${widget.arrivalDay} 도착예정 - ${widget.product.freeShipping == true ? '무료 배송' : '배송료가 부과됩니다'}',
                         style: TextStyle(
                           color: const Color(0xFF747474),
-                          fontSize: 14.sp,
+                          fontSize: 14,
                           fontFamily: 'NotoSans',
                           fontWeight: FontWeight.w400,
                           height: 1.40, // Removed .h
@@ -208,11 +207,9 @@ class _ItemDetailsState extends State<ItemDetails> {
                       },
                       icon: ImageIcon(
                         const AssetImage('assets/grey_006m.png'),
-                        size: 32.sp,
+                        size: 32,
                         // color: liked ? Colors.black : Colors.grey, // This icon seems to be for sharing, color shouldn't depend on 'liked'
-                        color:
-                            Colors
-                                .grey, // Example: Set a fixed color or based on theme
+                        color: liked ? Colors.black : Colors.grey,
                       ),
                     ),
                     IconButton(
@@ -221,9 +218,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                         if (currentUser == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text(
-                                "Please log in to manage favorites.",
-                              ),
+                              content: Text("즐겨찾기를 관리하려면 로그인해 주세요."),
                             ),
                           );
                           return;
@@ -247,7 +242,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                         const AssetImage(
                           'assets/grey_007m.png',
                         ), // Favorite icon
-                        size: 32.sp,
+                        size: 32,
                         color: liked ? Colors.black : Colors.grey,
                       ),
                     ),
@@ -257,7 +252,7 @@ class _ItemDetailsState extends State<ItemDetails> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12),
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Container(
               decoration: ShapeDecoration(
                 color: Colors.white,
@@ -282,11 +277,11 @@ class _ItemDetailsState extends State<ItemDetails> {
                                 style: TextStyle(
                                   fontFamily: 'NotoSans',
                                   fontWeight: FontWeight.w400,
-                                  fontSize: 16.sp,
+                                  fontSize: 16,
                                   height: 1.4, // Removed .h
                                 ),
                               ),
-                              SizedBox(width: 5.w), // Spacing
+                              SizedBox(width: 5), // Spacing
                               Text(
                                 '(1개 ${formatCurrency.format(widget.isSub ? perUnit.round() : (perUnit / 0.9).round())}원)',
                                 style: TextStyles.abeezee14px400wP600,
@@ -318,13 +313,13 @@ class _ItemDetailsState extends State<ItemDetails> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 30.h),
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 30),
             child: Container(
               padding: EdgeInsets.only(
-                left: 15.w,
-                top: 15.h,
-                bottom: 15.h,
-                right: 15.w,
+                left: 15,
+                top: 15,
+                bottom: 15,
+                right: 15,
               ), // Added right padding
               decoration: ShapeDecoration(
                 color: Colors.white,
@@ -340,24 +335,24 @@ class _ItemDetailsState extends State<ItemDetails> {
                 // spacing: 10.h, // Column doesn't have a spacing property. Use SizedBox between children.
                 children: [
                   _buildInfoRow('보관법 및 소비기한', widget.product.instructions),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10),
                   const Divider(
                     height: 1,
                     thickness: 0.27,
                     color: Color(0xFF747474),
                   ),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10),
                   _buildInfoRow(
                     '오늘출발 마감 시간',
                     '${widget.product.meridiem == 'AM' ? '오전' : '오후'} ${widget.product.baselineTime}시',
                   ),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10),
                   const Divider(
                     height: 1,
                     thickness: 0.27,
                     color: Color(0xFF747474),
                   ),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10),
                   _buildInfoRow(
                     '남은 수량',
                     '${widget.product.stock.toString()} 개',
@@ -371,7 +366,7 @@ class _ItemDetailsState extends State<ItemDetails> {
       ),
       bottomNavigationBar: Padding(
         padding: EdgeInsets.all(
-          16.w,
+          16,
         ), // Use .w for consistency if desired, or just 16
         child: Row(
           children: [
@@ -381,9 +376,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                   final currentUser = FirebaseAuth.instance.currentUser;
                   if (currentUser == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Please log in to add to cart."),
-                      ),
+                      const SnackBar(content: Text("장바구니에 추가하려면 로그인해 주세요.")),
                     );
                     return;
                   }
@@ -421,10 +414,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                 },
                 style: TextButton.styleFrom(
                   backgroundColor: ColorsManager.white,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 6.w,
-                    vertical: 10.h,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(
@@ -437,21 +427,19 @@ class _ItemDetailsState extends State<ItemDetails> {
                   style: TextStyle(
                     color: Colors.black,
                     fontFamily: 'NotoSans',
-                    fontSize: 18.sp,
+                    fontSize: 18,
                   ),
                 ),
               ),
             ),
-            SizedBox(width: 10.w), // Use .w for consistency
+            SizedBox(width: 10), // Use .w for consistency
             Expanded(
               child: TextButton(
                 onPressed: () async {
                   final currentUser = FirebaseAuth.instance.currentUser;
                   if (currentUser == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Please log in to buy now."),
-                      ),
+                      const SnackBar(content: Text("지금 구매하려면 로그인해 주세요")),
                     );
                     return;
                   }
@@ -491,7 +479,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                   backgroundColor: ColorsManager.primaryblack,
                   padding: EdgeInsets.symmetric(
                     // horizontal: 0.w, // Horizontal padding 0 might make it look tight
-                    vertical: 10.h,
+                    vertical: 10,
                   ),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -504,7 +492,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                   style: TextStyle(
                     color: Colors.white,
                     fontFamily: 'NotoSans',
-                    fontSize: 18.sp,
+                    fontSize: 18,
                   ),
                 ),
               ),
@@ -526,18 +514,18 @@ class _ItemDetailsState extends State<ItemDetails> {
           title,
           style: TextStyle(
             color: const Color(0xFF121212),
-            fontSize: 16.sp,
+            fontSize: 16,
             fontFamily: 'NotoSans',
             fontWeight: FontWeight.w400,
             height: 1.40,
           ),
         ),
-        SizedBox(height: 12.h / 2), // Adjust spacing as needed
+        SizedBox(height: 12 / 2), // Adjust spacing as needed
         Text(
           content,
           style: TextStyle(
             color: const Color(0xFF747474),
-            fontSize: 14.sp,
+            fontSize: 14,
             fontFamily: 'NotoSans',
             fontWeight: FontWeight.w400,
             height: 1.40,

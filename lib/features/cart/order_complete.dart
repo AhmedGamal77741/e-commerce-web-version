@@ -2,7 +2,6 @@ import 'dart:async'; // Import for Timer
 
 import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class OrderComplete extends StatefulWidget {
   const OrderComplete({super.key});
@@ -52,7 +51,7 @@ class _OrderCompleteState extends State<OrderComplete> {
           style: TextButton.styleFrom(
             backgroundColor: const Color(0xFF121212), // Background color
             foregroundColor: Colors.white, // Text color for ripple, etc.
-            minimumSize: Size(220.w, 45.h), // Exact dimensions
+            minimumSize: Size(220, 45), // Exact dimensions
             padding: EdgeInsets.zero, // Remove default padding
             shape: RoundedRectangleBorder(
               side: const BorderSide(
@@ -67,7 +66,7 @@ class _OrderCompleteState extends State<OrderComplete> {
             '주문 완료', // "Order Completed"
             style: TextStyle(
               color: const Color(0xFFF5F5F5), // Text color
-              fontSize: 18.sp,
+              fontSize: 18,
               fontFamily: 'NotoSans',
               fontWeight: FontWeight.w400,
               height:
