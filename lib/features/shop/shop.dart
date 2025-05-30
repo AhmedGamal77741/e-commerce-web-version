@@ -36,8 +36,8 @@ class _ShopState extends State<Shop> {
 
   @override
   void didChangeDependencies() {
+    precacheImage(AssetImage('assets/010no.png'), context);
     super.didChangeDependencies();
-    precacheImage(AssetImage('assets/010.webp'), context);
   }
 
   Future<void> _loadCategories() async {
@@ -149,9 +149,28 @@ class CategoryProductsScreen extends StatefulWidget {
 
 class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Display products in a grid
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          context.go(Routes.shopSearchScreen);
+        },
+        elevation: 0,
+        backgroundColor: Colors.black,
+        shape: const CircleBorder(),
+        child: ImageIcon(
+          AssetImage('assets/010no.png'),
+          size: 56,
+          color: Colors.white,
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: Padding(
         padding: EdgeInsets.symmetric(horizontal: 12),
         child: StreamBuilder<QuerySnapshot>(
@@ -165,273 +184,166 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
             print(snapshot);
             final formatCurrency = NumberFormat('#,###');
             if (snapshot.hasError) {
-              return Stack(
-                children: [
-                  Center(child: Text('오류: ${snapshot.error}')),
-                  Positioned(
-                    bottom: 16, // Standard FAB margin
-                    right: 16,
-                    child: GestureDetector(
-                      onTap: () => context.go(Routes.shopSearchScreen),
-                      child: Container(
-                        width: 56, // Standard FAB size
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.transparent, // Match your FAB style
-                        ),
-                        child: Center(
-                          child: Image.asset(
-                            'assets/010.webp',
-                            width: 56, // Adjust to your asset's aspect ratio
-                            height: 56,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
+              return Center(child: Text('오류: ${snapshot.error}'));
             }
 
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return Stack(
-                children: [
-                  const Center(child: CircularProgressIndicator()),
-                  Positioned(
-                    bottom: 16, // Standard FAB margin
-                    right: 16,
-                    child: GestureDetector(
-                      onTap: () => context.go(Routes.shopSearchScreen),
-                      child: Container(
-                        width: 56, // Standard FAB size
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.transparent, // Match your FAB style
-                        ),
-                        child: Center(
-                          child: Image.asset(
-                            'assets/010.webp',
-                            width: 56, // Adjust to your asset's aspect ratio
-                            height: 56,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
+              return const Center(child: CircularProgressIndicator());
             }
 
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return Stack(
-                children: [
-                  const Center(child: Text('아직 제품이 없습니다')),
-                  Positioned(
-                    bottom: 16, // Standard FAB margin
-                    right: 16,
-                    child: GestureDetector(
-                      onTap: () => context.go(Routes.shopSearchScreen),
-                      child: Container(
-                        width: 56, // Standard FAB size
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.transparent, // Match your FAB style
-                        ),
-                        child: Center(
-                          child: Image.asset(
-                            'assets/010.webp',
-                            width: 56, // Adjust to your asset's aspect ratio
-                            height: 56,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
+              return const Center(child: Text('아직 제품이 없습니다'));
             }
 
             final products = snapshot.data!.docs;
-            return Stack(
-              children: [
-                ListView.separated(
-                  separatorBuilder: (context, index) {
-                    if (index == products.length - 1) {
-                      return SizedBox.shrink();
-                    }
-                    return Divider();
-                  },
-                  itemCount: products.length,
-                  itemBuilder: (context, index) {
-                    final data2 =
-                        products[index].data() as Map<String, dynamic>;
-                    Product p = Product.fromMap(data2);
+            return ListView.separated(
+              separatorBuilder: (context, index) {
+                if (index == products.length - 1) {
+                  return SizedBox.shrink();
+                }
+                return Divider();
+              },
+              itemCount: products.length,
+              itemBuilder: (context, index) {
+                final data2 = products[index].data() as Map<String, dynamic>;
+                Product p = Product.fromMap(data2);
 
-                    return InkWell(
-                      onTap: () async {
-                        bool isSub = await isUserSubscribed();
-                        bool liked = isFavoritedByUser(
-                          p: p,
-                          userId: FirebaseAuth.instance.currentUser?.uid ?? '',
-                        );
-                        String arrivalTime = await getArrivalDay(
-                          p.meridiem,
-                          p.baselineTime,
-                        );
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => ItemDetails(
-                                  product: p,
-                                  arrivalDay: arrivalTime,
-                                  isSub: isSub,
-                                ),
-                          ),
-                        );
-
-                        // context.pushNamed(
-                        //   Routes.itemDetailsScreen,
-                        //   arguments: {
-                        // 'imgUrl': data['imgUrl'],
-                        // 'sellerName': data['sellerName	'],
-                        // 'price': data['price	'],
-                        // 'product_id': data['product_id'],
-                        // 'freeShipping': data['freeShipping	'],
-                        // 'meridiem': data['meridiem'],
-                        // 'baselinehour': data['baselinehour	'],
-                        // 'productName': data['productName	'],
-                        //   },
-                        // );
-                      },
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 1),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                p.imgUrl!,
-                                width: 106,
-                                height: 106,
-                                fit: BoxFit.cover,
-                              ),
+                return InkWell(
+                  onTap: () async {
+                    bool isSub = await isUserSubscribed();
+                    bool liked = isFavoritedByUser(
+                      p: p,
+                      userId: FirebaseAuth.instance.currentUser?.uid ?? '',
+                    );
+                    String arrivalTime = await getArrivalDay(
+                      p.meridiem,
+                      p.baselineTime,
+                    );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => ItemDetails(
+                              product: p,
+                              arrivalDay: arrivalTime,
+                              isSub: isSub,
                             ),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    p.sellerName,
-                                    style: TextStyles.abeezee14px400wP600,
-                                  ),
-                                  verticalSpace(5),
-                                  Text(
-                                    p.productName,
-                                    style: TextStyles.abeezee16px400wPblack,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  FutureBuilder<bool>(
-                                    future: isUserSubscribed(),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return Text(
-                                          '로딩 중...',
-                                          style: TextStyles.abeezee11px400wP600,
-                                        );
-                                      }
-                                      if (snapshot.hasError) {
-                                        return Text(
-                                          '오류 발생',
-                                          style: TextStyles.abeezee11px400wP600,
-                                        );
-                                      }
-                                      print(snapshot.data);
-                                      if (snapshot.data == true) {
-                                        return Text(
-                                          '${formatCurrency.format(p.price)} 원',
-
-                                          style:
-                                              TextStyles.abeezee16px400wPblack,
-                                        );
-                                      } else {
-                                        return Text(
-                                          '${formatCurrency.format(p.price / 0.9)} 원',
-
-                                          style:
-                                              TextStyles.abeezee16px400wPblack,
-                                        );
-                                      }
-                                    },
-                                  ),
-                                  verticalSpace(2),
-                                  FutureBuilder<String>(
-                                    future: getArrivalDay(
-                                      p.meridiem,
-                                      p.baselineTime,
-                                    ),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return Text(
-                                          '로딩 중...',
-                                          style: TextStyles.abeezee11px400wP600,
-                                        );
-                                      }
-                                      if (snapshot.hasError) {
-                                        return Text(
-                                          '오류 발생',
-                                          style: TextStyles.abeezee11px400wP600,
-                                        );
-                                      }
-
-                                      return Text(
-                                        '${snapshot.data} 도착예정 · ${p.freeShipping == true ? '무료배송' : '배송료가 부과됩니다'} ',
-                                        style: TextStyles.abeezee14px400wP600,
-                                      );
-                                    },
-                                  ),
-
-                                  verticalSpace(4),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     );
+
+                    // context.pushNamed(
+                    //   Routes.itemDetailsScreen,
+                    //   arguments: {
+                    // 'imgUrl': data['imgUrl'],
+                    // 'sellerName': data['sellerName	'],
+                    // 'price': data['price	'],
+                    // 'product_id': data['product_id'],
+                    // 'freeShipping': data['freeShipping	'],
+                    // 'meridiem': data['meridiem'],
+                    // 'baselinehour': data['baselinehour	'],
+                    // 'productName': data['productName	'],
+                    //   },
+                    // );
                   },
-                ),
-                Positioned(
-                  bottom: 16, // Standard FAB margin
-                  right: 16,
-                  child: GestureDetector(
-                    onTap: () => context.go(Routes.shopSearchScreen),
-                    child: Container(
-                      width: 56, // Standard FAB size
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.transparent, // Match your FAB style
-                      ),
-                      child: Center(
-                        child: Image.asset(
-                          'assets/010.webp',
-                          width: 56, // Adjust to your asset's aspect ratio
-                          height: 56,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 1),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            p.imgUrl!,
+                            width: 106,
+                            height: 106,
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                      ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                p.sellerName,
+                                style: TextStyles.abeezee14px400wP600,
+                              ),
+                              verticalSpace(5),
+                              Text(
+                                p.productName,
+                                style: TextStyles.abeezee16px400wPblack,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              FutureBuilder<bool>(
+                                future: isUserSubscribed(),
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return Text(
+                                      '로딩 중...',
+                                      style: TextStyles.abeezee11px400wP600,
+                                    );
+                                  }
+                                  if (snapshot.hasError) {
+                                    return Text(
+                                      '오류 발생',
+                                      style: TextStyles.abeezee11px400wP600,
+                                    );
+                                  }
+                                  print(snapshot.data);
+                                  if (snapshot.data == true) {
+                                    return Text(
+                                      '${formatCurrency.format(p.price)} 원',
+
+                                      style: TextStyles.abeezee16px400wPblack,
+                                    );
+                                  } else {
+                                    return Text(
+                                      '${formatCurrency.format(p.price / 0.9)} 원',
+
+                                      style: TextStyles.abeezee16px400wPblack,
+                                    );
+                                  }
+                                },
+                              ),
+                              verticalSpace(2),
+                              FutureBuilder<String>(
+                                future: getArrivalDay(
+                                  p.meridiem,
+                                  p.baselineTime,
+                                ),
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return Text(
+                                      '로딩 중...',
+                                      style: TextStyles.abeezee11px400wP600,
+                                    );
+                                  }
+                                  if (snapshot.hasError) {
+                                    return Text(
+                                      '오류 발생',
+                                      style: TextStyles.abeezee11px400wP600,
+                                    );
+                                  }
+
+                                  return Text(
+                                    '${snapshot.data} 도착예정 · ${p.freeShipping == true ? '무료배송' : '배송료가 부과됩니다'} ',
+                                    style: TextStyles.abeezee14px400wP600,
+                                  );
+                                },
+                              ),
+
+                              verticalSpace(4),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                );
+              },
             );
           },
         ),
