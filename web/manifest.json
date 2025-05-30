@@ -1,11 +1,11 @@
 {
-    "name": "ecommerece_app",
-    "short_name": "ecommerece_app",
+    "name": "팽이초콜릿",
+    "short_name": "팽이초콜릿",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "팽이초콜릿",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

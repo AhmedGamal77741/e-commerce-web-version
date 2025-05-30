@@ -170,7 +170,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                         if (snapshot.connectionState ==
                                             ConnectionState.waiting) {
                                           return const Center(
-                                            child: CircularProgressIndicator(),
+                                            child: CircularProgressIndicator(
+                                              color: Colors.black,
+                                            ),
                                           );
                                         }
                                         if (snapshot.hasError) {
@@ -213,7 +215,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             if (snapshot.connectionState ==
                                 ConnectionState.waiting) {
-                              return Center(child: CircularProgressIndicator());
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.black,
+                                ),
+                              );
                             }
 
                             final posts = snapshot.data!.docs;
@@ -253,7 +259,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           .get(),
                   builder: (context, userSnapshot) {
                     if (!userSnapshot.hasData) {
-                      return Center(child: CircularProgressIndicator());
+                      return Center(
+                        child: CircularProgressIndicator(color: Colors.black),
+                      );
                     }
 
                     final userData =
@@ -352,8 +360,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           if (snapshot.connectionState ==
                                               ConnectionState.waiting) {
                                             return const Center(
-                                              child:
-                                                  CircularProgressIndicator(),
+                                              child: CircularProgressIndicator(
+                                                color: Colors.black,
+                                              ),
                                             );
                                           }
                                           if (snapshot.hasError) {
@@ -393,7 +402,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               if (userSnapshot.connectionState ==
                                   ConnectionState.waiting) {
                                 return Center(
-                                  child: CircularProgressIndicator(),
+                                  child: CircularProgressIndicator(
+                                    color: Colors.black,
+                                  ),
                                 );
                               }
 
@@ -429,7 +440,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
                                   if (snapshot.connectionState ==
                                       ConnectionState.waiting) {
-                                    return CircularProgressIndicator();
+                                    return CircularProgressIndicator(
+                                      color: Colors.black,
+                                    );
                                   }
 
                                   // Filter posts

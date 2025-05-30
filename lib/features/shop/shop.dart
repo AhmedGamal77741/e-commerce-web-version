@@ -160,6 +160,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         shape: const CircleBorder(),
         child: Image.asset('assets/010.png'),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: Padding(
         padding: EdgeInsets.symmetric(horizontal: 12),
         child: StreamBuilder<QuerySnapshot>(
