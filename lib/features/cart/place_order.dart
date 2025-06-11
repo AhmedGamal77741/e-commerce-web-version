@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
@@ -44,6 +45,18 @@ class _PlaceOrderState extends State<PlaceOrder> {
   ];
   String selectedRequest = '문앞';
   String? manualRequest;
+  bool isProcessing = false;
+  String? currentPaymentId;
+  final Set<String> _finalizedPayments = {}; // Track finalized paymentIds
+
+  // Payment method selection state
+  int paymentMethod = 0; // 0: bank (default), 1: card
+  Map<String, dynamic>? userBank;
+  Map<String, dynamic>? userCard;
+
+  Timer? _paymentTimeoutTimer;
+  String? _timeoutPaymentId;
+
   Future<void> _selectAddress() async {
     final result = await Navigator.push(
       context,
@@ -60,12 +73,458 @@ class _PlaceOrderState extends State<PlaceOrder> {
 
   final formatCurrency = NumberFormat('#,###');
 
+  Future<void> _handlePlaceOrder(int totalPrice, String uid) async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      isProcessing = true;
+    });
+    try {
+      // 1. Fetch cart items
+      final cartSnapshot =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('cart')
+              .get();
+      final cartItems = cartSnapshot.docs.map((doc) => doc.data()).toList();
+      if (cartItems.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('장바구니가 비어 있습니다.')));
+        setState(() {
+          isProcessing = false;
+        });
+        return;
+      }
+      // 1.5. Validate product existence and stock BEFORE payment
+      for (var item in cartItems) {
+        final productId = item['product_id'];
+        final quantityOrdered = item['quantity'];
+        final productRef = FirebaseFirestore.instance
+            .collection('products')
+            .doc(productId);
+        final productSnapshot = await productRef.get();
+        if (!productSnapshot.exists) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('상품이 더 이상 존재하지 않습니다.')));
+          setState(() {
+            isProcessing = false;
+          });
+          return;
+        }
+        final currentStock = productSnapshot.data()?['stock'] ?? 0;
+        if (quantityOrdered is! int || quantityOrdered <= 0) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('주문 수량이 올바르지 않습니다.')));
+          setState(() {
+            isProcessing = false;
+          });
+          return;
+        }
+        if (currentStock < quantityOrdered) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '재고가 부족한 상품이 있습니다. (주문 수량: $quantityOrdered, 남은 재고: $currentStock)',
+              ),
+            ),
+          );
+          setState(() {
+            isProcessing = false;
+          });
+          return;
+        }
+      }
+      // 2. Create a paymentId
+      final docRef = FirebaseFirestore.instance.collection('orders').doc();
+      final paymentId = docRef.id;
+      currentPaymentId = paymentId;
+      // 3. Save a single pending order for all products (treat as one order for payment)
+      final pendingOrderRef =
+          FirebaseFirestore.instance.collection('pending_orders').doc();
+      final productIds = cartItems.map((item) => item['product_id']).toList();
+      final quantities = cartItems.map((item) => item['quantity']).toList();
+      final prices = cartItems.map((item) => item['price']).toList();
+      final deliveryManagerIds =
+          cartItems.map((item) => item['deliveryManagerId']).toList();
+      final orderData = {
+        'pendingOrderId': pendingOrderRef.id,
+        'userId': uid,
+        'paymentId': paymentId,
+        'deliveryAddress': deliveryAddressController.text.trim(),
+        'deliveryInstructions':
+            selectedRequest == '직접입력'
+                ? manualRequest?.trim() ?? ''
+                : selectedRequest.trim(),
+        'cashReceipt': cashReceiptController.text.trim(),
+        'paymentMethod':
+            paymentMethod == 0 ? 'bank' : 'card', // store as 'bank' or 'card'
+        'orderDate': DateTime.now().toIso8601String(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'totalPrice': totalPrice,
+        'productIds': productIds,
+        'quantities': quantities,
+        'prices': prices,
+        'orderStatus': 'pending',
+        'status': 'pending',
+        'isRequested': false,
+        'deliveryManagerIds': deliveryManagerIds,
+        'carrierId': '',
+        'isSent': false,
+        'phoneNo': phoneController.text.trim(),
+      };
+      await pendingOrderRef.set(orderData);
+      // 4. Launch payment page
+      final payerId =
+          paymentMethod == 0
+              ? (userBank != null ? userBank!['payerId'] as String? : null)
+              : (userCard != null ? userCard!['payerId'] as String? : null);
+      // Start local timeout timer
+      _startPaymentTimeout(paymentId, pendingOrderRef);
+      if (paymentMethod == 0) {
+        // Bank payment
+        if (payerId != null && payerId.isNotEmpty) {
+          _launchBankRpaymentPage(
+            totalPrice.toString(),
+            uid,
+            phoneController.text.trim(),
+            paymentId,
+            payerId,
+          );
+        } else {
+          _launchBankPaymentPage(
+            totalPrice.toString(),
+            uid,
+            phoneController.text.trim(),
+            paymentId,
+          );
+        }
+      } else {
+        // Card payment
+        if (payerId != null && payerId.isNotEmpty) {
+          _launchCardRpaymentPage(
+            totalPrice.toString(),
+            uid,
+            phoneController.text.trim(),
+            paymentId,
+            payerId,
+          );
+        } else {
+          _launchCardPaymentPage(
+            totalPrice.toString(),
+            uid,
+            phoneController.text.trim(),
+            paymentId,
+          );
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.')));
+      setState(() {
+        isProcessing = false;
+      });
+    }
+  }
+
+  // Use QuerySnapshot for robust real-time updates
+  Stream<QuerySnapshot>? get _pendingOrdersStream {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (currentPaymentId == null || uid == null) return null;
+    return FirebaseFirestore.instance
+        .collection('pending_orders')
+        .where('userId', isEqualTo: uid)
+        .where('paymentId', isEqualTo: currentPaymentId)
+        .snapshots();
+  }
+
+  Widget _buildPaymentButton(int totalPrice, String uid) {
+    return StreamBuilder<QuerySnapshot>(
+      stream:
+          FirebaseFirestore.instance
+              .collection('pending_orders')
+              .where('userId', isEqualTo: uid)
+              .where('paymentId', isEqualTo: currentPaymentId)
+              .snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+        // Only consider the single pending order doc for the current paymentId
+        final pendingDoc = docs.isNotEmpty ? docs.first : null;
+        final status =
+            pendingDoc != null ? pendingDoc['status'] as String : null;
+        // If there is no pending_order with the current paymentId, show normal button
+        if (pendingDoc == null) {
+          return WideTextButton(
+            txt: '주문',
+            func: () => _handlePlaceOrder(totalPrice, uid),
+            color: Colors.black,
+            txtColor: Colors.white,
+          );
+        }
+        // If order is failed, show retry button and error
+        if (status == 'failed') {
+          _cancelPaymentTimeoutIfNeeded(
+            pendingDoc['paymentId'] as String?,
+            status,
+          );
+          return Column(
+            children: [
+              WideTextButton(
+                txt: '주문',
+                func: () async {
+                  // Instead of creating a new pending order, just update the status to 'pending' and retry payment
+                  await pendingDoc.reference.update({'status': 'pending'});
+                  // Relaunch payment page with the same paymentId
+                  final data = pendingDoc.data() as Map<String, dynamic>;
+                  final payerId =
+                      paymentMethod == 0
+                          ? (userBank != null
+                              ? userBank!['payerId'] as String?
+                              : null)
+                          : (userCard != null
+                              ? userCard!['payerId'] as String?
+                              : null);
+                  if (paymentMethod == 0) {
+                    // Bank payment
+                    if (payerId != null && payerId.isNotEmpty) {
+                      _launchBankRpaymentPage(
+                        (data['totalPrice'] ?? '').toString(),
+                        data['userId'] ?? uid,
+                        data['phoneNo'] ?? '',
+                        data['paymentId'] ?? '',
+                        payerId,
+                      );
+                    } else {
+                      _launchBankPaymentPage(
+                        (data['totalPrice'] ?? '').toString(),
+                        data['userId'] ?? uid,
+                        data['phoneNo'] ?? '',
+                        data['paymentId'] ?? '',
+                      );
+                    }
+                  } else {
+                    // Card payment
+                    if (payerId != null && payerId.isNotEmpty) {
+                      _launchCardRpaymentPage(
+                        (data['totalPrice'] ?? '').toString(),
+                        data['userId'] ?? uid,
+                        data['phoneNo'] ?? '',
+                        data['paymentId'] ?? '',
+                        payerId,
+                      );
+                    } else {
+                      _launchCardPaymentPage(
+                        (data['totalPrice'] ?? '').toString(),
+                        data['userId'] ?? uid,
+                        data['phoneNo'] ?? '',
+                        data['paymentId'] ?? '',
+                      );
+                    }
+                  }
+                },
+                color: Colors.black,
+                txtColor: Colors.white,
+              ),
+              SizedBox(height: 8),
+              Text('결제 실패. 다시 시도해주세요.', style: TextStyle(color: Colors.red)),
+            ],
+          );
+        }
+        // If order is success, show success message, auto-place order, and navigate
+        if (status == 'success') {
+          _cancelPaymentTimeoutIfNeeded(
+            pendingDoc['paymentId'] as String?,
+            status,
+          );
+          final paymentId = pendingDoc['paymentId'] as String?;
+          if (paymentId != null && !_finalizedPayments.contains(paymentId)) {
+            _finalizedPayments.add(paymentId);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _finalizeOrderAfterPayment([pendingDoc], uid);
+            });
+          }
+          return Column(
+            children: [
+              SizedBox(height: 8),
+              Text(
+                isProcessing
+                    ? '결제 성공! 주문을 완료 처리 중입니다...'
+                    : '주문이 성공적으로 완료되었습니다!',
+                style: TextStyle(color: Colors.green),
+              ),
+              if (isProcessing) ...[
+                SizedBox(height: 8),
+                CircularProgressIndicator(),
+              ],
+            ],
+          );
+        }
+        // If order is pending, show loading indicator
+        if (status == 'pending') {
+          // Don't cancel timer here, only if status changes
+          return Column(
+            children: [
+              WideTextButton(
+                txt: '결제 진행 중...',
+                func: () {},
+                color: Colors.grey.shade400,
+                txtColor: Colors.white,
+              ),
+              SizedBox(height: 8),
+              CircularProgressIndicator(),
+            ],
+          );
+        }
+        // Fallback: show normal button
+        return WideTextButton(
+          txt: '주문',
+          func: () => _handlePlaceOrder(totalPrice, uid),
+          color: Colors.black,
+          txtColor: Colors.white,
+        );
+      },
+    );
+  }
+
+  Future<void> _finalizeOrderAfterPayment(
+    List<QueryDocumentSnapshot> pendingDocs,
+    String uid,
+  ) async {
+    // Only run once
+    if (!mounted) return;
+    setState(() {
+      isProcessing = true;
+    });
+    try {
+      // There should only be one pending order doc for this paymentId
+      if (pendingDocs.isEmpty) return;
+      final doc = pendingDocs.first;
+      final data = doc.data() as Map<String, dynamic>;
+      final productIds = List.from(data['productIds'] ?? []);
+      final quantities = List.from(data['quantities'] ?? []);
+      final prices = List.from(data['prices'] ?? []);
+      final deliveryManagerIds = List.from(data['deliveryManagerIds'] ?? []);
+      // No need to check product existence or stock again here
+      // Save each product as a standalone order
+      for (int i = 0; i < productIds.length; i++) {
+        // Double-check stock before updating (atomic decrement)
+        final productRef = FirebaseFirestore.instance
+            .collection('products')
+            .doc(productIds[i]);
+        final productSnapshot = await productRef.get();
+        final currentStock = productSnapshot.data()?['stock'] ?? 0;
+        final orderQty = quantities[i];
+        if (currentStock < orderQty || orderQty <= 0) {
+          // Skip this product, do not create order or update stock
+          continue;
+        }
+        final orderRef = FirebaseFirestore.instance.collection('orders').doc();
+        final orderData = {
+          'orderId': orderRef.id,
+          'userId': data['userId'],
+          'paymentId': data['paymentId'],
+          'deliveryAddress': data['deliveryAddress'],
+          'deliveryInstructions': data['deliveryInstructions'],
+          'cashReceipt': data['cashReceipt'],
+          'paymentMethod': data['paymentMethod'], // copy from pending order
+          'orderDate': data['orderDate'],
+          'totalPrice': prices[i],
+          'productId': productIds[i],
+          'quantity': orderQty,
+          'courier': '',
+          'trackingNumber': '',
+          'trackingEvents': {},
+          'orderStatus': 'orderComplete',
+          'isRequested': data['isRequested'],
+          'deliveryManagerId': deliveryManagerIds[i],
+          'carrierId': '',
+          'isSent': false,
+          'phoneNo': data['phoneNo'],
+        };
+        await orderRef.set(orderData);
+        // Update stock atomically
+        await productRef.update({'stock': FieldValue.increment(-orderQty)});
+      }
+      // Delete pending order
+      await doc.reference.delete();
+      // Clear cart
+      final cartSnapshot =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('cart')
+              .get();
+      for (var doc in cartSnapshot.docs) {
+        await doc.reference.delete();
+      }
+      if (mounted) {
+        setState(() {
+          isProcessing = false;
+          currentPaymentId = null;
+        });
+        context.go(Routes.orderCompleteScreen);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('주문 완료 처리 중 오류가 발생했습니다.')));
+      setState(() {
+        isProcessing = false;
+      });
+    }
+  }
+
+  void _startPaymentTimeout(
+    String paymentId,
+    DocumentReference pendingOrderRef,
+  ) {
+    _paymentTimeoutTimer?.cancel();
+    _timeoutPaymentId = paymentId;
+    _paymentTimeoutTimer = Timer(Duration(minutes: 2), () async {
+      // Check if still pending
+      final doc = await pendingOrderRef.get();
+      if (doc.exists &&
+          (doc.data() as Map<String, dynamic>)['status'] == 'pending') {
+        await pendingOrderRef.update({'status': 'failed'});
+        if (mounted) setState(() {});
+      }
+    });
+  }
+
+  void _cancelPaymentTimeoutIfNeeded(String? paymentId, String? status) {
+    if (_paymentTimeoutTimer != null &&
+        _timeoutPaymentId == paymentId &&
+        status != 'pending') {
+      _paymentTimeoutTimer?.cancel();
+      _paymentTimeoutTimer = null;
+      _timeoutPaymentId = null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserPaymentInfo();
+  }
+
+  Future<void> _fetchUserPaymentInfo() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final data = userDoc.data();
+    setState(() {
+      userBank = data?['bank'] as Map<String, dynamic>?;
+      userCard = data?['card'] as Map<String, dynamic>?;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    final userDoc = FirebaseFirestore.instance.collection('users').doc(uid);
-    final docRef = FirebaseFirestore.instance.collection('orders').doc();
-    final orderId = docRef.id;
 
     return SafeArea(
       child: Scaffold(
@@ -415,7 +874,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                       ],
                       SizedBox(height: 15),
                       Text(
-                        '간편 계좌 결제',
+                        paymentMethod == 0 ? '간편 계좌 결제' : '간편 카드 결제',
                         style: TextStyle(
                           color: const Color(0xFF121212),
                           fontSize: 16,
@@ -424,121 +883,100 @@ class _PlaceOrderState extends State<PlaceOrder> {
                           height: 1.40,
                         ),
                       ),
-                      // Container(
-                      //   decoration: BoxDecoration(
-                      //     border: Border(
-                      //       bottom: BorderSide(
-                      //         color: ColorsManager.primary400,
-                      //         width: 1.0,
-                      //       ),
-                      //     ),
-                      //   ),
-                      //   child: Row(
-                      //     crossAxisAlignment: CrossAxisAlignment.start,
-                      //     children: [
-                      //       Flexible(
-                      //         child: TextFormField(
-                      //           controller: cashReceiptController,
-                      //           enabled: false,
-                      //           decoration: InputDecoration(
-                      //             hintText: '국민은행 / 0000000000000',
-                      //             hintStyle: TextStyle(
-                      //               fontSize: 15.sp,
-                      //               color: ColorsManager.primary400,
-                      //             ),
-                      //             border: InputBorder.none,
-                      //           ),
-                      //           obscureText: false,
-                      //           keyboardType: TextInputType.text,
-                      //           // validator: (val) {
-                      //           //   if (val!.isEmpty) {
-                      //           //     return '이름을 입력하세요';
-                      //           //   } else if (val.length > 30) {
-                      //           //     return '이름이 너무 깁니다';
-                      //           //   }
-                      //           //   return null;
-                      //           // },
-                      //         ),
-                      //       ),
-                      //       StreamBuilder<DocumentSnapshot>(
-                      //         stream: userDoc.snapshots(),
-                      //         builder: (context, snapshot) {
-                      //           if (snapshot.connectionState ==
-                      //               ConnectionState.waiting) {
-                      //             return SizedBox(
-                      //               width: 48.w,
-                      //               height: 30.h,
-                      //               child: Center(
-                      //                 child: CircularProgressIndicator(
-                      //                   strokeWidth: 2,
-                      //                 ),
-                      //               ),
-                      //             );
-                      //           }
-                      //           // error
-                      //           if (snapshot.hasError ||
-                      //               !snapshot.hasData ||
-                      //               !snapshot.data!.exists) {
-                      //             return Text('Error loading status');
-                      //           }
-
-                      //           // extract payerId
-                      //           final data =
-                      //               snapshot.data!.data()
-                      //                   as Map<String, dynamic>;
-                      //           final payerId = data['payerId'] as String?;
-
-                      //           // compute isFirst
-                      //           final isFirst =
-                      //               payerId == null || payerId.isEmpty;
-                      //           return TextButton(
-                      //             onPressed: () async {
-                      //               if (!_formKey.currentState!.validate()) {
-                      //                 return;
-                      //               }
-                      //               var total = await calculateCartTotalPay();
-                      //               isFirst
-                      //                   ? _launchPaymentPage(
-                      //                     total.toString(),
-                      //                     uid,
-                      //                     phoneController.toString().trim(),
-                      //                     orderId,
-                      //                   )
-                      //                   : _launchRpaymentPage(
-                      //                     total.toString(),
-                      //                     uid,
-                      //                     phoneController.toString().trim(),
-                      //                     orderId,
-                      //                     payerId,
-                      //                   );
-                      //             },
-
-                      //             style: TextButton.styleFrom(
-                      //               fixedSize: Size(48.w, 30.h),
-                      //               tapTargetSize:
-                      //                   MaterialTapTargetSize.shrinkWrap,
-                      //               side: BorderSide(
-                      //                 color: Colors.grey.shade300,
-                      //                 width: 1.0,
-                      //               ),
-                      //               shape: RoundedRectangleBorder(
-                      //                 borderRadius: BorderRadius.circular(4.0),
-                      //               ),
-                      //             ),
-                      //             child: Text(
-                      //               '변경',
-                      //               style: TextStyle(
-                      //                 color: ColorsManager.primaryblack,
-                      //                 fontWeight: FontWeight.bold,
-                      //                 fontSize: 13.sp,
-                      //               ),
-                      //             ),
-                      //           );
-                      //         },
-                      //       ),
-                      //     ],
-                      //   ),
-                      // ),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: ColorsManager.primary400,
+                              width: 1.0,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Flexible(
+                              child: TextFormField(
+                                controller: cashReceiptController,
+                                enabled: false,
+                                decoration: InputDecoration(
+                                  hintText:
+                                      paymentMethod == 0
+                                          ? (userBank != null &&
+                                                  userBank!['bankName'] !=
+                                                      null &&
+                                                  userBank!['accountNumber'] !=
+                                                      null
+                                              ? '${userBank!['bankName']} / ${userBank!['accountNumber']}'
+                                              : '등록된 계좌가 없습니다.')
+                                          : (userCard != null &&
+                                                  userCard!['cardName'] !=
+                                                      null &&
+                                                  userCard!['cardNumber'] !=
+                                                      null
+                                              ? '${userCard!['cardName']} / ${userCard!['cardNumber']}'
+                                              : '등록된 카드가 없습니다.'),
+                                  hintStyle: TextStyle(
+                                    fontSize: 15,
+                                    color: ColorsManager.primary400,
+                                  ),
+                                  border: InputBorder.none,
+                                ),
+                                obscureText: false,
+                                keyboardType: TextInputType.text,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed:
+                                  (isProcessing ||
+                                          (currentPaymentId != null &&
+                                              _pendingOrdersStream != null &&
+                                              _finalizedPayments.contains(
+                                                    currentPaymentId,
+                                                  ) ==
+                                                  false &&
+                                              _getCurrentPendingStatus() ==
+                                                  'pending'))
+                                      ? () {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              '결제 진행 중에는 결제수단을 변경할 수 없습니다.',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      : () async {
+                                        setState(() {
+                                          paymentMethod =
+                                              paymentMethod == 0 ? 1 : 0;
+                                        });
+                                      },
+                              style: TextButton.styleFrom(
+                                fixedSize: Size(48, 30),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                side: BorderSide(
+                                  color: Colors.grey.shade300,
+                                  width: 1.0,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4.0),
+                                ),
+                              ),
+                              child: Text(
+                                '변경',
+                                style: TextStyle(
+                                  color: ColorsManager.primaryblack,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       StatefulBuilder(
                         builder: (context, setStateRadio) {
                           return Row(
@@ -677,7 +1115,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                   mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  spacing: 12,
                                   children: [
                                     Text(
                                       '${productData['productName']} / 수량 : ${cartData['quantity'].toString()}',
@@ -689,7 +1126,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                         height: 1.40,
                                       ),
                                     ),
-
+                                    SizedBox(height: 8),
                                     Text(
                                       '${formatCurrency.format(cartData['price'] ?? 0)} 원',
                                       style: TextStyle(
@@ -711,7 +1148,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                   ],
                 ),
               ),
-              verticalSpace(20),
+
               StreamBuilder<QuerySnapshot>(
                 stream:
                     FirebaseFirestore.instance
@@ -727,10 +1164,11 @@ class _PlaceOrderState extends State<PlaceOrder> {
                   return FutureBuilder<int>(
                     future: calculateCartTotal(cartSnapshot.data!.docs),
                     builder: (context2, totalSnapshot) {
+                      final totalPrice = totalSnapshot.data ?? 0;
                       return Column(
                         mainAxisAlignment: MainAxisAlignment.center,
 
-                        spacing: 12,
+                        spacing: 10,
                         children: [
                           verticalSpace(20),
                           Row(
@@ -748,7 +1186,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                               ),
                               totalSnapshot.hasData
                                   ? Text(
-                                    '${formatCurrency.format(totalSnapshot.data ?? 0)} 원',
+                                    '${formatCurrency.format(totalPrice)} 원',
                                     style: TextStyle(
                                       color: Colors.black,
                                       fontSize: 18,
@@ -760,164 +1198,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                   : CircularProgressIndicator(),
                             ],
                           ),
-                          verticalSpace(5),
-                          WideTextButton(
-                            txt: '주문',
-                            func: () async {
-                              if (!_formKey.currentState!.validate()) return;
-                              String? payerId = await fetchPayerId(uid);
-                              final isFirst =
-                                  payerId == null || payerId.isEmpty;
-                              isFirst
-                                  ? _launchPaymentPage(
-                                    totalSnapshot.data.toString(),
-                                    uid,
-                                    phoneController.toString().trim(),
-                                    orderId,
-                                  )
-                                  : _launchRpaymentPage(
-                                    totalSnapshot.data.toString(),
-                                    uid,
-                                    phoneController.toString().trim(),
-                                    orderId,
-                                    payerId,
-                                  );
-
-                              if (!await isPaymentCompleted(orderId, uid)) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('결제 시작'),
-                                    backgroundColor: Colors.green,
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                                return;
-                              }
-
-                              final user = FirebaseAuth.instance.currentUser;
-                              if (user == null) return;
-
-                              final cartSnapshot =
-                                  await FirebaseFirestore.instance
-                                      .collection('users')
-                                      .doc(user.uid)
-                                      .collection('cart')
-                                      .get();
-
-                              final cartItems =
-                                  cartSnapshot.docs
-                                      .map((doc) => doc.data())
-                                      .toList();
-
-                              try {
-                                // Step 1: Validate stock for all items
-                                for (var item in cartItems) {
-                                  final productId = item['product_id'];
-                                  final quantityOrdered = item['quantity'];
-
-                                  final productRef = FirebaseFirestore.instance
-                                      .collection('products')
-                                      .doc(productId);
-                                  final productSnapshot =
-                                      await productRef.get();
-
-                                  if (!productSnapshot.exists) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Product with ID $productId no longer exists.',
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-
-                                  final currentStock =
-                                      productSnapshot.data()?['stock'] ?? 0;
-
-                                  if (currentStock < quantityOrdered) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Not enough stock for product ID $productId.',
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                }
-
-                                // Step 2: Create an order document **for each product**
-                                for (var item in cartItems) {
-                                  final productId = item['product_id'];
-                                  final quantityOrdered = item['quantity'];
-                                  final price = item['price'];
-
-                                  final orderData = {
-                                    'orderId': orderId,
-                                    'userId': user.uid,
-                                    'deliveryAddress':
-                                        deliveryAddressController.text.trim(),
-                                    'deliveryInstructions':
-                                        selectedRequest == '직접입력'
-                                            ? manualRequest!.trim()
-                                            : selectedRequest.trim(),
-                                    'cashReceipt':
-                                        cashReceiptController.text.trim(),
-                                    'paymentMethod': 'naver pay',
-                                    'orderDate':
-                                        DateTime.now().toIso8601String(),
-                                    'totalPrice': price,
-                                    'productId': productId,
-                                    'quantity': quantityOrdered,
-                                    "courier": '',
-                                    "trackingNumber": '',
-                                    "trackingEvents": {},
-                                    "orderStatus": "orderComplete",
-                                    'isRequested': false,
-                                    'deliveryManagerId':
-                                        item['deliveryManagerId'],
-                                    'carrierId': '',
-                                    'isSent': false,
-                                    'phoneNo':
-                                        phoneController.toString().trim(),
-                                  };
-
-                                  await docRef.set(orderData);
-
-                                  // Step 3: Update stock
-                                  final productRef = FirebaseFirestore.instance
-                                      .collection('products')
-                                      .doc(productId);
-                                  await productRef.update({
-                                    'stock': FieldValue.increment(
-                                      -quantityOrdered,
-                                    ),
-                                  });
-                                }
-
-                                // Step 4: Clear cart
-                                for (var doc in cartSnapshot.docs) {
-                                  await doc.reference.delete();
-                                }
-
-                                if (mounted) {
-                                  context.go(Routes.orderCompleteScreen);
-                                }
-                              } catch (e) {
-                                print('Failed to place order: $e');
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Failed to place order. Please try again.',
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                            color: Colors.black,
-                            txtColor: Colors.white,
-                          ),
+                          _buildPaymentButton(totalPrice, uid),
                         ],
                       );
                     },
@@ -930,121 +1211,172 @@ class _PlaceOrderState extends State<PlaceOrder> {
       ),
     );
   }
-}
 
-/// Fetches all docs in users/{uid}/cart once and returns the sum of their `price` fields.
-// Future<int> calculateCartTotalPay() async {
-//   // 1. Ensure we have a logged-in user
-//   final uid = FirebaseAuth.instance.currentUser?.uid;
-//   if (uid == null) {
-//     throw StateError('No user logged in');
-//   }
-
-//   // 2. Fetch the cart subcollection
-//   final querySnap =
-//       await FirebaseFirestore.instance
-//           .collection('users')
-//           .doc(uid)
-//           .collection('cart')
-//           .get();
-
-//   // 3. Sum all price fields
-//   var total = 0;
-//   for (final doc in querySnap.docs) {
-//     final data = doc.data();
-//     final price = data['price'];
-//     if (price is num) {
-//       total += price.toInt();
-//     }
-//   }
-
-//   return total;
-// }
-
-Future<int> calculateCartTotal(List<QueryDocumentSnapshot> cartDocs) async {
-  int total = 0;
-
-  for (final cartDoc in cartDocs) {
-    final cartData = cartDoc.data() as Map<String, dynamic>;
-    final price = cartData['price'];
-
-    try {
-      total += price as int;
-    } catch (e) {}
-  }
-
-  return total;
-}
-
-void _launchPaymentPage(
-  String amount,
-  String userId,
-  String phoneNo,
-  String orderId,
-) async {
-  final url = Uri.parse(
-    'https://e-commerce-app-34fb2.web.app/p-payment.html?orderId=$orderId&amount=$amount&userId=$userId&phoneNo=$phoneNo',
-  );
-
-  if (await canLaunchUrl(url)) {
-    await launchUrl(
-      url,
-      // mode: LaunchMode.externalApplication, // Forces external browser
-    );
-  } else {
-    throw 'Could not launch $url';
-  }
-}
-
-void _launchRpaymentPage(
-  String amount,
-  String userId,
-  String phoneNo,
-  String orderId,
-  String payerId,
-) async {
-  final url = Uri.parse(
-    'https://e-commerce-app-34fb2.web.app/r-p-payment.html?orderId=$orderId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId',
-  );
-
-  if (await canLaunchUrl(url)) {
-    await launchUrl(
-      url,
-      // mode: LaunchMode.externalApplication, // Forces external browser
-    );
-  } else {
-    throw 'Could not launch $url';
-  }
-}
-
-Future<bool> isPaymentCompleted(String orderId, String uid) async {
-  final querySnapshot =
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('payments')
-          .where('orderId', isEqualTo: orderId)
-          .limit(1) // We only need to know if at least one exists
-          .get();
-
-  return querySnapshot.docs.isNotEmpty;
-}
-
-Future<String?> fetchPayerId(String uid) async {
-  try {
-    final userDoc = FirebaseFirestore.instance.collection('users').doc(uid);
-    final snapshot = await userDoc.get();
-
-    if (!snapshot.exists) {
-      print("User document doesn't exist.");
-      return null;
+  /// Fetches all docs in users/{uid}/cart once and returns the sum of their `price` fields.
+  Future<int> calculateCartTotalPay() async {
+    // 1. Ensure we have a logged-in user
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      throw StateError('No user logged in');
     }
 
-    final data = snapshot.data();
-    final payerId = data?['payerId'] as String?;
-    return payerId;
-  } catch (e) {
-    print("Error fetching payerId: $e");
+    // 2. Fetch the cart subcollection
+    final querySnap =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('cart')
+            .get();
+
+    // 3. Sum all price fields
+    var total = 0;
+    for (final doc in querySnap.docs) {
+      final data = doc.data();
+      final price = data['price'];
+      if (price is num) {
+        total += price.toInt();
+      }
+    }
+
+    return total;
+  }
+
+  Future<int> calculateCartTotal(List<QueryDocumentSnapshot> cartDocs) async {
+    int total = 0;
+
+    for (final cartDoc in cartDocs) {
+      final cartData = cartDoc.data() as Map<String, dynamic>;
+      final price = cartData['price'];
+
+      try {
+        total += price as int;
+      } catch (e) {}
+    }
+
+    return total;
+  }
+
+  void _launchCardPaymentPage(
+    String amount,
+    String userId,
+    String phoneNo,
+    String paymentId,
+  ) async {
+    final url = Uri.parse(
+      'https://pay.pang2chocolate.com/p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo',
+    );
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(
+        url,
+        // mode: LaunchMode.externalApplication, // Forces external browser
+      );
+    } else {
+      throw 'Could not launch $url';
+    }
+  }
+
+  void _launchCardRpaymentPage(
+    String amount,
+    String userId,
+    String phoneNo,
+    String paymentId,
+    String payerId,
+  ) async {
+    final url = Uri.parse(
+      'https://pay.pang2chocolate.com/r-p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId',
+    );
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(
+        url,
+        // mode: LaunchMode.externalApplication, // Forces external browser
+      );
+    } else {
+      throw 'Could not launch $url';
+    }
+  }
+
+  void _launchBankPaymentPage(
+    String amount,
+    String userId,
+    String phoneNo,
+    String paymentId,
+  ) async {
+    final url = Uri.parse(
+      'https://pay.pang2chocolate.com/b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo',
+    );
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(
+        url,
+        // mode: LaunchMode.externalApplication, // Forces external browser
+      );
+    } else {
+      throw 'Could not launch $url';
+    }
+  }
+
+  void _launchBankRpaymentPage(
+    String amount,
+    String userId,
+    String phoneNo,
+    String paymentId,
+    String payerId,
+  ) async {
+    final url = Uri.parse(
+      'https://pay.pang2chocolate.com/r-b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId',
+    );
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(
+        url,
+        // mode: LaunchMode.externalApplication, // Forces external browser
+      );
+    } else {
+      throw 'Could not launch $url';
+    }
+  }
+
+  Future<bool> isPaymentCompleted(String orderId, String uid) async {
+    final querySnapshot =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('payments')
+            .where('paymentId', isEqualTo: orderId)
+            .limit(1) // We only need to know if at least one exists
+            .get();
+
+    return querySnapshot.docs.isNotEmpty;
+  }
+
+  Future<String?> fetchPayerId(String uid) async {
+    try {
+      final userDoc = FirebaseFirestore.instance.collection('users').doc(uid);
+      final snapshot = await userDoc.get();
+
+      if (!snapshot.exists) {
+        print("User document doesn't exist.");
+        return null;
+      }
+
+      final data = snapshot.data();
+      // New way: payerId is inside the 'card' object
+      final card = data?['card'] as Map<String, dynamic>?;
+      final payerId = card?['payerId'] as String?;
+      return payerId;
+    } catch (e) {
+      print("Error fetching payerId: $e");
+      return null;
+    }
+  }
+
+  // Helper to get current pending status for payment method change logic
+  String? _getCurrentPendingStatus() {
+    // This is a workaround: you may want to pass the current status from _buildPaymentButton
+    // or refactor for a more robust solution.
+    // For now, always allow change if not processing.
     return null;
   }
 }
