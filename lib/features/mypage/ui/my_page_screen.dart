@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
+import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
-import 'package:ecommerece_app/core/widgets/tab_app_bar.dart';
+import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
 import 'package:ecommerece_app/features/mypage/ui/my_page.dart';
 import 'package:ecommerece_app/features/mypage/ui/my_story.dart';
@@ -18,6 +19,7 @@ class MyPageScreen extends StatefulWidget {
 class _MyPageScreenState extends State<MyPageScreen> {
   final String userId = FirebaseAuth.instance.currentUser!.uid;
   String imgUrl = "";
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -25,8 +27,13 @@ class _MyPageScreenState extends State<MyPageScreen> {
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.white,
+          centerTitle: true,
+
+          // ← Give the toolbar the full height you need
+          toolbarHeight: 100,
+
           title: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min, // don’t expand vertically
             children: [
               StreamBuilder<DocumentSnapshot>(
                 stream:
@@ -36,13 +43,11 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const CircularProgressIndicator(); // loading indicator
+                    return const CircularProgressIndicator();
                   }
-
                   if (snapshot.hasError) {
                     return const Text('Error loading user data');
                   }
-
                   if (!snapshot.hasData || !snapshot.data!.exists) {
                     return const Text('User data not found');
                   }
@@ -50,35 +55,68 @@ class _MyPageScreenState extends State<MyPageScreen> {
                   final userData =
                       snapshot.data!.data() as Map<String, dynamic>;
 
-                  return InkWell(
-                    onTap: () async {
-                      showLoadingDialog(context);
-                      final newUrl = await uploadImageToFirebaseStorage();
-                      if (!mounted) return;
-                      setState(() => imgUrl = newUrl);
-                      Navigator.pop(context);
-                    },
-                    child: ClipOval(
-                      child: Image.network(
-                        (imgUrl.isEmpty ? userData['url'] : imgUrl) ?? '',
-                        height: 55,
-                        width: 56,
-                        fit: BoxFit.cover,
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () async {
+                          showLoadingDialog(context);
+                          final newUrl = await uploadImageToFirebaseStorage();
+                          if (!mounted) return;
+                          setState(() => imgUrl = newUrl);
+                          Navigator.pop(context);
+                        },
+                        child: ClipOval(
+                          child: Image.network(
+                            (imgUrl.isEmpty ? userData['url'] : imgUrl) ?? '',
+                            height: 64,
+                            width: 64,
+                            fit:
+                                BoxFit
+                                    .cover, // or BoxFit.contain to avoid cropping
+                          ),
+                        ),
                       ),
-                    ),
+                      verticalSpace(10),
+                      StreamBuilder<QuerySnapshot>(
+                        stream:
+                            FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(userId)
+                                .collection('followers')
+                                .snapshots(),
+                        builder: (context, subSnap) {
+                          if (subSnap.connectionState ==
+                              ConnectionState.waiting) {
+                            return verticalSpace(5);
+                          }
+                          if (subSnap.hasError) {
+                            return const Text('구독자 오류');
+                          }
+                          final count = subSnap.data?.docs.length ?? 0;
+                          final formatted = count.toString().replaceAllMapped(
+                            RegExp(r'\B(?=(\d{3})+(?!\d))'),
+                            (match) => ',',
+                          );
+                          return Text(
+                            '구독자 $formatted 명',
+                            style: TextStyles.abeezee14px400wP600,
+                          );
+                        },
+                      ),
+                    ],
                   );
                 },
               ),
             ],
           ),
-          centerTitle: true,
+
           bottom: TabBar(
             tabs: [Tab(text: '내 이야기'), Tab(text: '마이페이지')],
             labelStyle: TextStyle(
               fontSize: 16,
               decoration: TextDecoration.none,
               fontFamily: 'NotoSans',
-              fontStyle: FontStyle.normal,
               fontWeight: FontWeight.w400,
               letterSpacing: 0,
               color: ColorsManager.primaryblack,
@@ -88,7 +126,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
             indicatorColor: ColorsManager.primaryblack,
           ),
         ),
-        body: TabBarView(children: [MyStory(), MyPage()]),
+        body: const TabBarView(children: [MyStory(), MyPage()]),
       ),
     );
   }

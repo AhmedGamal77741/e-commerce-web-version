@@ -1,16 +1,17 @@
 import 'package:ecommerece_app/core/helpers/basetime.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class TextAndButtons extends StatelessWidget {
   final String sellerName;
   final String productName;
   final String qunatity;
-  final String orderPrice;
+  final int orderPrice;
   final int baselineTime;
   final String meridiem;
-
-  const TextAndButtons({
+  final formatCurrency = NumberFormat('#,###');
+  TextAndButtons({
     super.key,
     required this.sellerName,
     required this.productName,
@@ -49,7 +50,10 @@ class TextAndButtons extends StatelessWidget {
           ],
         ),
 
-        Text('$orderPrice 원', style: TextStyles.abeezee18px400wPblack),
+        Text(
+          '${formatCurrency.format(orderPrice)} 원',
+          style: TextStyles.abeezee18px400wPblack,
+        ),
       ],
     );
   }

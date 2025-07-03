@@ -3,8 +3,6 @@ import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
-import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
-
 import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -118,7 +116,7 @@ class _AddPostState extends State<AddPost> {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 15,
+                    // spacing: 15,
                     children: [
                       Text(
                         currentUser!.displayName!,
@@ -162,6 +160,10 @@ class _AddPostState extends State<AddPost> {
                           TextField(
                             controller: _textController,
                             onChanged: (value) => setState(() {}),
+                            keyboardType: TextInputType.multiline,
+                            minLines: 1,
+                            maxLines: null,
+                            textInputAction: TextInputAction.newline,
                             decoration: InputDecoration(
                               border: InputBorder.none,
                               contentPadding: EdgeInsets.zero,

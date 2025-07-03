@@ -105,7 +105,68 @@ class _CancelSubscriptionState extends State<CancelSubscription> {
                 color: Colors.white,
                 txtColor: ColorsManager.primaryblack,
                 func: () async {
+                  final navigator = Navigator.of(context);
+                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder:
+                        (ctx) => AlertDialog(
+                          backgroundColor: Colors.white,
+                          title: Text(
+                            '프리미엄 멤버십 해지',
+                            style: TextStyles.abeezee17px800wPblack,
+                          ),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '정말로 프리미엄 멤버십을 해지하시겠습니까?',
+                                style: TextStyles.abeezee16px400wPblack,
+                              ),
+                              SizedBox(height: 12),
+                              Text(
+                                '해지해도 다음 결제일까지 프리미엄 혜택이 유지됩니다.',
+                                style: TextStyles.abeezee13px400wP600,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                '결제일 이후에는 자동으로 일반 회원으로 전환됩니다.',
+                                style: TextStyles.abeezee13px400wP600,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                '결제일 이전에 언제든지 재구독할 수 있습니다.',
+                                style: TextStyles.abeezee13px400wP600,
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              child: Text(
+                                '취소',
+                                style: TextStyle(color: Colors.black),
+                              ),
+                              onPressed: () => navigator.pop(false),
+                            ),
+                            WideTextButton(
+                              txt: '해지',
+                              color: Colors.black,
+                              txtColor: Colors.white,
+                              func: () => navigator.pop(true),
+                            ),
+                          ],
+                        ),
+                  );
+                  if (confirmed != true) return;
                   final userId = FirebaseAuth.instance.currentUser!.uid;
+                  final subSnap =
+                      await FirebaseFirestore.instance
+                          .collection('subscriptions')
+                          .where('userId', isEqualTo: userId)
+                          .orderBy('nextBillingDate', descending: true)
+                          .limit(1)
+                          .get();
                   final docRef =
                       FirebaseFirestore.instance.collection('cancels').doc();
                   final cancelId = docRef.id;
@@ -115,13 +176,13 @@ class _CancelSubscriptionState extends State<CancelSubscription> {
                     'reason': currentOption.trim(),
                     'createdAt': DateTime.now().toIso8601String(),
                   };
-
                   try {
                     await docRef.set(cancelData);
-                    await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(userId)
-                        .update({'isSub': false});
+                    if (subSnap.docs.isNotEmpty) {
+                      await subSnap.docs.first.reference.update({
+                        'status': 'canceled',
+                      });
+                    }
                     context.pop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('멤버십이 성공적으로 해지되었습니다.')),

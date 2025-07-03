@@ -28,7 +28,7 @@ void showPostMenu(BuildContext context, String postId, String userId) {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 20,
+              // spacing: 20.h, // Remove if not supported by Column
               children: [
                 Container(
                   width: double.infinity,

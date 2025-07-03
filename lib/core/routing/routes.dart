@@ -15,4 +15,5 @@ class Routes {
   static const String landingScreen = '/landing-screen';
   static const String authScreen = '/auth';
   static const String deleteAccount = '/delete-account';
+  static const String buyNowScreen = '/buy-now';
 }

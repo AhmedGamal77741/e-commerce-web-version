@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
+import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/mypage/data/firebas_funcs.dart';
 import 'package:ecommerece_app/features/mypage/ui/widgets/user_info_container.dart';
 import 'package:ecommerece_app/features/mypage/ui/widgets/user_options_container.dart';
@@ -33,7 +34,7 @@ class MyPage extends StatelessWidget {
 
         final userData = snapshot.data!.data() as Map<String, dynamic>;
         final bool isSub = userData['isSub'] == true;
-
+        final myuser = MyUser.fromDocument(userData);
         return SingleChildScrollView(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
@@ -64,7 +65,55 @@ class MyPage extends StatelessWidget {
                     horizontalSpace(5),
                     GestureDetector(
                       onTap: () async {
-                        await signOut();
+                        final shouldSignOut = await showDialog<bool>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (dialogContext) {
+                            return AlertDialog(
+                              backgroundColor: Colors.white,
+                              title: Text(
+                                '로그아웃 확인',
+                                style: TextStyle(color: Colors.black),
+                              ),
+                              content: Text(
+                                '정말 로그아웃 하시겠습니까?',
+                                style: TextStyle(color: Colors.black),
+                              ),
+                              actions: [
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    backgroundColor: Colors.black,
+                                  ),
+                                  onPressed:
+                                      () => Navigator.of(
+                                        dialogContext,
+                                      ).pop(false),
+                                  child: Text(
+                                    '취소',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    backgroundColor: Colors.black,
+                                  ),
+                                  onPressed:
+                                      () =>
+                                          Navigator.of(dialogContext).pop(true),
+                                  child: Text(
+                                    '로그아웃',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                        if (shouldSignOut == true) {
+                          await signOut();
+                        }
                       },
                       child: Text(
                         '로그아웃',

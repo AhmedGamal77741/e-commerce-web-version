@@ -10,6 +10,7 @@ import 'package:ecommerece_app/features/cart/models/address.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -26,6 +27,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
   final deliveryInstructionsController = TextEditingController();
   final cashReceiptController = TextEditingController();
   final phoneController = TextEditingController();
+  final nameController = TextEditingController();
+  final emailController =
+      TextEditingController(); // NEW: email field controller
   int selectedOption = 1;
   final _formKey = GlobalKey<FormState>();
   Address address = Address(
@@ -37,23 +41,20 @@ class _PlaceOrderState extends State<PlaceOrder> {
     addressMap: {},
   );
   final List<String> deliveryRequests = [
-    '문앞', // "At the door"
-    '직접 받고 부재 시 문앞', // "Security office"
-    '택배함', // "Parcel box"
-    '경비실', // "Receive directly"
-    '직접입력', // "Other"
+    '문앞',
+    '직접 받고 부재 시 문앞',
+    '택배함',
+    '경비실',
+    '직접입력',
   ];
   String selectedRequest = '문앞';
   String? manualRequest;
   bool isProcessing = false;
   String? currentPaymentId;
-  final Set<String> _finalizedPayments = {}; // Track finalized paymentIds
-
-  // Payment method selection state
-  int paymentMethod = 0; // 0: bank (default), 1: card
+  final Set<String> _finalizedPayments = {};
+  int paymentMethod = 0;
   Map<String, dynamic>? userBank;
   Map<String, dynamic>? userCard;
-
   Timer? _paymentTimeoutTimer;
   String? _timeoutPaymentId;
 
@@ -62,7 +63,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
       context,
       MaterialPageRoute(builder: (context) => AddressListScreen()),
     );
-
     if (result != null) {
       deliveryAddressController.text = result.address;
       setState(() {
@@ -75,11 +75,12 @@ class _PlaceOrderState extends State<PlaceOrder> {
 
   Future<void> _handlePlaceOrder(int totalPrice, String uid) async {
     if (!_formKey.currentState!.validate()) return;
+    // Save name/phone/email to cache before placing order
+    await _saveCachedUserValues();
     setState(() {
       isProcessing = true;
     });
     try {
-      // 1. Fetch cart items
       final cartSnapshot =
           await FirebaseFirestore.instance
               .collection('users')
@@ -96,7 +97,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
         });
         return;
       }
-      // 1.5. Validate product existence and stock BEFORE payment
       for (var item in cartItems) {
         final productId = item['product_id'];
         final quantityOrdered = item['quantity'];
@@ -137,11 +137,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
           return;
         }
       }
-      // 2. Create a paymentId
       final docRef = FirebaseFirestore.instance.collection('orders').doc();
       final paymentId = docRef.id;
       currentPaymentId = paymentId;
-      // 3. Save a single pending order for all products (treat as one order for payment)
       final pendingOrderRef =
           FirebaseFirestore.instance.collection('pending_orders').doc();
       final productIds = cartItems.map((item) => item['product_id']).toList();
@@ -159,8 +157,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                 ? manualRequest?.trim() ?? ''
                 : selectedRequest.trim(),
         'cashReceipt': cashReceiptController.text.trim(),
-        'paymentMethod':
-            paymentMethod == 0 ? 'bank' : 'card', // store as 'bank' or 'card'
+        'paymentMethod': paymentMethod == 0 ? 'bank' : 'card',
         'orderDate': DateTime.now().toIso8601String(),
         'createdAt': FieldValue.serverTimestamp(),
         'totalPrice': totalPrice,
@@ -176,15 +173,12 @@ class _PlaceOrderState extends State<PlaceOrder> {
         'phoneNo': phoneController.text.trim(),
       };
       await pendingOrderRef.set(orderData);
-      // 4. Launch payment page
       final payerId =
           paymentMethod == 0
               ? (userBank != null ? userBank!['payerId'] as String? : null)
               : (userCard != null ? userCard!['payerId'] as String? : null);
-      // Start local timeout timer
       _startPaymentTimeout(paymentId, pendingOrderRef);
       if (paymentMethod == 0) {
-        // Bank payment
         if (payerId != null && payerId.isNotEmpty) {
           _launchBankRpaymentPage(
             totalPrice.toString(),
@@ -192,6 +186,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
             phoneController.text.trim(),
             paymentId,
             payerId,
+            nameController.text.trim(), // pass name
+            emailController.text.trim(), // pass email
           );
         } else {
           _launchBankPaymentPage(
@@ -199,10 +195,11 @@ class _PlaceOrderState extends State<PlaceOrder> {
             uid,
             phoneController.text.trim(),
             paymentId,
+            nameController.text.trim(), // pass name
+            emailController.text.trim(), // pass email
           );
         }
       } else {
-        // Card payment
         if (payerId != null && payerId.isNotEmpty) {
           _launchCardRpaymentPage(
             totalPrice.toString(),
@@ -210,6 +207,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
             phoneController.text.trim(),
             paymentId,
             payerId,
+            nameController.text.trim(), // pass name
+            emailController.text.trim(), // pass email
           );
         } else {
           _launchCardPaymentPage(
@@ -217,6 +216,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
             uid,
             phoneController.text.trim(),
             paymentId,
+            nameController.text.trim(), // pass name
+            emailController.text.trim(), // pass email
           );
         }
       }
@@ -230,7 +231,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
     }
   }
 
-  // Use QuerySnapshot for robust real-time updates
   Stream<QuerySnapshot>? get _pendingOrdersStream {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (currentPaymentId == null || uid == null) return null;
@@ -251,11 +251,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
               .snapshots(),
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
-        // Only consider the single pending order doc for the current paymentId
         final pendingDoc = docs.isNotEmpty ? docs.first : null;
         final status =
             pendingDoc != null ? pendingDoc['status'] as String : null;
-        // If there is no pending_order with the current paymentId, show normal button
         if (pendingDoc == null) {
           return WideTextButton(
             txt: '주문',
@@ -264,7 +262,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
             txtColor: Colors.white,
           );
         }
-        // If order is failed, show retry button and error
         if (status == 'failed') {
           _cancelPaymentTimeoutIfNeeded(
             pendingDoc['paymentId'] as String?,
@@ -275,9 +272,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
               WideTextButton(
                 txt: '주문',
                 func: () async {
-                  // Instead of creating a new pending order, just update the status to 'pending' and retry payment
                   await pendingDoc.reference.update({'status': 'pending'});
-                  // Relaunch payment page with the same paymentId
                   final data = pendingDoc.data() as Map<String, dynamic>;
                   final payerId =
                       paymentMethod == 0
@@ -288,7 +283,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                               ? userCard!['payerId'] as String?
                               : null);
                   if (paymentMethod == 0) {
-                    // Bank payment
                     if (payerId != null && payerId.isNotEmpty) {
                       _launchBankRpaymentPage(
                         (data['totalPrice'] ?? '').toString(),
@@ -296,6 +290,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
                         data['phoneNo'] ?? '',
                         data['paymentId'] ?? '',
                         payerId,
+                        nameController.text.trim(), // pass name
+                        emailController.text.trim(), // pass email
                       );
                     } else {
                       _launchBankPaymentPage(
@@ -303,10 +299,11 @@ class _PlaceOrderState extends State<PlaceOrder> {
                         data['userId'] ?? uid,
                         data['phoneNo'] ?? '',
                         data['paymentId'] ?? '',
+                        nameController.text.trim(), // pass name
+                        emailController.text.trim(), // pass email
                       );
                     }
                   } else {
-                    // Card payment
                     if (payerId != null && payerId.isNotEmpty) {
                       _launchCardRpaymentPage(
                         (data['totalPrice'] ?? '').toString(),
@@ -314,6 +311,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
                         data['phoneNo'] ?? '',
                         data['paymentId'] ?? '',
                         payerId,
+                        nameController.text.trim(), // pass name
+                        emailController.text.trim(), // pass email
                       );
                     } else {
                       _launchCardPaymentPage(
@@ -321,6 +320,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
                         data['userId'] ?? uid,
                         data['phoneNo'] ?? '',
                         data['paymentId'] ?? '',
+                        nameController.text.trim(), // pass name
+                        emailController.text.trim(), // pass email
                       );
                     }
                   }
@@ -333,7 +334,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
             ],
           );
         }
-        // If order is success, show success message, auto-place order, and navigate
         if (status == 'success') {
           _cancelPaymentTimeoutIfNeeded(
             pendingDoc['paymentId'] as String?,
@@ -362,23 +362,35 @@ class _PlaceOrderState extends State<PlaceOrder> {
             ],
           );
         }
-        // If order is pending, show loading indicator
         if (status == 'pending') {
-          // Don't cancel timer here, only if status changes
           return Column(
             children: [
               WideTextButton(
-                txt: '결제 진행 중...',
-                func: () {},
-                color: Colors.grey.shade400,
+                txt: '결제 진행 중... 취소',
+                func: () async {
+                  // Cancel the pending order and reset state
+                  await pendingDoc.reference.delete();
+                  setState(() {
+                    currentPaymentId = null;
+                    isProcessing = false;
+                  });
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                },
+                color: Colors.grey.shade400, // Keep original color
                 txtColor: Colors.white,
               ),
               SizedBox(height: 8),
               CircularProgressIndicator(),
+              SizedBox(height: 8),
+              Text(
+                '결제 대기 중입니다. 결제를 취소하려면 위 버튼을 누르세요.',
+                style: TextStyle(color: Colors.black),
+              ),
             ],
           );
         }
-        // Fallback: show normal button
         return WideTextButton(
           txt: '주문',
           func: () => _handlePlaceOrder(totalPrice, uid),
@@ -393,13 +405,11 @@ class _PlaceOrderState extends State<PlaceOrder> {
     List<QueryDocumentSnapshot> pendingDocs,
     String uid,
   ) async {
-    // Only run once
     if (!mounted) return;
     setState(() {
       isProcessing = true;
     });
     try {
-      // There should only be one pending order doc for this paymentId
       if (pendingDocs.isEmpty) return;
       final doc = pendingDocs.first;
       final data = doc.data() as Map<String, dynamic>;
@@ -407,10 +417,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
       final quantities = List.from(data['quantities'] ?? []);
       final prices = List.from(data['prices'] ?? []);
       final deliveryManagerIds = List.from(data['deliveryManagerIds'] ?? []);
-      // No need to check product existence or stock again here
-      // Save each product as a standalone order
       for (int i = 0; i < productIds.length; i++) {
-        // Double-check stock before updating (atomic decrement)
         final productRef = FirebaseFirestore.instance
             .collection('products')
             .doc(productIds[i]);
@@ -418,7 +425,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
         final currentStock = productSnapshot.data()?['stock'] ?? 0;
         final orderQty = quantities[i];
         if (currentStock < orderQty || orderQty <= 0) {
-          // Skip this product, do not create order or update stock
           continue;
         }
         final orderRef = FirebaseFirestore.instance.collection('orders').doc();
@@ -429,7 +435,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
           'deliveryAddress': data['deliveryAddress'],
           'deliveryInstructions': data['deliveryInstructions'],
           'cashReceipt': data['cashReceipt'],
-          'paymentMethod': data['paymentMethod'], // copy from pending order
+          'paymentMethod': data['paymentMethod'],
           'orderDate': data['orderDate'],
           'totalPrice': prices[i],
           'productId': productIds[i],
@@ -445,12 +451,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
           'phoneNo': data['phoneNo'],
         };
         await orderRef.set(orderData);
-        // Update stock atomically
         await productRef.update({'stock': FieldValue.increment(-orderQty)});
       }
-      // Delete pending order
       await doc.reference.delete();
-      // Clear cart
       final cartSnapshot =
           await FirebaseFirestore.instance
               .collection('users')
@@ -484,7 +487,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
     _paymentTimeoutTimer?.cancel();
     _timeoutPaymentId = paymentId;
     _paymentTimeoutTimer = Timer(Duration(minutes: 2), () async {
-      // Check if still pending
       final doc = await pendingOrderRef.get();
       if (doc.exists &&
           (doc.data() as Map<String, dynamic>)['status'] == 'pending') {
@@ -508,6 +510,39 @@ class _PlaceOrderState extends State<PlaceOrder> {
   void initState() {
     super.initState();
     _fetchUserPaymentInfo();
+    _loadCachedUserValues(); // NEW: load cached name/phone
+  }
+
+  Future<void> _loadCachedUserValues() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('usercached_values')
+            .doc(uid)
+            .get();
+    if (doc.exists) {
+      final data = doc.data();
+      if (data != null) {
+        nameController.text = data['name'] ?? '';
+        emailController.text = data['email'] ?? '';
+        phoneController.text = data['phone'] ?? '';
+      }
+    }
+  }
+
+  Future<void> _saveCachedUserValues() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await FirebaseFirestore.instance
+        .collection('usercached_values')
+        .doc(uid)
+        .set({
+          'userId': uid,
+          'name': nameController.text.trim(),
+          'email': emailController.text.trim(),
+          'phone': phoneController.text.trim(),
+        }, SetOptions(merge: true));
   }
 
   Future<void> _fetchUserPaymentInfo() async {
@@ -516,9 +551,15 @@ class _PlaceOrderState extends State<PlaceOrder> {
     final userDoc =
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
     final data = userDoc.data();
+    print('Fetched user data:');
+    print(data);
     setState(() {
       userBank = data?['bank'] as Map<String, dynamic>?;
       userCard = data?['card'] as Map<String, dynamic>?;
+      print('userBank:');
+      print(userBank);
+      print('userCard:');
+      print(userCard);
     });
   }
 
@@ -564,7 +605,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 5,
                     children: [
                       Container(
                         padding: EdgeInsets.only(bottom: 5),
@@ -605,7 +645,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                           if (snapshot.hasError) {
                                             return Center(
                                               child: Text(
-                                                'Error loading user address: ${snapshot.error}',
+                                                'Error loading user address: ${snapshot.error}',
                                               ),
                                             );
                                           }
@@ -664,7 +704,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                                     )
                                                     .collection('addresses')
                                                     .doc(
-                                                      userData!['defaultAddressId'],
+                                                      userData['defaultAddressId'],
                                                     )
                                                     .get(),
                                             builder: (context, snapshot) {
@@ -771,7 +811,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                             ),
                             TextButton(
                               onPressed: _selectAddress,
-
                               style: TextButton.styleFrom(
                                 fixedSize: Size(48, 30),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -795,7 +834,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                           ],
                         ),
                       ),
-
                       SizedBox(height: 15),
                       Text(
                         '배송 요청사항',
@@ -852,7 +890,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                           );
                         },
                       ),
-
                       // only show when “직접입력” is selected:
                       if (selectedRequest == '직접입력') ...[
                         SizedBox(height: 12),
@@ -905,9 +942,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                           ? (userBank != null &&
                                                   userBank!['bankName'] !=
                                                       null &&
-                                                  userBank!['accountNumber'] !=
+                                                  userBank!['bankNumber'] !=
                                                       null
-                                              ? '${userBank!['bankName']} / ${userBank!['accountNumber']}'
+                                              ? '${userBank!['bankName']} / ${userBank!['bankNumber']}'
                                               : '등록된 계좌가 없습니다.')
                                           : (userCard != null &&
                                                   userCard!['cardName'] !=
@@ -1032,19 +1069,61 @@ class _PlaceOrderState extends State<PlaceOrder> {
                           );
                         },
                       ),
-
+                      UnderlineTextField(
+                        controller: nameController,
+                        hintText: '이름',
+                        obscureText: false,
+                        keyboardType: TextInputType.text,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return '이름을 입력해주세요';
+                          }
+                          return null;
+                        },
+                        onChanged: (val) {
+                          _saveCachedUserValues();
+                        },
+                      ),
+                      SizedBox(height: 10),
+                      UnderlineTextField(
+                        controller: emailController,
+                        hintText: '이메일',
+                        obscureText: false,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return '이메일을 입력해주세요';
+                          }
+                          // Simple email validation
+                          if (!RegExp(r'^.+@.+\..+$').hasMatch(val.trim())) {
+                            return '유효한 이메일을 입력해주세요';
+                          }
+                          return null;
+                        },
+                        onChanged: (val) {
+                          _saveCachedUserValues();
+                        },
+                      ),
+                      SizedBox(height: 10),
                       UnderlineTextField(
                         controller: phoneController,
                         hintText: '전화번호 ',
                         obscureText: false,
                         keyboardType: TextInputType.phone,
                         validator: (val) {
-                          if (val!.isEmpty) {
-                            return '이름을 입력하세요';
-                          } else if (val.length > 30) {
-                            return '이름이 너무 깁니다';
+                          if (val == null || val.trim().isEmpty) {
+                            return '전화번호를 입력해주세요';
+                          }
+                          final koreanReg = RegExp(
+                            r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
+                          );
+                          if (!koreanReg.hasMatch(val)) {
+                            return '유효한 한국 전화번호를 입력하세요';
                           }
                           return null;
+                        },
+                        onChanged: (val) {
+                          _saveCachedUserValues();
                         },
                       ),
                     ],
@@ -1148,7 +1227,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                   ],
                 ),
               ),
-
               StreamBuilder<QuerySnapshot>(
                 stream:
                     FirebaseFirestore.instance
@@ -1167,8 +1245,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                       final totalPrice = totalSnapshot.data ?? 0;
                       return Column(
                         mainAxisAlignment: MainAxisAlignment.center,
-
-                        spacing: 10,
                         children: [
                           verticalSpace(20),
                           Row(
@@ -1212,23 +1288,17 @@ class _PlaceOrderState extends State<PlaceOrder> {
     );
   }
 
-  /// Fetches all docs in users/{uid}/cart once and returns the sum of their `price` fields.
   Future<int> calculateCartTotalPay() async {
-    // 1. Ensure we have a logged-in user
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       throw StateError('No user logged in');
     }
-
-    // 2. Fetch the cart subcollection
     final querySnap =
         await FirebaseFirestore.instance
             .collection('users')
             .doc(uid)
             .collection('cart')
             .get();
-
-    // 3. Sum all price fields
     var total = 0;
     for (final doc in querySnap.docs) {
       final data = doc.data();
@@ -1237,22 +1307,18 @@ class _PlaceOrderState extends State<PlaceOrder> {
         total += price.toInt();
       }
     }
-
     return total;
   }
 
   Future<int> calculateCartTotal(List<QueryDocumentSnapshot> cartDocs) async {
     int total = 0;
-
     for (final cartDoc in cartDocs) {
       final cartData = cartDoc.data() as Map<String, dynamic>;
       final price = cartData['price'];
-
       try {
         total += price as int;
       } catch (e) {}
     }
-
     return total;
   }
 
@@ -1261,16 +1327,14 @@ class _PlaceOrderState extends State<PlaceOrder> {
     String userId,
     String phoneNo,
     String paymentId,
+    String userName,
+    String email,
   ) async {
     final url = Uri.parse(
-      'https://pay.pang2chocolate.com/p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo',
+      'https://pay.pang2chocolate.com/p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&userName=$userName&email=$email',
     );
-
     if (await canLaunchUrl(url)) {
-      await launchUrl(
-        url,
-        // mode: LaunchMode.externalApplication, // Forces external browser
-      );
+      await launchUrl(url);
     } else {
       throw 'Could not launch $url';
     }
@@ -1282,16 +1346,14 @@ class _PlaceOrderState extends State<PlaceOrder> {
     String phoneNo,
     String paymentId,
     String payerId,
+    String userName,
+    String email,
   ) async {
     final url = Uri.parse(
-      'https://pay.pang2chocolate.com/r-p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId',
+      'https://pay.pang2chocolate.com/r-p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&userName=$userName&email=$email',
     );
-
     if (await canLaunchUrl(url)) {
-      await launchUrl(
-        url,
-        // mode: LaunchMode.externalApplication, // Forces external browser
-      );
+      await launchUrl(url);
     } else {
       throw 'Could not launch $url';
     }
@@ -1302,16 +1364,14 @@ class _PlaceOrderState extends State<PlaceOrder> {
     String userId,
     String phoneNo,
     String paymentId,
+    String userName,
+    String email,
   ) async {
     final url = Uri.parse(
-      'https://pay.pang2chocolate.com/b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo',
+      'https://pay.pang2chocolate.com/b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&userName=$userName&email=$email',
     );
-
     if (await canLaunchUrl(url)) {
-      await launchUrl(
-        url,
-        // mode: LaunchMode.externalApplication, // Forces external browser
-      );
+      await launchUrl(url);
     } else {
       throw 'Could not launch $url';
     }
@@ -1323,16 +1383,14 @@ class _PlaceOrderState extends State<PlaceOrder> {
     String phoneNo,
     String paymentId,
     String payerId,
+    String userName,
+    String email,
   ) async {
     final url = Uri.parse(
-      'https://pay.pang2chocolate.com/r-b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId',
+      'https://pay.pang2chocolate.com/r-b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&userName=$userName&email=$email',
     );
-
     if (await canLaunchUrl(url)) {
-      await launchUrl(
-        url,
-        // mode: LaunchMode.externalApplication, // Forces external browser
-      );
+      await launchUrl(url);
     } else {
       throw 'Could not launch $url';
     }
@@ -1345,9 +1403,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
             .doc(uid)
             .collection('payments')
             .where('paymentId', isEqualTo: orderId)
-            .limit(1) // We only need to know if at least one exists
+            .limit(1)
             .get();
-
     return querySnapshot.docs.isNotEmpty;
   }
 
@@ -1355,14 +1412,11 @@ class _PlaceOrderState extends State<PlaceOrder> {
     try {
       final userDoc = FirebaseFirestore.instance.collection('users').doc(uid);
       final snapshot = await userDoc.get();
-
       if (!snapshot.exists) {
         print("User document doesn't exist.");
         return null;
       }
-
       final data = snapshot.data();
-      // New way: payerId is inside the 'card' object
       final card = data?['card'] as Map<String, dynamic>?;
       final payerId = card?['payerId'] as String?;
       return payerId;
@@ -1372,11 +1426,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
     }
   }
 
-  // Helper to get current pending status for payment method change logic
   String? _getCurrentPendingStatus() {
-    // This is a workaround: you may want to pass the current status from _buildPaymentButton
-    // or refactor for a more robust solution.
-    // For now, always allow change if not processing.
     return null;
   }
 }

@@ -1,16 +1,17 @@
 import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
-import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/shop/cart_func.dart';
 import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ItemDetails extends StatefulWidget {
   final Product product;
@@ -64,7 +65,7 @@ class _ItemDetailsState extends State<ItemDetails> {
   Widget build(BuildContext context) {
     final List<dynamic> imageUrls = [
       if (widget.product.imgUrl != null) widget.product.imgUrl,
-      ...?widget.product.imgUrls,
+      ...widget.product.imgUrls,
     ];
 
     final formatCurrency = NumberFormat('#,###');
@@ -127,6 +128,7 @@ class _ItemDetailsState extends State<ItemDetails> {
             GestureDetector(
               onTap: () {
                 final currentUser = FirebaseAuth.instance.currentUser;
+
                 if (currentUser != null) {
                   _launchPaymentPage(
                     '3000', // This seems like a fixed amount
@@ -135,7 +137,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                 } else {
                   // Handle case where user is not logged in, e.g., show a message
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("계속하려면 로그인해 주세요.")),
+                    const SnackBar(content: Text("내 페이지 탭에서 회원가입 후 이용가능합니다")),
                   );
                 }
               },
@@ -161,7 +163,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                   flex: 5,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    // spacing: 10.h, // Column doesn't have a spacing property directly. Use SizedBox.
+                    // spacing: 10, // Column doesn't have a spacing property directly. Use SizedBox.
                     children: [
                       Text(
                         widget.product.sellerName,
@@ -170,7 +172,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                           fontSize: 14,
                           fontFamily: 'NotoSans',
                           fontWeight: FontWeight.w400,
-                          height: 1.40, // Removed .h as height is a factor
+                          height: 1.40, // Removed  as height is a factor
                         ),
                       ),
                       SizedBox(height: 10),
@@ -181,18 +183,20 @@ class _ItemDetailsState extends State<ItemDetails> {
                           fontSize: 16,
                           fontFamily: 'NotoSans',
                           fontWeight: FontWeight.w400,
-                          height: 1.40, // Removed .h
+                          height: 1.40, // Removed
                         ),
                       ),
                       SizedBox(height: 10),
                       Text(
-                        '${widget.arrivalDay} 도착예정 - ${widget.product.freeShipping == true ? '무료 배송' : '배송료가 부과됩니다'}',
+                        widget.product.stock == 0
+                            ? '품절'
+                            : '${widget.arrivalDay} 도착예정 - ${widget.product.freeShipping == true ? '무료 배송' : '배송료가 부과됩니다'}',
                         style: TextStyle(
                           color: const Color(0xFF747474),
                           fontSize: 14,
                           fontFamily: 'NotoSans',
                           fontWeight: FontWeight.w400,
-                          height: 1.40, // Removed .h
+                          height: 1.40, // Removed
                         ),
                       ),
                     ],
@@ -218,7 +222,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                         if (currentUser == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text("즐겨찾기를 관리하려면 로그인해 주세요."),
+                              content: Text("내 페이지 탭에서 회원가입 후 이용가능합니다"),
                             ),
                           );
                           return;
@@ -278,7 +282,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                                   fontFamily: 'NotoSans',
                                   fontWeight: FontWeight.w400,
                                   fontSize: 16,
-                                  height: 1.4, // Removed .h
+                                  height: 1.4, // Removed
                                 ),
                               ),
                               SizedBox(width: 5), // Spacing
@@ -332,7 +336,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                // spacing: 10.h, // Column doesn't have a spacing property. Use SizedBox between children.
+                // spacing: 10, // Column doesn't have a spacing property. Use SizedBox between children.
                 children: [
                   _buildInfoRow('보관법 및 소비기한', widget.product.instructions),
                   SizedBox(height: 10),
@@ -365,9 +369,7 @@ class _ItemDetailsState extends State<ItemDetails> {
         ],
       ),
       bottomNavigationBar: Padding(
-        padding: EdgeInsets.all(
-          16,
-        ), // Use .w for consistency if desired, or just 16
+        padding: EdgeInsets.all(16),
         child: Row(
           children: [
             Expanded(
@@ -376,35 +378,38 @@ class _ItemDetailsState extends State<ItemDetails> {
                   final currentUser = FirebaseAuth.instance.currentUser;
                   if (currentUser == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("장바구니에 추가하려면 로그인해 주세요.")),
+                      const SnackBar(content: Text("내 페이지 탭에서 회원가입 후 이용가능합니다")),
                     );
                     return;
                   }
                   if (_selectedOption == null) {
                     _showQuantityRequiredMessage();
                   } else {
+                    // Stock validation before adding to cart
+                    final pricePoint =
+                        widget.product.pricePoints[int.parse(_selectedOption!)];
+                    final productRef = FirebaseFirestore.instance
+                        .collection('products')
+                        .doc(widget.product.product_id);
+                    final productSnapshot = await productRef.get();
+                    final currentStock = productSnapshot.data()?['stock'] ?? 0;
+                    if (pricePoint.quantity > currentStock) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('수량 부족'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
                     await addProductAsNewEntryToCart(
                       userId: currentUser.uid,
                       productId: widget.product.product_id,
-                      quantity:
-                          widget
-                              .product
-                              .pricePoints[int.parse(_selectedOption!)]
-                              .quantity,
+                      quantity: pricePoint.quantity,
                       price:
                           widget.isSub
-                              ? widget
-                                  .product
-                                  .pricePoints[int.parse(_selectedOption!)]
-                                  .price
-                              : (widget
-                                          .product
-                                          .pricePoints[int.parse(
-                                            _selectedOption!,
-                                          )]
-                                          .price /
-                                      0.9)
-                                  .round(),
+                              ? pricePoint.price
+                              : (pricePoint.price / 0.9).round(),
                     );
                     if (mounted) {
                       // Check if the widget is still in the tree
@@ -439,48 +444,47 @@ class _ItemDetailsState extends State<ItemDetails> {
                   final currentUser = FirebaseAuth.instance.currentUser;
                   if (currentUser == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("지금 구매하려면 로그인해 주세요")),
+                      const SnackBar(content: Text("내 페이지 탭에서 회원가입 후 이용가능합니다")),
                     );
                     return;
                   }
                   if (_selectedOption == null) {
                     _showQuantityRequiredMessage();
                   } else {
-                    await addProductAsNewEntryToCart(
-                      userId: currentUser.uid,
-                      productId: widget.product.product_id,
-                      quantity:
-                          widget
-                              .product
-                              .pricePoints[int.parse(_selectedOption!)]
-                              .quantity,
-                      price:
-                          widget.isSub
-                              ? widget
-                                  .product
-                                  .pricePoints[int.parse(_selectedOption!)]
-                                  .price
-                              : (widget
-                                          .product
-                                          .pricePoints[int.parse(
-                                            _selectedOption!,
-                                          )]
-                                          .price /
-                                      0.9)
-                                  .round(),
-                    );
-                    if (mounted) {
-                      // Check if the widget is still in the tree
-                      context.go(Routes.placeOrderScreen);
+                    // Stock validation before Buy Now
+                    final pricePoint =
+                        widget.product.pricePoints[int.parse(_selectedOption!)];
+                    final productRef = FirebaseFirestore.instance
+                        .collection('products')
+                        .doc(widget.product.product_id);
+                    final productSnapshot = await productRef.get();
+                    final currentStock = productSnapshot.data()?['stock'] ?? 0;
+                    if (pricePoint.quantity > currentStock) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('수량 부족'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
                     }
+                    // Navigate to BuyNow page with product info
+                    context.go(
+                      '/buy-now',
+                      extra: {
+                        'product': widget.product,
+                        'quantity': pricePoint.quantity,
+                        'price':
+                            widget.isSub
+                                ? pricePoint.price
+                                : (pricePoint.price / 0.9).round(),
+                      },
+                    );
                   }
                 },
                 style: TextButton.styleFrom(
                   backgroundColor: ColorsManager.primaryblack,
-                  padding: EdgeInsets.symmetric(
-                    // horizontal: 0.w, // Horizontal padding 0 might make it look tight
-                    vertical: 10,
-                  ),
+                  padding: EdgeInsets.symmetric(vertical: 10),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(
@@ -538,7 +542,7 @@ class _ItemDetailsState extends State<ItemDetails> {
 
 void _launchPaymentPage(String amount, String userId) async {
   final url = Uri.parse(
-    'https://e-commerce-app-34fb2.web.app/payment.html?amount=$amount&userId=$userId',
+    'https://e-commerce-app-34fb2.web.app/paymenttml?amount=$amount&userId=$userId',
   );
 
   if (await canLaunchUrl(url)) {

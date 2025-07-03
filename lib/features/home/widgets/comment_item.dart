@@ -3,6 +3,7 @@ import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:ecommerece_app/features/home/models/comment_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'package:provider/provider.dart';
 
 class CommentItem extends StatefulWidget {
@@ -46,7 +47,7 @@ class _CommentItemState extends State<CommentItem> {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 10,
+              // spacing: 10.h, // Remove if not supported by Column
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -72,13 +73,13 @@ class _CommentItemState extends State<CommentItem> {
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 10,
+                  // spacing: 10.w, // Remove if not supported by Row
                   children: [
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.start,
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: 4,
+                      // spacing: 4.w, // Remove if not supported by Row
                       children: [
                         InkWell(
                           onTap: () {

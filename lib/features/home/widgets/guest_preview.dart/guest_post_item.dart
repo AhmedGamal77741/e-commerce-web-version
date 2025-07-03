@@ -1,6 +1,7 @@
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_entity.dart';
+import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_actions.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +15,7 @@ class GuestPostItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<MyUserEntity>(
+    return FutureBuilder<MyUser>(
       future: getUser(post['userId']),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {

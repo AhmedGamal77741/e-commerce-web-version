@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_entity.dart';
+import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -9,13 +10,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-Future<MyUserEntity> getUser(String userId) async {
+Future<MyUser> getUser(String userId) async {
   try {
     final doc = await _firestore.collection('users').doc(userId).get();
     if (doc.exists) {
-      return MyUserEntity.fromDocument(doc.data()!);
+      return MyUser.fromDocument(doc.data()!);
     }
-    return MyUserEntity(userId: "", email: "", name: "", url: "");
+    return MyUser.empty;
   } catch (e) {
     print('Error fetching user: $e');
     throw e;

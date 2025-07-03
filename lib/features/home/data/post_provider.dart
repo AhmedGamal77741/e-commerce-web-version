@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_entity.dart';
+import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/home/models/comment_model.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,7 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 class PostsProvider extends ChangeNotifier {
   final Map<String, Map<String, dynamic>> _posts = {};
   final Map<String, List<Comment>> _comments = {};
-  final Map<String, MyUserEntity> _users = {};
+  final Map<String, MyUser> _users = {};
   final Set<String> _changedPostIds = {};
   final Set<String> _loadingCommentPosts = {};
 
@@ -22,7 +23,7 @@ class PostsProvider extends ChangeNotifier {
   List<Comment> getComments(String postId) => _comments[postId] ?? [];
   bool isLoadingComments(String postId) =>
       _loadingCommentPosts.contains(postId);
-  MyUserEntity? getUser(String userId) => _users[userId];
+  MyUser? getUser(String userId) => _users[userId];
   bool hasPostChanged(String postId) => _changedPostIds.contains(postId);
   bool _resetting = false;
 
@@ -234,7 +235,7 @@ class PostsProvider extends ChangeNotifier {
     if (currentUser == null) return;
 
     // Get current user data
-    MyUserEntity? userData = _users[currentUser.uid];
+    MyUser? userData = _users[currentUser.uid];
 
     if (userData == null) {
       try {
@@ -426,7 +427,7 @@ class PostsProvider extends ChangeNotifier {
   }
 
   // Load a user if not already loaded
-  Future<MyUserEntity> loadUser(String userId) async {
+  Future<MyUser> loadUser(String userId) async {
     if (_users.containsKey(userId)) {
       return _users[userId]!;
     }
@@ -434,13 +435,7 @@ class PostsProvider extends ChangeNotifier {
     final userDoc = await _firestore.collection('users').doc(userId).get();
     final userData = userDoc.data() ?? {};
 
-    final user = MyUserEntity(
-      userId: userId,
-      name: userData['name'] ?? 'Unknown User',
-      url: userData['url'] ?? 'https://via.placeholder.com/150',
-      email: userData['email'],
-      // Add other fields as needed
-    );
+    final user = MyUser.fromDocument(userData);
 
     _users[userId] = user;
     notifyListeners();

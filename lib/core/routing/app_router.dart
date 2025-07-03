@@ -1,17 +1,14 @@
 import 'package:ecommerece_app/core/routing/routes.dart';
-import 'package:ecommerece_app/features/auth/auth_screen.dart';
 import 'package:ecommerece_app/features/cart/order_complete.dart';
 import 'package:ecommerece_app/features/cart/place_order.dart';
+import 'package:ecommerece_app/features/cart/buy_now.dart';
 import 'package:ecommerece_app/features/home/add_post.dart';
 import 'package:ecommerece_app/features/home/comments.dart';
 import 'package:ecommerece_app/features/home/notifications.dart';
 import 'package:ecommerece_app/features/mypage/ui/cancel_subscription.dart';
 import 'package:ecommerece_app/features/mypage/ui/delete_account_screen.dart';
 import 'package:ecommerece_app/features/navBar/nav_bar.dart';
-import 'package:ecommerece_app/features/review/ui/exchange_or_refund.dart';
 import 'package:ecommerece_app/features/review/ui/review_screen.dart';
-import 'package:ecommerece_app/features/review/ui/track_order.dart';
-import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:ecommerece_app/features/shop/shop_search.dart';
 import 'package:ecommerece_app/landing.dart';
 import 'package:flutter/material.dart';
@@ -79,6 +76,28 @@ class AppRouter {
             name: Routes.deleteAccount,
             path: Routes.deleteAccount,
             builder: (context, state) => DeleteAccountScreen(),
+          ),
+          GoRoute(
+            name: Routes.buyNowScreen,
+            path: Routes.buyNowScreen,
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              if (extra == null ||
+                  !extra.containsKey('product') ||
+                  !extra.containsKey('quantity') ||
+                  !extra.containsKey('price')) {
+                return Scaffold(
+                  body: Center(
+                    child: Text('잘못된 접근입니다. (Missing Buy Now arguments)'),
+                  ),
+                );
+              }
+              return BuyNow(
+                product: extra['product'],
+                quantity: extra['quantity'],
+                price: extra['price'],
+              );
+            },
           ),
         ],
       ),

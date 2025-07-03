@@ -7,6 +7,7 @@ import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart'
 import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
 import 'package:flutter/material.dart';
 
+
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -19,13 +20,26 @@ class _SignupScreenState extends State<SignupScreen> {
   final emailController = TextEditingController();
   final nameController = TextEditingController();
   final paymentInfoController = TextEditingController();
+  final tagController = TextEditingController();
+  final phoneController = TextEditingController();
+
   final _formKey = GlobalKey<FormState>();
-  IconData iconPassword = Icons.visibility;
   bool obscurePassword = true;
   bool signUpRequired = false;
   String imgUrl = '';
   String error = '';
   final fireBaseRepo = FirebaseUserRepo();
+
+  @override
+  void dispose() {
+    passwordController.dispose();
+    emailController.dispose();
+    nameController.dispose();
+    paymentInfoController.dispose();
+    tagController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -92,6 +106,46 @@ class _SignupScreenState extends State<SignupScreen> {
                         },
                       ),
                       verticalSpace(20),
+                      Text('태그', style: TextStyles.abeezee16px400wPblack),
+                      verticalSpace(8),
+                      UnderlineTextField(
+                        controller: tagController,
+                        hintText: '예: pangi123',
+                        obscureText: false,
+                        keyboardType: TextInputType.text,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return '태그를 입력하세요';
+                          } else if (val.length > 30) {
+                            return '태그가 너무 깁니다';
+                          }
+                          // No need to check uniqueness here, do it before signup
+                          return null;
+                        },
+                      ),
+                      verticalSpace(20),
+                      Text('전화번호', style: TextStyles.abeezee16px400wPblack),
+                      verticalSpace(8),
+                      UnderlineTextField(
+                        controller: phoneController,
+                        hintText: '전화번호를 입력하세요',
+                        obscureText: false,
+                        keyboardType: TextInputType.phone,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return '전화번호를 입력하세요';
+                          }
+                          // Korean phone number: 010-xxxx-xxxx or 010xxxxxxxx
+                          final koreanReg = RegExp(
+                            r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
+                          );
+                          if (!koreanReg.hasMatch(val)) {
+                            return '유효한 한국 전화번호를 입력하세요';
+                          }
+                          return null;
+                        },
+                      ),
+                      verticalSpace(20),
                       Text('이메일', style: TextStyles.abeezee16px400wPblack),
                       verticalSpace(8),
                       UnderlineTextField(
@@ -122,14 +176,13 @@ class _SignupScreenState extends State<SignupScreen> {
                           onPressed: () {
                             setState(() {
                               obscurePassword = !obscurePassword;
-                              if (obscurePassword) {
-                                iconPassword = Icons.visibility_off;
-                              } else {
-                                iconPassword = Icons.visibility;
-                              }
                             });
                           },
-                          icon: Icon(iconPassword),
+                          icon: Icon(
+                            obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
                         ),
                         validator: (val) {
                           if (val!.isEmpty) {
@@ -195,7 +248,8 @@ class _SignupScreenState extends State<SignupScreen> {
                       ? myUser.url =
                           "https://i.ibb.co/6kmLx2D/mypage-avatar.png"
                       : myUser.url = imgUrl;
-
+                  myUser.tag = tagController.text;
+                  myUser.phoneNumber = phoneController.text;
                   var result = await fireBaseRepo.signUp(
                     myUser,
                     passwordController.text,

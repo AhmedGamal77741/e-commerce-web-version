@@ -13,7 +13,10 @@ class PricePoint {
   }
 
   factory PricePoint.fromMap(Map<String, dynamic> map) {
-    return PricePoint(quantity: map['quantity'], price: map['price']);
+    return PricePoint(
+      quantity: (map['quantity'] as num).toInt(),
+      price: (map['price'] as num).toInt(),
+    );
   }
 }
 

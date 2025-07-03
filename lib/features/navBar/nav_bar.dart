@@ -1,5 +1,6 @@
 import 'package:ecommerece_app/features/cart/cart.dart';
 import 'package:ecommerece_app/features/home/home_screen.dart';
+import 'package:ecommerece_app/features/mypage/ui/my_page_screen.dart';
 import 'package:ecommerece_app/features/review/ui/review_screen.dart';
 import 'package:ecommerece_app/features/shop/shop.dart';
 import 'package:ecommerece_app/landing.dart';
@@ -15,24 +16,39 @@ class NavBar extends StatefulWidget {
 class _NavBarState extends State<NavBar> {
   int _selectedIndex = 0;
 
-  final List<Widget> widgetOptions = [
-    HomeScreen(),
-    Shop(),
-    Cart(),
-    ReviewScreen(),
-    LandingScreen(),
-  ];
+  // Use a non-static controller and re-create HomeScreen on tab switch to ensure controller is always attached
+  final ScrollController homeScrollController = ScrollController();
+  List<Widget> widgetOptions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    widgetOptions = [
+      HomeScreen(scrollController: homeScrollController),
+      Shop(),
+      Cart(),
+      ReviewScreen(),
+      LandingScreen(),
+    ];
+  }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (_selectedIndex == index && index == 0) {
+      if (homeScrollController.hasClients) {
+        homeScrollController.animateTo(0,
+            duration: Duration(milliseconds: 300), curve: Curves.easeInOut);
+      }
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: widgetOptions.elementAt(_selectedIndex),
+      body: IndexedStack(index: _selectedIndex, children: widgetOptions),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
         showSelectedLabels: true,

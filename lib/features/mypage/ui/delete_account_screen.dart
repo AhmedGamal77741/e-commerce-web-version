@@ -119,6 +119,15 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
 
                   try {
                     await docRef.set(deleteData);
+                    // Delete all subscriptions for this user after successful delete request
+                    final subs =
+                        await FirebaseFirestore.instance
+                            .collection('subscriptions')
+                            .where('userId', isEqualTo: userId)
+                            .get();
+                    for (final doc in subs.docs) {
+                      await doc.reference.delete();
+                    }
                     context.pop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('탈퇴 사유가 저장되었습니다.')),

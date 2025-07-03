@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
@@ -8,8 +9,8 @@ import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:ecommerece_app/features/home/models/comment_model.dart';
 import 'package:ecommerece_app/features/home/widgets/comment_item.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
 
 class Comments extends StatefulWidget {
@@ -24,8 +25,9 @@ class _CommentsState extends State<Comments> {
   bool liked = false;
   final TextEditingController _commentController = TextEditingController();
   bool _isSubmitting = false;
-  MyUser? currentUser = MyUser(userId: "", email: "", name: "", url: "");
+  final currentUser = FirebaseAuth.instance.currentUser;
   bool _isLoading = true;
+  String? postAuthorId;
   @override
   void dispose() {
     _commentController.dispose();
@@ -35,14 +37,27 @@ class _CommentsState extends State<Comments> {
   void initState() {
     super.initState();
     Provider.of<PostsProvider>(context, listen: false).startListening();
+    _loadData();
+    _getPostAuthorId();
+  }
 
-    _loadData(); // Call the async function when widget initializes
+  Future<void> _getPostAuthorId() async {
+    // Get the post's authorId from Firestore
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('posts')
+            .doc(widget.postId)
+            .get();
+    if (doc.exists) {
+      setState(() {
+        postAuthorId = (doc.data() as Map<String, dynamic>)['userId'];
+      });
+    }
   }
 
   // Async function that uses await
   Future<void> _loadData() async {
     try {
-      currentUser = await FirebaseUserRepo().user.first;
       setState(() {
         _isLoading = false;
       });
@@ -99,7 +114,19 @@ class _CommentsState extends State<Comments> {
                 children: [
                   Padding(
                     padding: EdgeInsets.only(right: 10),
-                    child: PostItem(postId: widget.postId, fromComments: true),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: PostItem(
+                            postId: widget.postId,
+                            fromComments: true,
+                            showMoreButton:
+                                false, // Hide the More button in comments context
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Divider(height: 50),
                   Row(
@@ -213,7 +240,7 @@ class _CommentsState extends State<Comments> {
                     height: 30,
                     decoration: ShapeDecoration(
                       image: DecorationImage(
-                        image: NetworkImage(currentUser!.url.toString()),
+                        image: NetworkImage(currentUser!.photoURL.toString()),
                         fit: BoxFit.cover,
                       ),
                       shape: OvalBorder(),
