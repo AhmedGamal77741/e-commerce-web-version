@@ -70,6 +70,20 @@ class _ItemDetailsState extends State<ItemDetails> {
 
     final formatCurrency = NumberFormat('#,###');
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.of(context).pushReplacementNamed('/shop');
+            }
+          },
+        ),
+      ),
       body: ListView(
         children: [
           SizedBox(
@@ -413,7 +427,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                     );
                     if (mounted) {
                       // Check if the widget is still in the tree
-                      Navigation(context).pop();
+                      Navigator.of(context).pop();
                     }
                   }
                 },

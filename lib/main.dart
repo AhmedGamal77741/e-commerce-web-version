@@ -15,11 +15,6 @@ void main() async {
   //setUrlStrategy(PathUrlStrategy());
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.debug, // Use PlayIntegrity for production
-    appleProvider:
-        AppleProvider.debug, // Use DeviceCheck/AppAttest for production
-  );
 
   runApp(
     MultiProvider(
