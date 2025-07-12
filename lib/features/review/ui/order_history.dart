@@ -187,8 +187,6 @@ class _OrderHistoryState extends State<OrderHistory> {
                     },
                   );
                 },
-                shrinkWrap: true,
-                physics: NeverScrollableScrollPhysics(),
               ),
             );
           },
