@@ -1,7 +1,6 @@
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
-import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/review/ui/widgets/exchage_body.dart';
 import 'package:ecommerece_app/features/review/ui/widgets/refund_body.dart';
 import 'package:ecommerece_app/features/review/ui/widgets/req_button.dart';

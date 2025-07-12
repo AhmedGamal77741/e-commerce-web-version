@@ -3,17 +3,17 @@ import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
-import 'package:ecommerece_app/core/widgets/underline_text_filed.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:flutter/material.dart';
 
 class RefundBody extends StatelessWidget {
   final reasonController = TextEditingController();
-  final accountNumberController = TextEditingController();
-  final bankController = TextEditingController();
-  final accountOwnerController = TextEditingController();
+  // final accountNumberController = TextEditingController();
+  // final bankController = TextEditingController();
+  // final accountOwnerController = TextEditingController();
   final String userId;
   final String orderId;
+
   final _formKey = GlobalKey<FormState>();
   RefundBody({super.key, required this.userId, required this.orderId});
 
@@ -66,72 +66,72 @@ class RefundBody extends StatelessWidget {
               ],
             ),
           ),
-          verticalSpace(30),
-          Container(
-            decoration: ShapeDecoration(
-              color: ColorsManager.white,
-              shape: RoundedRectangleBorder(
-                side: BorderSide(width: 1, color: ColorsManager.primary100),
-                borderRadius: BorderRadius.circular(25),
-              ),
-            ),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('계좌번호', style: TextStyles.abeezee16px400wPblack),
-                  UnderlineTextField(
-                    controller: accountNumberController,
-                    hintText: '입력',
-                    obscureText: false,
-                    keyboardType: TextInputType.number,
-                    validator: (val) {
-                      if (val!.isEmpty) {
-                        return '이 필드를 작성해 주세요';
-                      } else if (val.length > 30) {
-                        return '이름이 너무 깁니다';
-                      }
-                      return null;
-                    },
-                  ),
-                  verticalSpace(15),
-                  Text('은행', style: TextStyles.abeezee16px400wPblack),
-                  UnderlineTextField(
-                    controller: bankController,
-                    hintText: '입력',
-                    obscureText: false,
-                    keyboardType: TextInputType.text,
-                    validator: (val) {
-                      if (val!.isEmpty) {
-                        return '이 필드를 작성해 주세요';
-                      } else if (val.length > 30) {
-                        return '이름이 너무 깁니다';
-                      }
-                      return null;
-                    },
-                  ),
-                  verticalSpace(15),
-                  Text('예금주', style: TextStyles.abeezee16px400wPblack),
-                  UnderlineTextField(
-                    controller: accountOwnerController,
-                    hintText: '입력',
-                    obscureText: false,
-                    keyboardType: TextInputType.name,
-                    validator: (val) {
-                      if (val!.isEmpty) {
-                        return '이 필드를 작성해 주세요';
-                      } else if (val.length > 30) {
-                        return '이름이 너무 깁니다';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
           verticalSpace(50),
+          // Container(
+          //   decoration: ShapeDecoration(
+          //     color: ColorsManager.white,
+          //     shape: RoundedRectangleBorder(
+          //       side: BorderSide(width: 1, color: ColorsManager.primary100),
+          //       borderRadius: BorderRadius.circular(25),
+          //     ),
+          //   ),
+          //   child: Padding(
+          //     padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 20),
+          //     child: Column(
+          //       crossAxisAlignment: CrossAxisAlignment.start,
+          //       children: [
+          //         Text('계좌번호', style: TextStyles.abeezee16px400wPblack),
+          //         UnderlineTextField(
+          //           controller: accountNumberController,
+          //           hintText: '입력',
+          //           obscureText: false,
+          //           keyboardType: TextInputType.number,
+          //           validator: (val) {
+          //             if (val!.isEmpty) {
+          //               return '이 필드를 작성해 주세요';
+          //             } else if (val.length > 30) {
+          //               return '이름이 너무 깁니다';
+          //             }
+          //             return null;
+          //           },
+          //         ),
+          //         verticalSpace(15),
+          //         Text('은행', style: TextStyles.abeezee16px400wPblack),
+          //         UnderlineTextField(
+          //           controller: bankController,
+          //           hintText: '입력',
+          //           obscureText: false,
+          //           keyboardType: TextInputType.text,
+          //           validator: (val) {
+          //             if (val!.isEmpty) {
+          //               return '이 필드를 작성해 주세요';
+          //             } else if (val.length > 30) {
+          //               return '이름이 너무 깁니다';
+          //             }
+          //             return null;
+          //           },
+          //         ),
+          //         verticalSpace(15),
+          //         Text('예금주', style: TextStyles.abeezee16px400wPblack),
+          //         UnderlineTextField(
+          //           controller: accountOwnerController,
+          //           hintText: '입력',
+          //           obscureText: false,
+          //           keyboardType: TextInputType.name,
+          //           validator: (val) {
+          //             if (val!.isEmpty) {
+          //               return '이 필드를 작성해 주세요';
+          //             } else if (val.length > 30) {
+          //               return '이름이 너무 깁니다';
+          //             }
+          //             return null;
+          //           },
+          //         ),
+          //       ],
+          //     ),
+          //   ),
+          // ),
+          // verticalSpace(50),
           WideTextButton(
             txt: '요청하기',
             color: ColorsManager.primary500,
@@ -140,19 +140,16 @@ class RefundBody extends StatelessWidget {
               if (!_formKey.currentState!.validate()) return;
               final docRef =
                   FirebaseFirestore.instance.collection('refunds').doc();
-              final exchangeId = docRef.id;
-              final exchangeData = {
-                'exchangeId': exchangeId,
+              final refundId = docRef.id;
+              final refundData = {
+                'refundId': refundId,
                 'userId': userId,
                 'orderId': orderId,
                 'reason': reasonController.text.trim(),
-                'accountNumber': accountNumberController.text.trim(),
-                'bank': bankController.text.trim(),
-                'accountOwner': accountOwnerController.text.trim(),
                 'createdAt': DateTime.now().toIso8601String(),
               };
               try {
-                await docRef.set(exchangeData);
+                await docRef.set(refundData);
                 await FirebaseFirestore.instance
                     .collection('orders')
                     .doc(orderId)
