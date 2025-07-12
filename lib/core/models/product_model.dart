@@ -35,6 +35,8 @@ class Product {
   final String? imgUrl;
   final List<String?> imgUrls;
   List<String> favBy = [];
+  final String? deliveryManagerId;
+
   Product({
     required this.product_id,
     required this.productName,
@@ -50,6 +52,7 @@ class Product {
     required this.imgUrls,
     required this.pricePoints,
     required this.favBy,
+    required this.deliveryManagerId,
   });
 
   factory Product.fromMap(Map<String, dynamic> map) {
@@ -77,6 +80,7 @@ class Product {
           [],
       freeShipping: map['freeShipping'] ?? false,
       favBy: List<String>.from(map['favBy'] ?? []),
+      deliveryManagerId: map['deliveryManagerId'] ?? '',
     );
   }
 
@@ -96,6 +100,7 @@ class Product {
       'freeShipping': freeShipping,
       'pricePoints': pricePoints.map((pp) => pp.toMap()).toList(),
       'favBy': favBy,
+      'deliveryManagerId': deliveryManagerId,
     };
   }
 }
