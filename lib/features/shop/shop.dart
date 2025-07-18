@@ -191,12 +191,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         elevation: 0,
         backgroundColor: Colors.black,
         shape: const CircleBorder(),
-        child: FittedBox(
-          child: ImageIcon(
-            AssetImage('assets/010no.png'),
-            color: Colors.white,
-            size: 60,
-          ),
+        child: ImageIcon(
+          AssetImage('assets/010no.png'),
+          color: Colors.white,
+          size: 60,
         ),
       ),
       body: Padding(
