@@ -191,7 +191,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         shape: const CircleBorder(),
-        child: Image.asset('assets/010.png'),
+        child: ImageIcon(AssetImage('assets/010.png')),
       ),
       body: Padding(
         padding: EdgeInsets.symmetric(horizontal: 12),
