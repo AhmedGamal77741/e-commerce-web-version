@@ -1,11 +1,7 @@
-import 'dart:io';
-
 import 'package:ecommerece_app/features/chat/services/chat_service.dart';
 import 'package:ecommerece_app/features/chat/services/friends_service.dart';
 import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:flutter/material.dart';
-
-import 'package:image_picker/image_picker.dart';
 
 class ExpandableFAB extends StatefulWidget {
   const ExpandableFAB({Key? key}) : super(key: key);
@@ -172,41 +168,137 @@ class _ExpandableFABState extends State<ExpandableFAB>
     void Function(String userId) onBlock,
   ) async {
     final controller = TextEditingController();
+    bool manageMode = false;
+    List<Map<String, String>> blockedFriends = [];
 
     await showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
-            backgroundColor: Colors.white,
-            title: const Text('차단 친구', style: TextStyle(color: Colors.black)),
-            content: TextField(
-              controller: controller,
-              style: const TextStyle(color: Colors.black),
-              decoration: const InputDecoration(
-                labelText: '유저 ID 또는 이름',
-                labelStyle: TextStyle(color: Colors.black54),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.black26),
+          (context) => StatefulBuilder(
+            builder:
+                (context, setState) => AlertDialog(
+                  backgroundColor: Colors.white,
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('차단 친구', style: TextStyle(color: Colors.black)),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.black,
+                        ),
+                        onPressed: () async {
+                          if (!manageMode) {
+                            blockedFriends =
+                                await FriendsService().getBlockedFriends();
+                          }
+                          setState(() {
+                            manageMode = !manageMode;
+                          });
+                        },
+                        child: Text(
+                          manageMode ? '차단' : '차단 친구 관리',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  content:
+                      manageMode
+                          ? SizedBox(
+                            width: 300,
+                            child:
+                                blockedFriends.isEmpty
+                                    ? Text(
+                                      '차단된 친구가 없습니다.',
+                                      style: TextStyle(color: Colors.black54),
+                                    )
+                                    : ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: blockedFriends.length,
+                                      itemBuilder: (context, idx) {
+                                        final user = blockedFriends[idx];
+                                        return ListTile(
+                                          title: Text(
+                                            user['name'] ??
+                                                user['userId'] ??
+                                                '',
+                                            style: TextStyle(
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                          subtitle:
+                                              user['userId'] != null
+                                                  ? Text(
+                                                    user['userId']!,
+                                                    style: TextStyle(
+                                                      color: Colors.black54,
+                                                      fontSize: 12,
+                                                    ),
+                                                  )
+                                                  : null,
+                                          trailing: TextButton(
+                                            onPressed: () async {
+                                              await FriendsService()
+                                                  .unblockFriend(
+                                                    user['userId']!,
+                                                  );
+                                              blockedFriends =
+                                                  await FriendsService()
+                                                      .getBlockedFriends();
+                                              setState(() {});
+                                            },
+                                            child: Text(
+                                              '해제',
+                                              style: TextStyle(
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                          )
+                          : TextField(
+                            controller: controller,
+                            style: const TextStyle(color: Colors.black),
+                            decoration: const InputDecoration(
+                              labelText: '유저 ID 또는 이름',
+                              labelStyle: TextStyle(color: Colors.black54),
+                              enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.black26),
+                              ),
+                              focusedBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.black),
+                              ),
+                            ),
+                          ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        '취소',
+                        style: TextStyle(color: Colors.black),
+                      ),
+                    ),
+                    if (!manageMode)
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.black,
+                        ),
+                        onPressed: () {
+                          onBlock(controller.text.trim());
+                          Navigator.pop(context);
+                        },
+                        child: const Text(
+                          '차단',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                  ],
                 ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.black),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('취소', style: TextStyle(color: Colors.black)),
-              ),
-              TextButton(
-                style: TextButton.styleFrom(backgroundColor: Colors.black),
-                onPressed: () {
-                  onBlock(controller.text.trim());
-                  Navigator.pop(context);
-                },
-                child: const Text('차단', style: TextStyle(color: Colors.white)),
-              ),
-            ],
           ),
     );
   }

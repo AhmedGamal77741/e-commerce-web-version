@@ -4,6 +4,61 @@ import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart'
 import 'package:firebase_auth/firebase_auth.dart';
 
 class FriendsService {
+  /// Returns a list of blocked friends for the current user as a List<Map<String, String>>
+  Future<List<Map<String, String>>> getBlockedFriends() async {
+    try {
+      final userDoc =
+          await _firestore.collection('users').doc(currentUserId).get();
+      if (!userDoc.exists) return [];
+      final user = MyUser.fromDocument(userDoc.data()!);
+      if (user.blocked == null || user.blocked!.isEmpty) return [];
+      final blockedIds = user.blocked!;
+      if (blockedIds.isEmpty) return [];
+      final blockedQuery =
+          await _firestore
+              .collection('users')
+              .where('userId', whereIn: blockedIds)
+              .get();
+      return blockedQuery.docs
+          .map(
+            (doc) => {
+              'userId': (doc['userId'] ?? '').toString(),
+              'name': (doc['name'] ?? '').toString(),
+              'url': (doc['url'] ?? '').toString(),
+            },
+          )
+          .toList();
+    } catch (e) {
+      print('Error fetching blocked friends: $e');
+      return [];
+    }
+  }
+
+  /// Unblocks a friend by userId for the current user
+  Future<bool> unblockFriend(String userId) async {
+    try {
+      // Remove from user's blocked list
+      await _firestore.collection('users').doc(currentUserId).update({
+        'blocked': FieldValue.arrayRemove([userId]),
+      });
+      // Remove from blocks collection if exists
+      final blocksQuery =
+          await _firestore
+              .collection('blocks')
+              .where('blockedBy', isEqualTo: currentUserId)
+              .where('blockedUserId', isEqualTo: userId)
+              .get();
+      for (final doc in blocksQuery.docs) {
+        await doc.reference.delete();
+      }
+      print('User unblocked successfully!');
+      return true;
+    } catch (e) {
+      print('Error unblocking user: $e');
+      return false;
+    }
+  }
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -16,7 +71,7 @@ class FriendsService {
           await _firestore.collection('users').doc(currentUserId).get();
       final currentUser = MyUser.fromDocument(currentUserDoc.data()!);
 
-      if (currentUser.tag == friendName) {
+      if (currentUser.name == friendName) {
         throw Exception('Cannot add yourself as a friend');
       }
 
@@ -24,7 +79,7 @@ class FriendsService {
       final userQuery =
           await _firestore
               .collection('users')
-              .where('tag', isEqualTo: friendName)
+              .where('name', isEqualTo: friendName)
               .limit(1)
               .get();
 
@@ -67,7 +122,7 @@ class FriendsService {
           await _firestore.collection('users').doc(currentUserId).get();
       final currentUser = MyUser.fromDocument(currentUserDoc.data()!);
 
-      if (currentUser.tag == friendName) {
+      if (currentUser.name == friendName) {
         throw Exception('Cannot block yourself');
       }
 
@@ -75,7 +130,7 @@ class FriendsService {
       final userQuery =
           await _firestore
               .collection('users')
-              .where('userId', isEqualTo: friendName)
+              .where('name', isEqualTo: friendName)
               .limit(1)
               .get();
 
@@ -85,7 +140,7 @@ class FriendsService {
 
       final friendDoc = userQuery.docs.first;
       final friendId = friendDoc['userId'];
-      // Check if already friends
+      // Check if already blocked
       if (currentUser.blocked!.contains(friendId)) {
         throw Exception('Already blocked this user');
       }
@@ -158,6 +213,21 @@ class FriendsService {
               )
               .toList();
         });
+  }
+
+  Stream<List<MyUser>> getBrandsStream() {
+    return _firestore.collection('users').snapshots().asyncMap((userDoc) async {
+      final friendsQuery =
+          await _firestore
+              .collection('users')
+              .where('type', isEqualTo: 'brand')
+              .get();
+
+      // Filter out blocked users in Dart
+      return friendsQuery.docs
+          .map((doc) => MyUser.fromDocument(doc.data()))
+          .toList();
+    });
   }
 
   // Get friends count

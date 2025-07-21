@@ -16,7 +16,7 @@ class MyUser {
   final int followerCount;
   final int followingCount;
   String? phoneNumber;
-  String? tag;
+
   String? bio;
   String type;
   MyUser({
@@ -36,7 +36,7 @@ class MyUser {
     this.friendRequestsReceived = const [],
     this.followerCount = 0,
     this.followingCount = 0,
-    this.tag,
+
     this.bio,
     this.phoneNumber,
     this.type = 'user',
@@ -59,7 +59,7 @@ class MyUser {
     friendRequestsReceived: const [],
     followerCount: 0,
     followingCount: 0,
-    tag: '',
+
     bio: '',
     phoneNumber: '',
     type: 'user',
@@ -84,7 +84,6 @@ class MyUser {
       'friendRequestsReceived': friendRequestsReceived,
       'followerCount': followerCount,
       'followingCount': followingCount,
-      'tag': tag,
       'bio': bio,
       'phoneNumber': phoneNumber,
       'type': type,
@@ -115,7 +114,6 @@ class MyUser {
       ),
       followerCount: doc['followerCount'] ?? 0,
       followingCount: doc['followingCount'] ?? 0,
-      tag: doc['tag'] ?? '',
       bio: doc['bio'] ?? '',
       phoneNumber: doc['phoneNumber'] ?? '',
       type: doc['type'] ?? 'user',

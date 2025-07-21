@@ -5,7 +5,6 @@ import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
 
 class MyStory extends StatefulWidget {
@@ -116,12 +115,18 @@ class _MyStoryState extends State<MyStory> {
                   itemCount: userPostIds.length,
                   itemBuilder: (context, index) {
                     final postId = userPostIds[index];
-                    return Column(
-                      children: [
-                        if (index != 0)
-                          Divider(color: ColorsManager.primary100),
-                        PostItem(postId: postId, fromComments: false),
-                      ],
+                    return Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Column(
+                        children: [
+                          if (index != 0)
+                            Divider(color: ColorsManager.primary100),
+                          PostItem(postId: postId, fromComments: false),
+                        ],
+                      ),
                     );
                   },
                 );

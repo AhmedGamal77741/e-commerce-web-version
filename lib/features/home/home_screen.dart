@@ -14,6 +14,7 @@ import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_po
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -103,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen>
                         child: Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            ImageIcon(AssetImage('assets/005 3.png'), size: 21),
+                            ImageIcon(AssetImage('assets/005 3.png'), size: 24),
                             if (hasUnread)
                               Positioned(
                                 left: -10,
@@ -226,6 +227,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
+                            SizedBox(width: 10),
                             Flexible(
                               child: InkWell(
                                 onTap: () {
@@ -240,9 +242,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                   height: 55,
                                   decoration: ShapeDecoration(
                                     image: DecorationImage(
-                                      image: AssetImage(
-                                        'assets/mypage_icon.png',
-                                      ),
+                                      image: AssetImage('assets/avatar.png'),
                                       fit: BoxFit.cover,
                                     ),
                                     shape: OvalBorder(),
@@ -272,6 +272,8 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                         '게스트 사용자',
                                         style: TextStyles.abeezee16px400wPblack,
                                       ),
+                                      SizedBox(height: 10),
+
                                       FutureBuilder(
                                         future:
                                             FirebaseFirestore.instance
@@ -321,7 +323,12 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                     if (post['postId'] == null) {
                       post['postId'] = posts[index - 1].id;
                     }
-                    return GuestPostItem(post: post);
+                    return Column(
+                      children: [
+                        GuestPostItem(post: post),
+                        SizedBox(height: 16),
+                      ],
+                    );
                   }
                 },
               );
@@ -372,7 +379,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                     itemCount: posts.length + 1, // +1 for user info row
                     itemBuilder: (context, index) {
                       if (index == 0) {
-                        // User info row
+                        // User info row for regular (non-premium) member, now with search feature
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
@@ -380,6 +387,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
+                                SizedBox(width: 10),
                                 Flexible(
                                   child: InkWell(
                                     onTap: () {
@@ -406,68 +414,79 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                 ),
                                 Expanded(
                                   flex: 4,
-                                  child: InkWell(
-                                    onTap: () {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text("프리미엄 가입 후 이용가능합니다"),
-                                        ),
-                                      );
-                                    },
-                                    child: Padding(
-                                      padding: EdgeInsets.only(right: 10),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            currentUser.name,
-                                            style:
-                                                TextStyles
-                                                    .abeezee16px400wPblack,
-                                          ),
-                                          FutureBuilder(
-                                            future:
-                                                FirebaseFirestore.instance
-                                                    .collection('widgets')
-                                                    .doc('placeholders')
-                                                    .get(),
-                                            builder: (context, snapshot) {
-                                              if (snapshot.connectionState ==
-                                                  ConnectionState.waiting) {
-                                                return const Center(
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        color: Colors.black,
-                                                      ),
-                                                );
-                                              }
-                                              if (snapshot.hasError) {
-                                                return const Center(
-                                                  child: Text('Error'),
-                                                );
-                                              }
-                                              return Text(
-                                                snapshot.data!
-                                                    .data()!['outerPlaceholderText'],
-                                                style: TextStyle(
-                                                  color: const Color(
-                                                    0xFF5F5F5F,
+                                  child: Padding(
+                                    padding: EdgeInsets.only(right: 10),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              currentUser.name,
+                                              style:
+                                                  TextStyles
+                                                      .abeezee16px400wPblack,
+                                            ),
+                                            Spacer(),
+                                            InkWell(
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder:
+                                                        (context) =>
+                                                            HomeSearch(),
                                                   ),
-                                                  fontSize: 13,
-                                                  fontFamily: 'NotoSans',
-                                                  fontWeight: FontWeight.w400,
-                                                ),
+                                                );
+                                              },
+                                              child: ImageIcon(
+                                                AssetImage('assets/search.png'),
+                                                color: Colors.black,
+                                                size: 25,
+                                              ),
+                                            ),
+                                            SizedBox(width: 5),
+                                          ],
+                                        ),
+                                        SizedBox(height: 10),
+                                        FutureBuilder(
+                                          future:
+                                              FirebaseFirestore.instance
+                                                  .collection('widgets')
+                                                  .doc('placeholders')
+                                                  .get(),
+                                          builder: (context, snapshot) {
+                                            if (snapshot.connectionState ==
+                                                ConnectionState.waiting) {
+                                              return const Center(
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.black,
+                                                    ),
                                               );
-                                            },
-                                          ),
-                                        ],
-                                      ),
+                                            }
+                                            if (snapshot.hasError) {
+                                              return const Center(
+                                                child: Text('Error'),
+                                              );
+                                            }
+                                            return Text(
+                                              snapshot.data!
+                                                  .data()!['outerPlaceholderText'],
+                                              style: TextStyle(
+                                                color: const Color(0xFF5F5F5F),
+                                                fontSize: 13,
+                                                fontFamily: 'NotoSans',
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -483,9 +502,12 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                         if (post['postId'] == null) {
                           post['postId'] = posts[index - 1].id;
                         }
-                        return GuestPostItem(post: post);
-                        // Or, if you want to use PostItem:
-                        // return PostItem(postId: post['postId'], fromComments: false, canInteract: false);
+                        return Column(
+                          children: [
+                            GuestPostItem(post: post),
+                            SizedBox(height: 16),
+                          ],
+                        );
                       }
                     },
                   );
@@ -544,6 +566,8 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
+                              SizedBox(width: 10),
+
                               Flexible(
                                 child: InkWell(
                                   onTap: () {
@@ -613,11 +637,37 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          currentUser.name.toString(),
-                                          style:
-                                              TextStyles.abeezee16px400wPblack,
+                                        Row(
+                                          children: [
+                                            Text(
+                                              currentUser.name.toString(),
+                                              style:
+                                                  TextStyles
+                                                      .abeezee16px400wPblack,
+                                            ),
+                                            Spacer(),
+                                            InkWell(
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder:
+                                                        (context) =>
+                                                            HomeSearch(),
+                                                  ),
+                                                );
+                                              },
+                                              child: ImageIcon(
+                                                AssetImage('assets/search.png'),
+                                                color: Colors.black,
+                                                size: 25,
+                                              ),
+                                            ),
+                                            SizedBox(width: 5),
+                                          ],
                                         ),
+                                        SizedBox(height: 10),
+
                                         FutureBuilder(
                                           future:
                                               FirebaseFirestore.instance
@@ -656,17 +706,6 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                   ),
                                 ),
                               ),
-                              IconButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => HomeSearch(),
-                                    ),
-                                  );
-                                },
-                                icon: Icon(Icons.search, size: 30),
-                              ),
                             ],
                           ),
                           verticalSpace(5),
@@ -677,9 +716,11 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                       final post =
                           filteredPosts[index - 1].data()
                               as Map<String, dynamic>;
-                      return PostItem(
-                        postId: post['postId'],
-                        fromComments: false,
+                      return Column(
+                        children: [
+                          PostItem(postId: post['postId'], fromComments: false),
+                          SizedBox(height: 16),
+                        ],
                       );
                     }
                   },

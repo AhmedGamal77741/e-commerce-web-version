@@ -13,16 +13,47 @@ import 'package:ecommerece_app/features/shop/shop_search.dart';
 import 'package:ecommerece_app/landing.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_comments.dart';
 
 class AppRouter {
   static final router = GoRouter(
     initialLocation: Routes.navBar,
     routes: [
       GoRoute(
+        name: 'guestCommentsScreen',
+        path: '/guest_comment',
+        builder: (context, state) {
+          final postId = state.uri.queryParameters['postId'] ?? '';
+          return FutureBuilder<DocumentSnapshot>(
+            future:
+                FirebaseFirestore.instance
+                    .collection('posts')
+                    .doc(postId)
+                    .get(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (!snapshot.hasData || snapshot.data?.data() == null) {
+                return const Scaffold(
+                  body: Center(child: Text('Post not found')),
+                );
+              }
+              final postMap = snapshot.data!.data() as Map<String, dynamic>;
+              postMap['postId'] = postId;
+              postMap['fromComments'] = true;
+              return GuestComments(post: postMap);
+            },
+          );
+        },
+      ),
+      GoRoute(
         name: Routes.navBar,
         path: Routes.navBar, // '/nav-bar'
         builder: (context, state) => const NavBar(),
-
         routes: [
           GoRoute(
             name: Routes.reviewScreen,

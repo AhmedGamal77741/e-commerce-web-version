@@ -11,12 +11,13 @@ import 'package:ecommerece_app/features/home/widgets/comment_item.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'package:provider/provider.dart';
 
 class Comments extends StatefulWidget {
-  const Comments({super.key, required this.postId});
+  const Comments({super.key, required this.postId, this.canInteract = true});
   final String postId;
-
+  final bool canInteract;
   @override
   State<Comments> createState() => _CommentsState();
 }
@@ -118,67 +119,76 @@ class _CommentsState extends State<Comments> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: PostItem(
-                            postId: widget.postId,
-                            fromComments: true,
-                            showMoreButton:
-                                false, // Hide the More button in comments context
+                          child: Selector<PostsProvider, List<Comment>>(
+                            selector:
+                                (_, provider) =>
+                                    provider.getComments(widget.postId),
+                            builder: (context, comments, child) {
+                              // Only pass commentCount, do not change any styling/layout
+                              return PostItem(
+                                postId: widget.postId,
+                                fromComments: true,
+                                showMoreButton: false,
+                              );
+                            },
                           ),
                         ),
                       ],
                     ),
                   ),
                   Divider(height: 50),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 10,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.only(left: 20.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: 10,
-                          children: [
-                            Text(
-                              '댓글',
-                              style: TextStyle(
-                                color: const Color(0xFF121212),
-                                fontSize: 16,
-                                fontFamily: 'NotoSans',
-                                fontWeight: FontWeight.w400,
-                                height: 1.40,
-                              ),
+                  Selector<PostsProvider, List<Comment>>(
+                    selector:
+                        (_, provider) => provider.getComments(widget.postId),
+                    builder: (context, comments, child) {
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.only(left: 20.0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '댓글',
+                                  style: TextStyle(
+                                    color: const Color(0xFF121212),
+                                    fontSize: 16,
+                                    fontFamily: 'NotoSans',
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.40,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  comments.length.toString(),
+                                  style: TextStyle(
+                                    color: const Color(0xFF5F5F5F),
+                                    fontSize: 16,
+                                    fontFamily: 'NotoSans',
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.40,
+                                    letterSpacing: -0.09,
+                                  ),
+                                ),
+                              ],
                             ),
-                            Text(
-                              postsProvider
-                                  .getComments(widget.postId)
-                                  .length
-                                  .toString(),
-                              style: TextStyle(
-                                color: const Color(0xFF5F5F5F),
-                                fontSize: 16,
-                                fontFamily: 'NotoSans',
-                                fontWeight: FontWeight.w400,
-                                height: 1.40,
-                                letterSpacing: -0.09,
-                              ),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.only(right: 20.0),
+                            child: InkWell(
+                              onTap: () {
+                                context.pop();
+                              },
+                              child: Icon(Icons.close),
                             ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(right: 20.0),
-                        child: InkWell(
-                          onTap: () {
-                            context.pop();
-                          },
-                          child: Icon(Icons.close),
-                        ),
-                      ),
-                    ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   verticalSpace(30),
                   Selector<PostsProvider, List<Comment>>(
@@ -228,63 +238,62 @@ class _CommentsState extends State<Comments> {
                 ],
               ),
             ),
-
-            Container(
-              height: 60,
-              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-              child: Row(
-                children: [
-                  // Comment icon
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: ShapeDecoration(
-                      image: DecorationImage(
-                        image: NetworkImage(currentUser!.photoURL.toString()),
-                        fit: BoxFit.cover,
-                      ),
-                      shape: OvalBorder(),
-                    ),
-                  ),
-                  SizedBox(width: 10),
-
-                  // Comment input field
-                  Expanded(
-                    flex: 4,
-                    child: TextFormField(
-                      controller: _commentController,
-                      decoration: InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+            if (widget.canInteract)
+              Container(
+                height: 60,
+                padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                child: Row(
+                  children: [
+                    // Comment icon
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: ShapeDecoration(
+                        image: DecorationImage(
+                          image: NetworkImage(currentUser!.photoURL.toString()),
+                          fit: BoxFit.cover,
                         ),
-                        labelText: "댓글 추가",
-                        labelStyle: TextStyles.abeezee16px400wP600,
-                        border: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: ColorsManager.primary600,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: ColorsManager.primary600,
-                          ),
-                        ),
+                        shape: OvalBorder(),
                       ),
                     ),
-                  ),
-                  SizedBox(width: 10),
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(),
-                    icon: Icon(Icons.send),
-                    color: ColorsManager.primary600,
-                    iconSize: 25,
-                    onPressed: _isSubmitting ? null : _submitComment,
-                  ),
-                ],
+                    SizedBox(width: 10),
+                    // Comment input field
+                    Expanded(
+                      flex: 4,
+                      child: TextFormField(
+                        controller: _commentController,
+                        decoration: InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          labelText: "댓글 추가",
+                          labelStyle: TextStyles.abeezee16px400wP600,
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: ColorsManager.primary600,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: ColorsManager.primary600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(),
+                      icon: Icon(Icons.send),
+                      color: ColorsManager.primary600,
+                      iconSize: 25,
+                      onPressed: _isSubmitting ? null : _submitComment,
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),

@@ -8,7 +8,6 @@ import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
 
 class UserInfoContainer extends StatefulWidget {
@@ -209,33 +208,35 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // userId combo
-              Text(
-                '아이디', // Translated to Korean
-                style: TextStyles.abeezee16px400wPblack.copyWith(fontSize: 16),
-              ),
-              SizedBox(height: 5),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: ColorsManager.primary100,
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  (currentUser?.tag != null && currentUser!.tag!.isNotEmpty)
-                      ? currentUser!.tag!
-                      : '지정되지 않음',
-                  style: TextStyles.abeezee16px400wPblack.copyWith(
-                    color: Colors.grey[700],
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              SizedBox(height: 20),
+              // Text(
+              //   '아이디', // Translated to Korean
+              //   style: TextStyles.abeezee16px400wPblack.copyWith(
+              //     fontSize: 16,
+              //   ),
+              // ),
+              // SizedBox(height: 5.h),
+              // Container(
+              //   width: double.infinity,
+              //   padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 8.w),
+              //   decoration: BoxDecoration(
+              //     border: Border(
+              //       bottom: BorderSide(
+              //         color: ColorsManager.primary100,
+              //         width: 1.w,
+              //       ),
+              //     ),
+              //   ),
+              //   child: Text(
+              //     (currentUser?.tag != null && currentUser!.tag!.isNotEmpty)
+              //         ? currentUser!.tag!
+              //         : '지정되지 않음',
+              //     style: TextStyles.abeezee16px400wPblack.copyWith(
+              //       color: Colors.grey[700],
+              //       fontSize: 16,
+              //     ),
+              //   ),
+              // ),
+              // SizedBox(height: 20.h),
 
               // 닉네임 combo
               Text(
@@ -297,7 +298,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
                 obscureText: false,
                 keyboardType: TextInputType.phone,
                 validator: (val) {
-                  if (val == null || val.isEmpty) return null;
+                  if (val!.isEmpty) return null;
                   final koreanReg = RegExp(
                     r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
                   );
@@ -386,7 +387,6 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
                             isUpdatingPhone
                                 ? phoneController.text
                                 : currentUser!.phoneNumber,
-                        tag: currentUser!.tag,
                       );
                       try {
                         if (isUpdatingPassword) {

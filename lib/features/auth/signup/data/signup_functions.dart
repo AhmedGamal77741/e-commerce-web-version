@@ -2,12 +2,24 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 Future<String> uploadImageToFirebaseStorage(XFile? image) async {
   try {
     if (image == null) return "";
     final userId = FirebaseAuth.instance.currentUser!.uid;
+
+    // Compress image before upload
+    final originalBytes = await image.readAsBytes();
+    final compressedBytes = await FlutterImageCompress.compressWithList(
+      originalBytes,
+      minWidth: 200,
+      minHeight: 200,
+      quality: 80,
+      format: CompressFormat.jpeg,
+    );
 
     // Get reference to Firebase Storage location
     final Reference storageRef = FirebaseStorage.instance
@@ -15,15 +27,14 @@ Future<String> uploadImageToFirebaseStorage(XFile? image) async {
         .child('user_profile_images')
         .child('$userId.jpg'); // Using user ID as filename
 
-    // Upload the file
-    final UploadTask uploadTask = storageRef.putData(await image.readAsBytes());
+    // Upload the compressed file
+    final UploadTask uploadTask = storageRef.putData(compressedBytes);
     final TaskSnapshot snapshot = await uploadTask;
 
     // Get download URL
     final String downloadUrl = await snapshot.ref.getDownloadURL();
 
     // Update Firestore and Auth
-
     await FirebaseFirestore.instance.collection('users').doc(userId).update({
       'url': downloadUrl,
     });
@@ -105,7 +116,7 @@ class FirebaseUserRepo {
               throw Exception('비밀번호 업데이트를 위해 다시 로그인해 주세요');
             }
           }
-          throw e; // Rethrow other errors
+          rethrow; // Rethrow other errors
         }
       }
 
@@ -164,7 +175,6 @@ class FirebaseUserRepo {
       if (image != null) {
         await uploadImageToFirebaseStorage(image);
       }
-
       // 4. Update Firebase Auth user's profile (optional, but good for consistency)
       // Do this after successfully saving to Firestore to ensure data consistency
       await userCredential.user!.updateDisplayName(myUser.name);

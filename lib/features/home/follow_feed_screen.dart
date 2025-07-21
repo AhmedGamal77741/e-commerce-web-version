@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/features/home/widgets/following_users_list.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
+import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_item.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -26,85 +27,86 @@ class _FollowingTabState extends State<FollowingTab>
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return const Center(child: Text('내 페이지탭에서 회원가입 후 이용가능합니다'));
-    }
-    // Use StreamBuilder for real-time isSub updates
-    return StreamBuilder<DocumentSnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, authSnapshot) {
+        final user = authSnapshot.data;
+        if (authSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError || !snapshot.hasData) {
-          return const Center(child: Text('오류가 발생했습니다'));
+        if (user == null) {
+          return const Center(child: Text('내 페이지탭에서 회원가입 후 이용가능합니다'));
         }
-        final data = snapshot.data!.data() as Map<String, dynamic>?;
-        final isSub = data?['isSub'] == true;
-        if (!isSub) {
-          return const Center(child: Text('프리미엄 회원만 이용가능합니다'));
-        }
-        final currentUserId = user.uid;
-        return Column(
-          children: [
-            // Following users horizontal list
-            SizedBox(
-              height: 90,
-              child: StreamBuilder<QuerySnapshot>(
-                stream:
-                    FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(currentUserId)
-                        .collection('following')
-                        .orderBy('createdAt', descending: true)
-                        .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return const Center(child: Text('오류가 발생했습니다'));
-                  }
-
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  final followingIds =
-                      snapshot.data!.docs.map((doc) => doc.id).toList();
-
-                  if (followingIds.isEmpty) {
-                    return const Center(child: Text('팔로우한 사용자가 없습니다'));
-                  }
-
-                  return FollowingUsersList(
-                    followingIds: followingIds,
-                    onUserTap: (userId) {
-                      setState(() {
-                        if (selectedUserId == userId) {
-                          selectedUserId = null; // Deselect if tapped again
-                        } else {
-                          selectedUserId = userId;
-                        }
-                      });
+        return StreamBuilder<DocumentSnapshot>(
+          stream:
+              FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              return const Center(child: Text('오류가 발생했습니다'));
+            }
+            final data = snapshot.data!.data() as Map<String, dynamic>?;
+            final isSub = data?['isSub'] == true;
+            final currentUserId = user.uid;
+            return Column(
+              children: [
+                // Following users horizontal list
+                SizedBox(
+                  height: 90,
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream:
+                        FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(currentUserId)
+                            .collection('following')
+                            .orderBy('createdAt', descending: true)
+                            .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return const Center(child: Text('오류가 발생했습니다'));
+                      }
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final followingIds =
+                          snapshot.data!.docs.map((doc) => doc.id).toList();
+                      if (followingIds.isEmpty) {
+                        return const Center(child: Text('팔로우한 사용자가 없습니다'));
+                      }
+                      return FollowingUsersList(
+                        followingIds: followingIds,
+                        onUserTap: (userId) {
+                          setState(() {
+                            if (selectedUserId == userId) {
+                              selectedUserId = null; // Deselect if tapped again
+                            } else {
+                              selectedUserId = userId;
+                            }
+                          });
+                        },
+                        selectedUserId: selectedUserId,
+                      );
                     },
-                    selectedUserId: selectedUserId,
-                  );
-                },
-              ),
-            ),
-            const Divider(height: 1),
-            // Posts from following users
-            Expanded(
-              child: FollowingPostsList(
-                currentUserId: currentUserId,
-                scrollController: _scrollController,
-                selectedUserId: selectedUserId, // Pass here
-              ),
-            ),
-          ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // Posts from following users
+                Expanded(
+                  child: FollowingPostsList(
+                    currentUserId: currentUserId,
+                    scrollController: _scrollController,
+                    selectedUserId: selectedUserId, // Pass here
+                    useGuestPostItem: !isSub,
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -114,13 +116,15 @@ class _FollowingTabState extends State<FollowingTab>
 class FollowingPostsList extends StatelessWidget {
   final String currentUserId;
   final ScrollController scrollController;
-  final String? selectedUserId; // Add this
+  final String? selectedUserId;
+  final bool useGuestPostItem;
 
   FollowingPostsList({
     Key? key,
     required this.currentUserId,
     required this.scrollController,
     this.selectedUserId,
+    this.useGuestPostItem = false,
   }) : super(key: key);
 
   @override
@@ -159,7 +163,13 @@ class FollowingPostsList extends StatelessWidget {
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final postData = posts[index].data() as Map<String, dynamic>;
-            return PostItem(postId: posts[index].id, fromComments: false);
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child:
+                  useGuestPostItem
+                      ? GuestPostItem(post: postData)
+                      : PostItem(postId: posts[index].id, fromComments: false),
+            );
           },
         );
       },

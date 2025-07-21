@@ -14,13 +14,13 @@ class ChatService {
   String get currentUserId => _auth.currentUser?.uid ?? '';
 
   // Create or get direct chat room (updated with friend check, support exception)
-  Future<String?> createDirectChatRoom(String otherUserId) async {
+  Future<String?> createDirectChatRoom(String otherUserId, bool isBrand) async {
     // Allow support chat for everyone
-    const supportUserId = 'lln0z9W5TKcIYXCzxkjrj9iCEqA2';
+    const supportUserId = '4hSVptbp63W7Ctl05FjbVUkOO9u1';
     if (otherUserId != supportUserId) {
       // Check if users are friends
       final areFriends = await _friendsService.areFriends(otherUserId);
-      if (!areFriends) {
+      if (!areFriends && !isBrand) {
         throw Exception('You can only chat with friends');
       }
     }

@@ -133,8 +133,23 @@ class _FriendsScreenState extends State<FriendsScreen>
                   InkWell(
                     onTap: () async {
                       showLoadingDialog(context);
-                      for (String chatId in selectedChatIds) {
-                        await _friendsService.blockFriend(chatId);
+                      // Block selected friends by name (FriendsService expects name)
+                      final allFriends = _friendsService.getFriendsStream();
+                      final friendsList = await allFriends.first;
+                      for (String userId in selectedChatIds) {
+                        final friend = friendsList.firstWhere(
+                          (f) => f.userId == userId,
+                          orElse:
+                              () => MyUser(
+                                userId: userId,
+                                name: userId,
+                                url: '',
+                                type: 'user',
+                                email: '',
+                                lastSeen: DateTime.now(),
+                              ),
+                        );
+                        await _friendsService.blockFriend(friend.name);
                       }
                       Navigator.pop(context);
                       toggleEditMode();
@@ -283,18 +298,30 @@ class _FriendsScreenState extends State<FriendsScreen>
             ),
           ),
         ),
-        ...friends.map((friend) {
-          // Filter by search query
-          if (searchQuery.isNotEmpty &&
-              !friend.name.toLowerCase().contains(searchQuery)) {
-            return const SizedBox.shrink();
-          }
-          return _buildFriendItem(
-            friend: friend,
-            showSubtitle: true,
-            showCheckbox: editMode,
-          );
-        }).toList(),
+        StreamBuilder(
+          stream: _friendsService.getBrandsStream(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || _isSyncing) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final allUsers = snapshot.data ?? [];
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              itemCount: allUsers.length,
+              itemBuilder: (context, index) {
+                return _buildFriendItem(
+                  friend: allUsers[index],
+                  showSubtitle: true,
+                  showCheckbox: editMode,
+                  isBrand: true,
+                );
+              },
+            );
+          },
+        ),
         /*         if (friends.length > 4) ...[
           const SizedBox(height: 16),
           const Divider(height: 1, color: Color(0xFFE5E5E5)),
@@ -314,6 +341,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     required MyUser friend,
     bool showSubtitle = false,
     bool showCheckbox = false,
+    bool isBrand = false,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -322,6 +350,7 @@ class _FriendsScreenState extends State<FriendsScreen>
           try {
             final chatRoomId = await _chatService.createDirectChatRoom(
               friend.userId,
+              isBrand,
             );
             if (chatRoomId != null) {
               Navigator.push(

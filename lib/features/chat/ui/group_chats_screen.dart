@@ -168,7 +168,11 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                     children: [
                       CircleAvatar(
                         radius: 25,
-                        backgroundImage: NetworkImage(chat.groupImage!),
+                        backgroundImage:
+                            (chat.groupImage != null &&
+                                    chat.groupImage!.isNotEmpty)
+                                ? NetworkImage(chat.groupImage!)
+                                : const AssetImage('assets/009.png'),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

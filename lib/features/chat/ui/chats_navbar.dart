@@ -3,7 +3,6 @@ import 'package:ecommerece_app/features/chat/ui/friends_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/group_chats_screen.dart';
 import 'package:ecommerece_app/features/chat/widgets/expandable_FAB.dart';
 import 'package:flutter/material.dart';
-
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ChatsNavbar extends StatefulWidget {
@@ -16,7 +15,7 @@ class ChatsNavbar extends StatefulWidget {
 class _ChatsNavbarState extends State<ChatsNavbar> {
   int _selectedIndex = 0;
 
-  final String supportUserId = 'lln0z9W5TKcIYXCzxkjrj9iCEqA2';
+  final String supportUserId = '4hSVptbp63W7Ctl05FjbVUkOO9u1';
 
   List<Widget> get widgetOptions {
     final user = FirebaseAuth.instance.currentUser;

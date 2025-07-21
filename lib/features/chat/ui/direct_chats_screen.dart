@@ -106,8 +106,20 @@ class _DirectChatsScreenState extends State<DirectChatsScreen> {
                   InkWell(
                     onTap: () async {
                       showLoadingDialog(context);
-                      for (String chatId in selectedFriendIds) {
-                        await _friendsService.blockFriend(chatId);
+                      // Block selected friends by name (FriendsService expects name)
+                      List<MyUser> users = [];
+                      for (String userId in selectedFriendIds) {
+                        final doc =
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(userId)
+                                .get();
+                        if (doc.exists) {
+                          users.add(MyUser.fromDocument(doc.data()!));
+                        }
+                      }
+                      for (final user in users) {
+                        await _friendsService.blockFriend(user.name);
                       }
                       Navigator.pop(context);
                       toggleEditMode();

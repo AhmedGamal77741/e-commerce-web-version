@@ -25,7 +25,7 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
     with RouteAware {
   final user = FirebaseAuth.instance.currentUser;
   final ChatService _chatService = ChatService();
-  final String supportUserId = 'lln0z9W5TKcIYXCzxkjrj9iCEqA2';
+  final String supportUserId = '4hSVptbp63W7Ctl05FjbVUkOO9u1';
 
   Future<void> openSupportChat(BuildContext context) async {
     if (user == null) return;
@@ -37,7 +37,7 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
     }
     String? chatRoomId;
     try {
-      chatRoomId = await _chatService.createDirectChatRoom(supportUserId);
+      chatRoomId = await _chatService.createDirectChatRoom(supportUserId, true);
     } catch (e) {
       ScaffoldMessenger.of(
         context,

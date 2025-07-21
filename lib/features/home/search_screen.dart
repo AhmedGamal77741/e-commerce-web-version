@@ -16,11 +16,13 @@ import 'package:ecommerece_app/features/shop/cart_func.dart';
 import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class HomeSearch extends StatefulWidget {
-  const HomeSearch({super.key});
+  final bool useGuestPostItem;
+  const HomeSearch({super.key, this.useGuestPostItem = false});
 
   @override
   State<HomeSearch> createState() => _HomeSearchState();
@@ -116,7 +118,10 @@ class _HomeSearchState extends State<HomeSearch> {
         ),
         body: TabBarView(
           children: [
-            _HomeFeedSearchTab(searchQuery: searchQuery),
+            _HomeFeedSearchTab(
+              searchQuery: searchQuery,
+              useGuestPostItem: widget.useGuestPostItem,
+            ),
             FollowingSearchTab(searchQuery: searchQuery),
           ],
         ),
@@ -127,8 +132,13 @@ class _HomeSearchState extends State<HomeSearch> {
 
 class _HomeFeedSearchTab extends StatefulWidget {
   final String searchQuery;
+  final bool useGuestPostItem;
 
-  const _HomeFeedSearchTab({super.key, required this.searchQuery});
+  const _HomeFeedSearchTab({
+    super.key,
+    required this.searchQuery,
+    this.useGuestPostItem = false,
+  });
 
   @override
   State<_HomeFeedSearchTab> createState() => _HomeFeedSearchTabState();
@@ -248,6 +258,11 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                             return true;
                           }).toList();
 
+                      // Determine user type
+                      final userData =
+                          userSnapshot.data!.data() as Map<String, dynamic>?;
+                      final isPremium =
+                          userData != null && (userData['isSub'] == true);
                       return ListView.builder(
                         controller: _scrollController,
                         itemCount: filteredPosts.length,
@@ -255,10 +270,14 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                           final post =
                               filteredPosts[index].data()
                                   as Map<String, dynamic>;
-                          return PostItem(
-                            postId: post['postId'],
-                            fromComments: false,
-                          );
+                          if (isPremium) {
+                            return PostItem(
+                              postId: post['postId'],
+                              fromComments: false,
+                            );
+                          } else {
+                            return GuestPostItem(post: post);
+                          }
                         },
                       );
                     },
@@ -303,82 +322,85 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
             }
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 25,
-                    backgroundImage: NetworkImage(user.url),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black,
-                          ),
-                        ),
-                        if (user.bio != null && user.bio!.isNotEmpty) ...{
-                          const SizedBox(height: 2),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 25,
+                      backgroundImage: NetworkImage(user.url),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            user.bio.toString(),
+                            user.name,
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black,
                             ),
                           ),
-                        },
-                      ],
+                          if (user.bio != null && user.bio!.isNotEmpty) ...{
+                            const SizedBox(height: 2),
+                            Text(
+                              user.bio.toString(),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          },
+                        ],
+                      ),
                     ),
-                  ),
-                  StreamBuilder<DocumentSnapshot>(
-                    stream:
-                        FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(FirebaseAuth.instance.currentUser?.uid)
-                            .collection('following')
-                            .doc(user.userId)
-                            .snapshots(),
-                    builder: (context, snapshot) {
-                      final isFollowing =
-                          snapshot.hasData && snapshot.data!.exists;
-                      return ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              isFollowing
-                                  ? Colors.grey[300]
-                                  : ColorsManager.primary600,
-                          foregroundColor:
-                              isFollowing ? Colors.black : Colors.white,
-                          minimumSize: Size(47, 33),
-                          textStyle: TextStyle(
-                            fontSize: 12,
-                            fontFamily: 'NotoSans',
-                            fontWeight: FontWeight.w500,
+                    StreamBuilder<DocumentSnapshot>(
+                      stream:
+                          FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(FirebaseAuth.instance.currentUser?.uid)
+                              .collection('following')
+                              .doc(user.userId)
+                              .snapshots(),
+                      builder: (context, snapshot) {
+                        final isFollowing =
+                            snapshot.hasData && snapshot.data!.exists;
+                        return ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                isFollowing
+                                    ? Colors.grey[300]
+                                    : ColorsManager.primary600,
+                            foregroundColor:
+                                isFollowing ? Colors.black : Colors.white,
+                            minimumSize: Size(47, 33),
+                            textStyle: TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'NotoSans',
+                              fontWeight: FontWeight.w500,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                          onPressed: () async {
+                            FollowService().toggleFollow(user.userId);
+                          },
+                          child: Text(
+                            isFollowing ? '구독 취소' : '구독',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'NotoSans',
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                        onPressed: () async {
-                          FollowService().toggleFollow(user.userId);
-                        },
-                        child: Text(
-                          isFollowing ? '구독 취소' : '구독',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontFamily: 'NotoSans',
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             );
           },

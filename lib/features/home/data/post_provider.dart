@@ -20,7 +20,19 @@ class PostsProvider extends ChangeNotifier {
   Map<String, Map<String, dynamic>> get posts => _posts;
   List<String> get postIds => _posts.keys.toList();
   Map<String, dynamic>? getPost(String postId) => _posts[postId];
-  List<Comment> getComments(String postId) => _comments[postId] ?? [];
+  List<Comment> getComments(String postId) {
+    final comments = _comments[postId] ?? [];
+    // Only include comments with a valid server timestamp (not pending local writes)
+    return comments.where((c) {
+      if (c.createdAt is Timestamp) {
+        final ts = c.createdAt as Timestamp;
+        // Firestore server timestamps have seconds > 0; local writes are usually 0
+        return ts.seconds > 0;
+      }
+      return false;
+    }).toList();
+  }
+
   bool isLoadingComments(String postId) =>
       _loadingCommentPosts.contains(postId);
   MyUser? getUser(String userId) => _users[userId];
@@ -277,21 +289,7 @@ class PostsProvider extends ChangeNotifier {
         _posts[postId]!['comments'] = (_posts[postId]!['comments'] ?? 0) + 1;
       }
 
-      // If we're tracking comments for this post, add the new comment
-      if (_comments.containsKey(postId)) {
-        final newComment = Comment(
-          id: commentRef.id,
-          userId: currentUser.uid,
-          text: text,
-          createdAt: Timestamp.now(),
-          likes: 0,
-          userImage: userData?.url ?? currentUser.photoURL,
-          userName: userData?.name ?? currentUser.displayName,
-          likedBy: [], // Initialize empty likedBy array
-        );
-
-        _comments[postId] = [newComment, ..._comments[postId]!];
-      }
+      // Do not optimistically update _comments; wait for Firestore listener to sync
 
       notifyListeners();
     } catch (e) {
