@@ -242,7 +242,10 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                             );
 
                             try {
-                              await reportUser(reportedUserId: userId);
+                              await reportUser(
+                                reportedUserId: userId,
+                                postId: postId,
+                              );
 
                               Navigator.of(context).pop();
                               Navigator.of(context).pop();

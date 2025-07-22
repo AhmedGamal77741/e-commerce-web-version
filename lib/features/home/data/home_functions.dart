@@ -117,7 +117,10 @@ Future<void> blockUser({required String userIdToBlock}) async {
   }
 }
 
-Future<void> reportUser({required String reportedUserId}) async {
+Future<void> reportUser({
+  required String reportedUserId,
+  required String postId,
+}) async {
   try {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) throw Exception("User not logged in");
@@ -130,6 +133,7 @@ Future<void> reportUser({required String reportedUserId}) async {
       'reportedUserId': reportedUserId,
       'reportingUserId': currentUser.uid,
       'reportId': newReportRef.id,
+      'postId': postId,
       /*       'createdAt': FieldValue.serverTimestamp(),
       'status': 'pending',
       'resolved': false,  */
