@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 
 class ItemDetails extends StatefulWidget {
   final Product product;
@@ -220,13 +221,18 @@ class _ItemDetailsState extends State<ItemDetails> {
                 Row(
                   children: [
                     IconButton(
-                      onPressed: () {
-                        // Share functionality to be implemented
+                      onPressed: () async {
+                        final productId = widget.product.product_id;
+                        final base = Uri.base.origin;
+                        final url = '$base/product/$productId';
+                        await Clipboard.setData(ClipboardData(text: url));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('상품 링크가 복사되었습니다!')),
+                        );
                       },
                       icon: ImageIcon(
                         const AssetImage('assets/grey_006m.png'),
                         size: 32,
-                        // color: liked ? Colors.black : Colors.grey, // This icon seems to be for sharing, color shouldn't depend on 'liked'
                         color: liked ? Colors.black : Colors.grey,
                       ),
                     ),

@@ -6,13 +6,12 @@ import 'package:provider/provider.dart';
 import 'package:ecommerece_app/core/routing/app_router.dart';
 import 'package:ecommerece_app/e_commerce_app.dart';
 import 'package:ecommerece_app/firebase_options.dart';
-// import 'package:flutter_web_plugins/flutter_web_plugins.dart';
-
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  //setUrlStrategy(PathUrlStrategy());
+  setUrlStrategy(PathUrlStrategy());
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
