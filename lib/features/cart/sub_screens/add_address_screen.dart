@@ -18,7 +18,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _detailAddressController =
       TextEditingController();
-  bool _isDefaultAddress = false;
+  bool _isDefaultAddress = true;
   Map<String, dynamic> _address = {};
 
   // Form key for validation

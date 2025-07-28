@@ -1,9 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/features/cart/cart.dart';
+import 'package:ecommerece_app/features/cart/sub_screens/add_address_screen.dart';
 import 'package:ecommerece_app/features/home/home_screen.dart';
 import 'package:ecommerece_app/features/mypage/ui/my_page_screen.dart';
 import 'package:ecommerece_app/features/review/ui/review_screen.dart';
 import 'package:ecommerece_app/features/shop/shop.dart';
 import 'package:ecommerece_app/landing.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class NavBar extends StatefulWidget {
@@ -32,12 +35,44 @@ class _NavBarState extends State<NavBar> {
     ];
   }
 
-  void _onItemTapped(int index) {
+  Future<void> _onItemTapped(int index) async {
     if (_selectedIndex == index && index == 0) {
       if (homeScrollController.hasClients) {
-        homeScrollController.animateTo(0,
-            duration: Duration(milliseconds: 300), curve: Curves.easeInOut);
+        homeScrollController.animateTo(
+          0,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
       }
+    } else if (index == 1) {
+      // Shop tab tapped
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final userDoc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
+        final data = userDoc.data();
+        if (data == null ||
+            (data['defaultAddressId'] == null ||
+                data['defaultAddressId'] == '')) {
+          // No default address, navigate to AddAddressScreen
+          final result = await Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => AddAddressScreen()));
+          // If address was added, you may want to refresh or proceed to Shop
+          if (result == true) {
+            setState(() {
+              _selectedIndex = index;
+            });
+          }
+          return;
+        }
+      }
+      setState(() {
+        _selectedIndex = index;
+      });
     } else {
       setState(() {
         _selectedIndex = index;

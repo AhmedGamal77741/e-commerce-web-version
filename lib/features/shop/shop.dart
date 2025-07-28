@@ -5,6 +5,7 @@ import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
+import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 import 'package:ecommerece_app/features/shop/cart_func.dart';
 
 import 'package:ecommerece_app/features/shop/fav_fnc.dart';
@@ -117,33 +118,123 @@ class _ShopState extends State<Shop> {
   Widget _buildShopTabController(Map<String, dynamic>? userData) {
     int initialIndex = 0;
     final bool isSub = userData != null && (userData['isSub'] ?? false);
+
+    // Get default address name
+    String addressName = '배송지 선택';
+    if (userData != null &&
+        userData['defaultAddressId'] != null &&
+        userData['defaultAddressId'] != '') {
+      final addressId = userData['defaultAddressId'];
+      final addressSnapshot = FirebaseFirestore.instance
+          .collection('addresses')
+          .doc(addressId);
+      addressSnapshot.get().then((addressDoc) {
+        if (addressDoc.exists) {
+          final addressData = addressDoc.data() as Map<String, dynamic>;
+          setState(() {
+            addressName = addressData['name'] ?? 'Unknown';
+          });
+        }
+      });
+    }
+
     return DefaultTabController(
       length: _categories.length,
       initialIndex: initialIndex,
       child: Scaffold(
         appBar: AppBar(
-          toolbarHeight: 70,
+          toolbarHeight: isSub ? 100 : 70,
           backgroundColor: ColorsManager.white,
-          title: TabBar(
-            tabAlignment: TabAlignment.start,
-            padding: EdgeInsets.zero,
-            labelStyle: TextStyle(
-              fontSize: 16,
-              decoration: TextDecoration.none,
-              fontFamily: 'NotoSans',
-              fontStyle: FontStyle.normal,
-              fontWeight: FontWeight.w400,
-              letterSpacing: 0,
-              color: ColorsManager.primaryblack,
-            ),
-            unselectedLabelColor: ColorsManager.primary600,
-            indicatorSize: TabBarIndicatorSize.tab,
-            indicatorColor: ColorsManager.primaryblack,
-            isScrollable: _categories.length > 4,
-            tabs:
-                _categories
-                    .map((category) => Tab(text: category['name']))
-                    .toList(),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isSub) ...{
+                SizedBox(height: 8),
+                FutureBuilder<DocumentSnapshot>(
+                  future:
+                      (userData['defaultAddressId'] != null &&
+                              userData['defaultAddressId'] != '')
+                          ? FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(userData['userId'])
+                              .collection('addresses')
+                              .doc(userData['defaultAddressId'])
+                              .get()
+                          : Future.value(null),
+                  builder: (context, snapshot) {
+                    String displayName = '배송지 선택';
+                    if (snapshot.hasData &&
+                        snapshot.data != null &&
+                        snapshot.data!.exists) {
+                      final addressData =
+                          snapshot.data!.data() as Map<String, dynamic>;
+                      displayName = addressData['name'] ?? '배송지 선택';
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: SizedBox(
+                        height: 36,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            backgroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          onPressed: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => AddressListScreen(),
+                              ),
+                            );
+                            // Optionally, you can refresh the Shop screen after returning
+                            setState(() {});
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                displayName,
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(width: 6),
+                              Icon(Icons.arrow_drop_down, color: Colors.black),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              },
+              TabBar(
+                tabAlignment: TabAlignment.start,
+                padding: EdgeInsets.zero,
+                labelStyle: TextStyle(
+                  fontSize: 16,
+                  decoration: TextDecoration.none,
+                  fontFamily: 'NotoSans',
+                  fontStyle: FontStyle.normal,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
+                  color: ColorsManager.primaryblack,
+                ),
+                unselectedLabelColor: ColorsManager.primary600,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicatorColor: ColorsManager.primaryblack,
+                isScrollable: _categories.length > 4,
+                tabs:
+                    _categories
+                        .map((category) => Tab(text: category['name']))
+                        .toList(),
+              ),
+            ],
           ),
         ),
         body: TabBarView(
@@ -153,6 +244,7 @@ class _ShopState extends State<Shop> {
                     (category) => CategoryProductsScreen(
                       categoryId: category['id'],
                       categoryName: category['name'],
+                      userData: userData,
                       isSub: isSub,
                     ),
                   )
@@ -167,11 +259,13 @@ class CategoryProductsScreen extends StatefulWidget {
   final String categoryId;
   final String categoryName;
   final bool isSub;
+  final Map<String, dynamic>? userData;
 
   CategoryProductsScreen({
     Key? key,
     required this.categoryId,
     required this.categoryName,
+    required this.userData,
     this.isSub = false,
   }) : super(key: key);
 
@@ -180,6 +274,60 @@ class CategoryProductsScreen extends StatefulWidget {
 }
 
 class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
+  Map<String, dynamic>? userAddressMap;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Get user address from ancestor widget if passed, or fetch from Firestore if needed
+    final shopState = context.findAncestorStateOfType<_ShopState>();
+    if (shopState != null && widget.userData != null) {
+      final userData = widget.userData!;
+      if (userData['defaultAddressId'] != null &&
+          userData['defaultAddressId'] != '') {
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(userData['userId'])
+            .collection('addresses')
+            .doc(userData['defaultAddressId'])
+            .get()
+            .then((doc) {
+              if (doc.exists) {
+                setState(() {
+                  userAddressMap =
+                      (doc.data() as Map<String, dynamic>)['addressMap'];
+                });
+              }
+            });
+      }
+    }
+  }
+
+  bool _isSameRegion(
+    Map<String, dynamic>? userAddress,
+    Map<String, dynamic>? productAddress,
+  ) {
+    if (userAddress == null || productAddress == null) return false;
+    final userRegion1 =
+        userAddress['road_address']?['region_1depth_name'] ??
+        userAddress['address']?['region_1depth_name'];
+    final userRegion2 =
+        userAddress['road_address']?['region_2depth_name'] ??
+        userAddress['address']?['region_2depth_name'];
+    final productRegion1 =
+        productAddress['road_address']?['region_1depth_name'] ??
+        productAddress['address']?['region_1depth_name'];
+    final productRegion2 =
+        productAddress['road_address']?['region_2depth_name'] ??
+        productAddress['address']?['region_2depth_name'];
+    return (userRegion1 != null &&
+            productRegion1 != null &&
+            userRegion1 == productRegion1) ||
+        (userRegion2 != null &&
+            productRegion2 != null &&
+            userRegion2 == productRegion2);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Display products in a grid
@@ -217,7 +365,26 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               return const Center(child: Text('아직 제품이 없습니다'));
             }
             final products = snapshot.data!.docs;
-            // Sort: available products first, then sold out
+
+            List<Product> sameRegion = [];
+            List<Product> otherRegion = [];
+            List<Product> soldOut = [];
+
+            for (var p in products) {
+              Product product = Product.fromMap(
+                p.data() as Map<String, dynamic>,
+              );
+              if (product.stock == 0) {
+                soldOut.add(product);
+              } else if (_isSameRegion(userAddressMap, product.address)) {
+                sameRegion.add(product);
+              } else {
+                otherRegion.add(product);
+              }
+            }
+
+            final sortedProducts = [...sameRegion, ...otherRegion, ...soldOut];
+            /*             // Sort: available products first, then sold out
             final sortedProducts = List.from(products)..sort((a, b) {
               final stockA = (a.data() as Map<String, dynamic>)['stock'] ?? 0;
               final stockB = (b.data() as Map<String, dynamic>)['stock'] ?? 0;
@@ -225,7 +392,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                 return 0;
               if (stockA > 0) return -1;
               return 1;
-            });
+            }); */
             return ListView.separated(
               separatorBuilder: (context, index) {
                 if (index == sortedProducts.length - 1) {
@@ -235,9 +402,8 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               },
               itemCount: sortedProducts.length,
               itemBuilder: (context, index) {
-                final data2 =
-                    sortedProducts[index].data() as Map<String, dynamic>;
-                Product p = Product.fromMap(data2);
+                final data2 = sortedProducts[index];
+                Product p = data2;
                 return InkWell(
                   onTap: () async {
                     String arrivalTime = await getArrivalDay(
@@ -318,9 +484,20 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                       style: TextStyles.abeezee11px400wP600,
                                     );
                                   }
-
+                                  String deliveryText;
+                                  if (_isSameRegion(
+                                    userAddressMap,
+                                    p.address,
+                                  )) {
+                                    deliveryText = 'Fresh Delivery';
+                                  } else {
+                                    deliveryText =
+                                        p.freeShipping == true
+                                            ? '무료배송'
+                                            : '배송료가 부과됩니다';
+                                  }
                                   return Text(
-                                    '${snapshot.data} 도착예정 · ${p.freeShipping == true ? '무료배송' : '배송료가 부과됩니다'} ',
+                                    '${snapshot.data} 도착예정 · $deliveryText ',
                                     style: TextStyles.abeezee14px400wP600,
                                   );
                                 },
