@@ -49,6 +49,13 @@ Future<String> uploadImageToFirebaseStorage(XFile? image) async {
 }
 
 class FirebaseUserRepo {
+  /// Returns true if a user with the given name exists (checks 'name' field)
+  Future<bool> checkNameExists(String name) async {
+    final query =
+        await usersCollection.where('name', isEqualTo: name).limit(1).get();
+    return query.docs.isNotEmpty;
+  }
+
   final FirebaseAuth _firebaseAuth;
 
   final usersCollection = FirebaseFirestore.instance.collection('users');

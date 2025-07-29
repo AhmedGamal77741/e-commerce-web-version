@@ -249,6 +249,17 @@ class _SignupScreenState extends State<SignupScreen> {
                     if (_formKey.currentState!.validate()) {
                       LoadingService().showLoading();
 
+                      // Check if name is unique
+                      final name = nameController.text.trim();
+                      final existing = await fireBaseRepo.checkNameExists(name);
+                      if (existing) {
+                        LoadingService().hideLoading();
+                        setState(() {
+                          error = '이미 사용 중인 닉네임입니다';
+                        });
+                        return;
+                      }
+
                       MyUser myUser = MyUser.empty;
                       myUser.email = emailController.text;
                       myUser.name = nameController.text;

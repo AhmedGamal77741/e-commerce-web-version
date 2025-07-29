@@ -37,6 +37,7 @@ class Product {
   List<String> favBy = [];
   final String? deliveryManagerId;
   final Map<String, dynamic>? address;
+  final String? arrivalDate;
 
   Product({
     required this.product_id,
@@ -55,6 +56,7 @@ class Product {
     required this.favBy,
     required this.deliveryManagerId,
     required this.address,
+    this.arrivalDate,
   });
 
   factory Product.fromMap(Map<String, dynamic> map) {
@@ -84,6 +86,7 @@ class Product {
       favBy: List<String>.from(map['favBy'] ?? []),
       deliveryManagerId: map['deliveryManagerId'] ?? '',
       address: map['address'],
+      arrivalDate: map['arrivalDate'],
     );
   }
 
@@ -105,6 +108,7 @@ class Product {
       'favBy': favBy,
       'deliveryManagerId': deliveryManagerId,
       'address': address,
+      'arrivalDate': arrivalDate,
     };
   }
 }
