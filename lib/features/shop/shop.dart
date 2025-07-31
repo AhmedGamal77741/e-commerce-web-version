@@ -147,7 +147,7 @@ class _ShopState extends State<Shop> {
           title: Text(''),
           centerTitle: false,
           bottom: PreferredSize(
-            preferredSize: Size.fromHeight(isSub ? 48 : 0),
+            preferredSize: Size.fromHeight(isSub ? 48 : 48),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

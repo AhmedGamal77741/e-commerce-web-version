@@ -8,6 +8,7 @@ import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'package:provider/provider.dart';
 
 class UserInfoContainer extends StatefulWidget {
@@ -211,7 +212,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
               // Text(
               //   '아이디', // Translated to Korean
               //   style: TextStyles.abeezee16px400wPblack.copyWith(
-              //     fontSize: 16,
+              //     fontSize: 16.sp,
               //   ),
               // ),
               // SizedBox(height: 5.h),
@@ -232,7 +233,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
               //         : '지정되지 않음',
               //     style: TextStyles.abeezee16px400wPblack.copyWith(
               //       color: Colors.grey[700],
-              //       fontSize: 16,
+              //       fontSize: 16.sp,
               //     ),
               //   ),
               // ),
@@ -335,7 +336,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
                     func: () async {
                       if (!_formKey.currentState!.validate()) return;
                       if (currentUser == null) return;
-                      // Check if any field is being updated
+                      // Check which fields are being updated
                       final isUpdatingName =
                           nameController.text.isNotEmpty &&
                           nameController.text != currentUser!.name;
@@ -353,10 +354,35 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
                           !isUpdatingPassword &&
                           !isUpdatingPhone &&
                           !isUpdatingBio) {
-                        setState(() {
-                          error = "변경된 내용이 없습니다";
-                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              "변경된 내용이 없습니다",
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        );
                         return;
+                      }
+
+                      // Check for unique nickname if updating name
+                      if (isUpdatingName) {
+                        final name = nameController.text.trim();
+                        final existing = await fireBaseRepo.checkNameExists(
+                          name,
+                        );
+                        // Only block if the name exists and is not the current user's name
+                        if (existing && name != currentUser!.name) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '이미 사용 중인 닉네임입니다',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          );
+                          return;
+                        }
                       }
 
                       // Prepare updated user
@@ -393,49 +419,47 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
                           final reauth = await _reauthenticateUser(context);
                           if (!reauth) return;
                         }
-                        final result = await fireBaseRepo.updateUser(
+                        await fireBaseRepo.updateUser(
                           updatedUser,
                           isUpdatingPassword ? passwordController.text : "",
                         );
                         if (!mounted) return;
-                        if (result == null) {
-                          setState(() {
-                            error = "이미 사용 중인 닉네임입니다";
-                          });
-                        } else {
-                          setState(() {
-                            error = "";
-                            // Update local user state
-                            currentUser = updatedUser;
-                          });
-                          if (isUpdatingName) nameController.clear();
-                          if (isUpdatingPassword) passwordController.clear();
-                          if (isUpdatingPhone) phoneController.clear();
-                          if (isUpdatingBio) bioController.clear();
-
-                          String successMessage = "";
-                          List<String> updated = [];
-                          if (isUpdatingName) updated.add("닉네임");
-                          if (isUpdatingPassword) updated.add("비밀번호");
-                          if (isUpdatingPhone) updated.add("전화번호");
-                          if (isUpdatingBio) updated.add("소개");
-                          if (updated.isNotEmpty) {
-                            successMessage =
-                                updated.join(", ") + "가 성공적으로 업데이트되었습니다";
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                successMessage,
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          );
-                        }
-                      } catch (e) {
                         setState(() {
-                          error = "업데이트 중 오류가 발생했습니다: " + e.toString();
+                          currentUser = updatedUser;
                         });
+                        // Clear only updated fields
+                        if (isUpdatingName) nameController.clear();
+                        if (isUpdatingPassword) passwordController.clear();
+                        if (isUpdatingPhone) phoneController.clear();
+                        if (isUpdatingBio) bioController.clear();
+
+                        String successMessage = "";
+                        List<String> updated = [];
+                        if (isUpdatingName) updated.add("닉네임");
+                        if (isUpdatingPassword) updated.add("비밀번호");
+                        if (isUpdatingPhone) updated.add("전화번호");
+                        if (isUpdatingBio) updated.add("소개");
+                        if (updated.isNotEmpty) {
+                          successMessage =
+                              updated.join(", ") + "가 성공적으로 업데이트되었습니다";
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              successMessage,
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              "업데이트 중 오류가 발생했습니다: " + e.toString(),
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        );
                       }
                     },
                     style: TextStyles.abeezee14px400wW.copyWith(fontSize: 14),

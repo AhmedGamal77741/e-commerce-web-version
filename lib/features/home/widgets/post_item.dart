@@ -50,12 +50,14 @@ class PostItem extends StatelessWidget {
         return FutureBuilder<MyUser>(
           future: getUser(postData['userId']),
           builder: (context, snapshot) {
-            if (snapshot.hasError || !snapshot.hasData) {
-              return _buildPostSkeleton();
-            }
-
-            final myuser = snapshot.data!;
+            final bool isDeleted = snapshot.hasError || !snapshot.hasData;
+            final String avatarUrl =
+                isDeleted ? 'assets/avatar.png' : snapshot.data!.url.toString();
+            final String displayName =
+                isDeleted ? '삭제된 계정' : snapshot.data!.name;
+            final myuser = isDeleted ? null : snapshot.data!;
             final isMyPost =
+                myuser != null &&
                 myuser.userId == FirebaseAuth.instance.currentUser?.uid;
 
             return Column(
@@ -70,10 +72,16 @@ class PostItem extends StatelessWidget {
                           width: 56,
                           height: 55,
                           decoration: ShapeDecoration(
-                            image: DecorationImage(
-                              image: NetworkImage(myuser.url.toString()),
-                              fit: BoxFit.cover,
-                            ),
+                            image:
+                                isDeleted
+                                    ? DecorationImage(
+                                      image: AssetImage('assets/avatar.png'),
+                                      fit: BoxFit.cover,
+                                    )
+                                    : DecorationImage(
+                                      image: NetworkImage(avatarUrl),
+                                      fit: BoxFit.cover,
+                                    ),
                             shape: OvalBorder(),
                           ),
                         ),
@@ -85,12 +93,16 @@ class PostItem extends StatelessWidget {
                               Row(
                                 children: [
                                   Text(
-                                    myuser.name,
+                                    displayName,
                                     style: TextStyles.abeezee16px400wPblack,
                                   ),
                                   Spacer(),
-                                  if (myuser.userId !=
-                                      FirebaseAuth.instance.currentUser?.uid)
+                                  if (myuser != null &&
+                                      myuser.userId !=
+                                          FirebaseAuth
+                                              .instance
+                                              .currentUser
+                                              ?.uid)
                                     StreamBuilder<DocumentSnapshot>(
                                       stream:
                                           FirebaseFirestore.instance
@@ -147,50 +159,52 @@ class PostItem extends StatelessWidget {
                                     ),
                                 ],
                               ),
-                              StreamBuilder<QuerySnapshot>(
-                                stream:
-                                    FirebaseFirestore.instance
-                                        .collection('users')
-                                        .doc(myuser.userId)
-                                        .collection('followers')
-                                        .snapshots(),
-                                builder: (context, subSnap) {
-                                  if (subSnap.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return SizedBox(height: 16);
-                                  }
-                                  if (subSnap.hasError) {
-                                    return Text(
-                                      '구독자 오류',
-                                      style: TextStyle(
-                                        color: Colors.red,
-                                        fontSize: 16,
+                              if (myuser != null)
+                                StreamBuilder<QuerySnapshot>(
+                                  stream:
+                                      FirebaseFirestore.instance
+                                          .collection('users')
+                                          .doc(myuser.userId)
+                                          .collection('followers')
+                                          .snapshots(),
+                                  builder: (context, subSnap) {
+                                    if (subSnap.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return SizedBox(height: 16);
+                                    }
+                                    if (subSnap.hasError) {
+                                      return Text(
+                                        '구독자 오류',
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 16,
+                                        ),
+                                      );
+                                    }
+                                    final count =
+                                        subSnap.data?.docs.length ?? 0;
+                                    final formatted = count
+                                        .toString()
+                                        .replaceAllMapped(
+                                          RegExp(r'\B(?=(\d{3})+(?!\d))'),
+                                          (match) => ',',
+                                        );
+                                    return Padding(
+                                      padding: EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        '구독자 $formatted명',
+                                        style: TextStyle(
+                                          color: const Color(0xFF787878),
+                                          fontSize: 16,
+                                          fontFamily: 'NotoSans',
+                                          fontWeight: FontWeight.w400,
+                                          height: 1.40,
+                                          letterSpacing: -0.09,
+                                        ),
                                       ),
                                     );
-                                  }
-                                  final count = subSnap.data?.docs.length ?? 0;
-                                  final formatted = count
-                                      .toString()
-                                      .replaceAllMapped(
-                                        RegExp(r'\B(?=(\d{3})+(?!\d))'),
-                                        (match) => ',',
-                                      );
-                                  return Padding(
-                                    padding: EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      '구독자 $formatted명',
-                                      style: TextStyle(
-                                        color: const Color(0xFF787878),
-                                        fontSize: 16,
-                                        fontFamily: 'NotoSans',
-                                        fontWeight: FontWeight.w400,
-                                        height: 1.40,
-                                        letterSpacing: -0.09,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                                  },
+                                ),
                               if (postData['text'].toString().isNotEmpty)
                                 Padding(
                                   padding: EdgeInsets.only(top: 5),
@@ -209,7 +223,7 @@ class PostItem extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      if (showMoreButton) ...[
+                                      if (showMoreButton && myuser != null) ...[
                                         IconButton(
                                           icon: Icon(
                                             Icons.more_vert,
@@ -272,10 +286,16 @@ class PostItem extends StatelessWidget {
                             width: 56,
                             height: 55,
                             decoration: ShapeDecoration(
-                              image: DecorationImage(
-                                image: NetworkImage(myuser.url.toString()),
-                                fit: BoxFit.cover,
-                              ),
+                              image:
+                                  isDeleted
+                                      ? DecorationImage(
+                                        image: AssetImage('assets/avatar.png'),
+                                        fit: BoxFit.cover,
+                                      )
+                                      : DecorationImage(
+                                        image: NetworkImage(avatarUrl),
+                                        fit: BoxFit.cover,
+                                      ),
                               shape: OvalBorder(),
                             ),
                           ),
@@ -288,11 +308,11 @@ class PostItem extends StatelessWidget {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        myuser.name,
+                                        displayName,
                                         style: TextStyles.abeezee16px400wPblack,
                                       ),
                                     ),
-                                    if (showMoreButton) ...[
+                                    if (showMoreButton && myuser != null) ...[
                                       IconButton(
                                         icon: Icon(
                                           Icons.more_horiz,
@@ -708,12 +728,8 @@ class PostItem extends StatelessWidget {
                                                 );
                                               },
                                             );
-                                          } else {
-                                            showPostMenu(
-                                              context,
-                                              postId,
-                                              myuser.userId,
-                                            );
+                                          } else if (myuser == null) {
+                                            showPostMenu(context, postId, '');
                                           }
                                         },
                                       ),

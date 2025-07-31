@@ -8,6 +8,7 @@ import 'package:ecommerece_app/features/shop/shop.dart';
 import 'package:ecommerece_app/landing.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:ecommerece_app/core/widgets/deleted_account.dart';
 
 class NavBar extends StatefulWidget {
   const NavBar({super.key});
@@ -27,12 +28,68 @@ class _NavBarState extends State<NavBar> {
   void initState() {
     super.initState();
     widgetOptions = [
-      HomeScreen(scrollController: homeScrollController),
-      Shop(),
-      Cart(),
-      ReviewScreen(),
-      LandingScreen(),
+      _buildMainWidget(
+        () => HomeScreen(scrollController: homeScrollController),
+      ),
+      _buildMainWidget(() => Shop()),
+      _buildMainWidget(() => Cart()),
+      _buildMainWidget(() => ReviewScreen()),
+      _buildMainWidget(() => LandingScreen()),
     ];
+  }
+
+  Widget _buildMainWidget(Widget Function() builder) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, authSnapshot) {
+        final user = authSnapshot.data;
+        if (user == null) {
+          // Not authenticated, show normal widget
+          return builder();
+        }
+        return StreamBuilder<DocumentSnapshot>(
+          stream:
+              FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots(),
+          builder: (context, userSnapshot) {
+            if (!userSnapshot.hasData) {
+              return Center(
+                child: CircularProgressIndicator(color: Colors.black),
+              );
+            }
+            final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
+            if (userData == null) {
+              return Center(child: Text('User profile not found'));
+            }
+            if (userData['deleted'] == true) {
+              // Show deleted account screen with real recovery logic
+              return DeletedAccount(
+                deletedAt: userData['deletedAt']?.toString() ?? '',
+                onRecover: () async {
+                  final uid = FirebaseAuth.instance.currentUser?.uid;
+                  if (uid != null) {
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .update({'deleted': false, 'deletedAt': null});
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('계정이 복구되었습니다.')));
+                  }
+                },
+                onSignOut: () async {
+                  await FirebaseAuth.instance.signOut();
+                },
+              );
+            }
+            // Not deleted, show normal widget
+            return builder();
+          },
+        );
+      },
+    );
   }
 
   Future<void> _onItemTapped(int index) async {
@@ -54,6 +111,13 @@ class _NavBarState extends State<NavBar> {
                 .doc(user.uid)
                 .get();
         final data = userDoc.data();
+        // If user is deleted, do not navigate to AddAddressScreen
+        if (data != null && data['deleted'] == true) {
+          setState(() {
+            _selectedIndex = index;
+          });
+          return;
+        }
         if (data == null ||
             (data['defaultAddressId'] == null ||
                 data['defaultAddressId'] == '')) {

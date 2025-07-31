@@ -107,34 +107,45 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
 
                 final confirmed = await showDeleteAccountDialog(context);
                 if (confirmed) {
-                  final docRef =
-                      FirebaseFirestore.instance.collection('deletes').doc();
-                  final deleteId = docRef.id;
-                  final deleteData = {
-                    'deleteId': deleteId,
-                    'userId': userId,
-                    'reason': reasonController.text.trim(),
-                    'createdAt': DateTime.now().toIso8601String(),
-                  };
-
                   try {
+                    // Store delete reason in 'deletes' collection only
+                    final docRef =
+                        FirebaseFirestore.instance.collection('deletes').doc();
+                    final deleteId = docRef.id;
+                    final deleteData = {
+                      'deleteId': deleteId,
+                      'userId': userId,
+                      'reason': reasonController.text.trim(),
+                      'createdAt': DateTime.now().toIso8601String(),
+                    };
                     await docRef.set(deleteData);
-                    // Delete all subscriptions for this user after successful delete request
-                    final subs =
-                        await FirebaseFirestore.instance
-                            .collection('subscriptions')
-                            .where('userId', isEqualTo: userId)
-                            .get();
-                    for (final doc in subs.docs) {
-                      await doc.reference.delete();
+
+                    // Soft delete: mark user as deleted in Firestore
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(userId)
+                        .update({
+                          'deleted': true,
+                          'deletedAt': DateTime.now().toIso8601String(),
+                        });
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('계정이 삭제 예약되었습니다. 30일 이내에 복구할 수 있습니다.'),
+                        ),
+                      );
                     }
-                    context.pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('탈퇴 사유가 저장되었습니다.')),
-                    );
+
+                    // Sign out the user
+                    await FirebaseAuth.instance.signOut();
+
+                    if (mounted) {
+                      context.pop();
+                    }
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('사유 저장 실패. 다시 시도해주세요.')),
+                      const SnackBar(content: Text('계정 삭제 실패. 다시 시도해주세요.')),
                     );
                   }
                 }
@@ -159,93 +170,22 @@ Future<bool> showDeleteAccountDialog(BuildContext context) async {
   return await showDialog<bool>(
     context: context,
     builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: const Text('탈퇴 확인'),
-            content: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  UnderlineTextField(
-                    controller: emailController,
-                    hintText: '이메일',
-                    obscureText: false,
-                    keyboardType: TextInputType.emailAddress,
-                    errorMsg: errorMsg,
-                    validator: (val) {
-                      if (val!.isEmpty) {
-                        return 'Please fill in this field';
-                      } else if (!RegExp(
-                        r'^[\w-\.]+@([\w-]+.)+[\w-]{2,4}$',
-                      ).hasMatch(val)) {
-                        return '유효한 이메일을 입력해 주세요';
-                      }
-                      return null;
-                    },
-                  ),
-                  verticalSpace(12),
-                  UnderlineTextField(
-                    controller: passwordController,
-                    hintText: '영문,숫자 조합',
-                    obscureText: obsecurePassword,
-                    keyboardType: TextInputType.visiblePassword,
-                    errorMsg: errorMsg,
-                    validator: (val) {
-                      if (val!.isEmpty) {
-                        return '이 필드를 작성해 주세요';
-                      } else if (!RegExp(
-                        r'^(?=.*[A-Za-z])(?=.*\d).{8,}$',
-                      ).hasMatch(val)) {
-                        return '유효한 비밀번호를 입력해 주세요';
-                      }
-                      return null;
-                    },
-                    suffixIcon: IconButton(
-                      onPressed: () {
-                        setState(() {
-                          obsecurePassword = !obsecurePassword;
-                          iconPassword =
-                              obsecurePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility;
-                        });
-                      },
-                      icon: Icon(iconPassword),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                child: Text('취소 ', style: TextStyles.abeezee13px400wPblack),
-                onPressed: () => Navigator.of(context).pop(false),
-              ),
-              BlackTextButton(
-                txt: '계정 삭제',
-                func: () async {
-                  if (!formKey.currentState!.validate()) return;
-                  setState(() => isLoading = true);
-                  try {
-                    await reauthenticateAndDeleteUser(
-                      email: emailController.text.trim(),
-                      password: passwordController.text,
-                    );
-                    Navigator.of(context).pop(true); // ✅ Success
-                  } catch (e) {
-                    setState(() => isLoading = false);
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(e.toString())));
-                  }
-                },
-                style: TextStyles.abeezee14px400wW,
-              ),
-            ],
-          );
-        },
+      return AlertDialog(
+        title: const Text('탈퇴 확인'),
+        content: const Text('정말로 계정을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            child: Text('취소 ', style: TextStyles.abeezee13px400wPblack),
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          BlackTextButton(
+            txt: '계정 삭제',
+            func: () async {
+              Navigator.of(context).pop(true);
+            },
+            style: TextStyles.abeezee14px400wW,
+          ),
+        ],
       );
     },
   ).then((value) => value ?? false); // return false if null

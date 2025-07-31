@@ -31,13 +31,101 @@ class GuestPostItem extends StatelessWidget {
       child: FutureBuilder<MyUser>(
         future: getUser(post['userId']),
         builder: (context, snapshot) {
+          final bool isDeleted = snapshot.hasError || !snapshot.hasData;
+          final String avatarUrl =
+              isDeleted ? 'assets/avatar.png' : snapshot.data!.url.toString();
+          final String displayName = isDeleted ? '삭제된 계정' : snapshot.data!.name;
+          final myuser = isDeleted ? null : snapshot.data!;
           if (snapshot.connectionState == ConnectionState.waiting) {
             return _buildPostSkeleton();
           }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return _buildErrorPost();
+          if (isDeleted) {
+            return Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 10),
+                    Flexible(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 20),
+                        child: Container(
+                          width: 56,
+                          height: 55,
+                          decoration: ShapeDecoration(
+                            image: DecorationImage(
+                              image: AssetImage('assets/avatar.png'),
+                              fit: BoxFit.cover,
+                            ),
+                            shape: OvalBorder(),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 4,
+                      child: Padding(
+                        padding: EdgeInsets.only(right: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        displayName,
+                                        style: TextStyles.abeezee16px400wPblack,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (post['text'] != null &&
+                                post['text'].toString().isNotEmpty)
+                              Padding(
+                                padding: EdgeInsets.only(top: 5),
+                                child: Text(
+                                  post['text'],
+                                  style: TextStyle(
+                                    color: const Color(0xFF343434),
+                                    fontSize: 16,
+                                    fontFamily: 'NotoSans',
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.40,
+                                    letterSpacing: -0.09,
+                                  ),
+                                ),
+                              ),
+                            verticalSpace(5),
+                            if (post['imgUrl'] != null &&
+                                post['imgUrl'].toString().isNotEmpty)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  post['imgUrl'],
+                                  fit: BoxFit.fitWidth,
+                                  width: double.infinity,
+                                ),
+                              ),
+                            verticalSpace(5),
+                            GuestPostActions(post: post),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
           }
-          final myuser = snapshot.data!;
+          // ...existing code for non-deleted user...
           return Column(
             children: [
               Row(
@@ -53,7 +141,7 @@ class GuestPostItem extends StatelessWidget {
                         height: 55,
                         decoration: ShapeDecoration(
                           image: DecorationImage(
-                            image: NetworkImage(myuser.url.toString()),
+                            image: NetworkImage(avatarUrl),
                             fit: BoxFit.cover,
                           ),
                           shape: OvalBorder(),
@@ -76,7 +164,7 @@ class GuestPostItem extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      myuser.name,
+                                      displayName,
                                       style: TextStyles.abeezee16px400wPblack,
                                     ),
                                     if (post['fromComments'] == true)
@@ -84,7 +172,11 @@ class GuestPostItem extends StatelessWidget {
                                         stream:
                                             FirebaseFirestore.instance
                                                 .collection('users')
-                                                .doc(myuser.userId)
+                                                .doc(
+                                                  myuser != null
+                                                      ? myuser.userId
+                                                      : '',
+                                                )
                                                 .collection('followers')
                                                 .snapshots(),
                                         builder: (context, subSnap) {
@@ -131,7 +223,8 @@ class GuestPostItem extends StatelessWidget {
                                   builder: (context) {
                                     final currentUserId =
                                         FirebaseAuth.instance.currentUser?.uid;
-                                    if (myuser.userId != currentUserId &&
+                                    if (myuser != null &&
+                                        myuser.userId != currentUserId &&
                                         currentUserId != null) {
                                       return StreamBuilder<DocumentSnapshot>(
                                         stream:
@@ -139,7 +232,11 @@ class GuestPostItem extends StatelessWidget {
                                                 .collection('users')
                                                 .doc(currentUserId)
                                                 .collection('following')
-                                                .doc(myuser.userId)
+                                                .doc(
+                                                  myuser != null
+                                                      ? myuser.userId
+                                                      : '',
+                                                )
                                                 .snapshots(),
                                         builder: (context, snapshot) {
                                           final isFollowing =
@@ -169,7 +266,11 @@ class GuestPostItem extends StatelessWidget {
                                             ),
                                             onPressed: () async {
                                               await FollowService()
-                                                  .toggleFollow(myuser.userId);
+                                                  .toggleFollow(
+                                                    myuser != null
+                                                        ? myuser.userId
+                                                        : '',
+                                                  );
                                             },
                                             child: Text(
                                               isFollowing ? '구독 취소' : '구독',

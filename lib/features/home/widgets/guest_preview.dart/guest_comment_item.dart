@@ -7,6 +7,12 @@ class GuestCommentItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDeleted =
+        comment['userImage'] == null || comment['userImage'].toString().isEmpty;
+    final String displayName =
+        (comment['userName'] == null || comment['userName'].toString().isEmpty)
+            ? '삭제된 계정'
+            : comment['userName'];
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -16,10 +22,16 @@ class GuestCommentItem extends StatelessWidget {
             width: 56,
             height: 55,
             decoration: ShapeDecoration(
-              image: DecorationImage(
-                image: NetworkImage(comment['userImage'] ?? ''),
-                fit: BoxFit.cover,
-              ),
+              image:
+                  isDeleted
+                      ? DecorationImage(
+                        image: AssetImage('assets/avatar.png'),
+                        fit: BoxFit.cover,
+                      )
+                      : DecorationImage(
+                        image: NetworkImage(comment['userImage'] ?? ''),
+                        fit: BoxFit.cover,
+                      ),
               shape: OvalBorder(),
             ),
           ),
@@ -31,10 +43,7 @@ class GuestCommentItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '@${comment['userName'] ?? ''}',
-                  style: TextStyles.abeezee16px400wPblack,
-                ),
+                Text('@$displayName', style: TextStyles.abeezee16px400wPblack),
                 Text(
                   comment['text'] ?? '',
                   style: TextStyle(
