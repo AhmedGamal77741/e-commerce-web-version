@@ -74,33 +74,34 @@ class DeletedAccount extends StatelessWidget {
     }
   }
 
-  String _formatDeletedAt(String deletedAt) {
-    // Try to parse as Timestamp (from Firestore)
+  DateTime? _parseDeletedAt(String deletedAt) {
     try {
-      if (deletedAt.isEmpty) return '';
-      // If it's a Firestore Timestamp string
+      if (deletedAt.isEmpty) return null;
       if (deletedAt.contains('Timestamp(')) {
         final match = RegExp(
           r'Timestamp\((\d+), (\d+)\)',
         ).firstMatch(deletedAt);
         if (match != null) {
           final seconds = int.parse(match.group(1)!);
-          final date = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
-          return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+          return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
         }
       }
-      // Try ISO8601 string
       final date = DateTime.tryParse(deletedAt);
-      if (date != null) {
-        return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      }
+      if (date != null) return date;
     } catch (_) {}
-    return deletedAt;
+    return null;
+  }
+
+  String _formatPermanentDeleteDate(String deletedAt) {
+    final date = _parseDeletedAt(deletedAt);
+    if (date == null) return '';
+    final permanentDeleteDate = date.add(const Duration(days: 30));
+    return '${permanentDeleteDate.year}-${permanentDeleteDate.month.toString().padLeft(2, '0')}-${permanentDeleteDate.day.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = _formatDeletedAt(deletedAt);
+    final formattedDate = _formatPermanentDeleteDate(deletedAt);
     return Scaffold(
       backgroundColor: ColorsManager.white,
       body: Center(
