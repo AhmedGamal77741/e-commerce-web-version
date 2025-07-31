@@ -199,6 +199,32 @@ class _AddressSearchDialogState extends State<AddressSearchDialog> {
                               )
                               : null,
                       onTap: () {
+                        final addressData =
+                            item['address'] ?? item['road_address'];
+                        if (addressData != null &&
+                            addressData['mountain_yn'] != null) {
+                          if (addressData['mountain_yn'] == 'Y') {
+                            // Show message and prevent selection
+                            showDialog(
+                              context: context,
+                              builder:
+                                  (context) => AlertDialog(
+                                    title: Text('배송 불가'),
+                                    content: Text(
+                                      '해당 산간지역은 배송이 불가합니다. 다른 주소를 선택해주세요.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed:
+                                            () => Navigator.of(context).pop(),
+                                        child: Text('확인'),
+                                      ),
+                                    ],
+                                  ),
+                            );
+                            return;
+                          }
+                        }
                         Navigator.of(context).pop(item);
                       },
                     );
