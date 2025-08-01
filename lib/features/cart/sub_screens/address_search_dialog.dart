@@ -2,6 +2,37 @@ import 'package:ecommerece_app/features/cart/services/kakao_service.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 
+final List<String> koreanIslands = [
+  '제주도', // Jeju Island :contentReference[oaicite:1]{index=1}
+  '우도', // Udo Island off Jeju :contentReference[oaicite:2]{index=2}
+  '마라도', // Marado, south of Jeju :contentReference[oaicite:3]{index=3}
+  '거제도', // Geoje Island, 2nd largest :contentReference[oaicite:4]{index=4}
+  '외도', // Oedo Island botanical garden :contentReference[oaicite:5]{index=5}
+  '진도', // Jindo Island & the Miracle Sea Road :contentReference[oaicite:6]{index=6}
+  '울릉도', // Ulleungdo in East Sea :contentReference[oaicite:7]{index=7}
+  '홍도', // Hongdo Island in Dadohaehaesang NP :contentReference[oaicite:8]{index=8}
+  '추자도', // Chuja Islands cluster :contentReference[oaicite:9]{index=9}
+  '무의도', // Muuido near Incheon :contentReference[oaicite:10]{index=10}
+  '영종도', // Yeongjong‑do (Home to Incheon Airport) :contentReference[oaicite:11]{index=11}
+  '소매물도', // Somaemuldo, Tongyeong region :contentReference[oaicite:12]{index=12}
+  '비진도', // Bijindo (camping / bioluminescence) :contentReference[oaicite:13]{index=13}
+  '욕지도', // Yokjido, small island near Tongyeong :contentReference[oaicite:14]{index=14}
+  '사량도', // Saryangdo, hiking island near Tongyeong :contentReference[oaicite:15]{index=15}
+  '한산도', // Hansando historic island near Tongyeong :contentReference[oaicite:16]{index=16}
+  '미륵도', // Mireukdo connected to Tongyeong by bridge :contentReference[oaicite:17]{index=17}
+  '위도', // Wido Island (flower island with European gardens) :contentReference[oaicite:18]{index=18}
+  '오륙도', // Oryukdo (Busan offshore islets) :contentReference[oaicite:19]{index=19}
+  '거문도', // Geomundo Island :contentReference[oaicite:20]{index=20}
+  '덕적도', // Deokjeokdo, Yellow Sea off Incheon :contentReference[oaicite:21]{index=21}
+  '소야도', // Soyado, off Deokjeokdo :contentReference[oaicite:22]{index=22}
+];
+
+bool likelyIsland(String regionName) {
+  final normalized = regionName.replaceAll(RegExp(r'(면|리|도)$'), '');
+
+  return koreanIslands.contains(normalized);
+}
+
 class AddressSearchDialog extends StatefulWidget {
   final KakaoApiService kakaoService;
 
@@ -172,7 +203,22 @@ class _AddressSearchDialogState extends State<AddressSearchDialog> {
                             : item['address'] != null
                             ? '지번: ${item['address']['main_address_no']}${item['address']['sub_address_no'] != '' ? '-${item['address']['sub_address_no']}' : ''}'
                             : '';
-
+                    bool isIsland;
+                    print(item);
+                    final addressData = item['address'] ?? item['road_address'];
+                    final region1depth =
+                        addressData['region_1depth_name'] as String;
+                    final region2depth =
+                        addressData['region_2depth_name'] as String;
+                    final region3depth =
+                        addressData['region_3depth_name'] as String;
+                    if (likelyIsland(region1depth) ||
+                        likelyIsland(region2depth) ||
+                        likelyIsland(region3depth)) {
+                      isIsland = true;
+                    } else {
+                      isIsland = false;
+                    }
                     return ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -203,7 +249,7 @@ class _AddressSearchDialogState extends State<AddressSearchDialog> {
                             item['address'] ?? item['road_address'];
                         if (addressData != null &&
                             addressData['mountain_yn'] != null) {
-                          if (addressData['mountain_yn'] == 'Y') {
+                          if (addressData['mountain_yn'] == 'Y' || isIsland) {
                             // Show message and prevent selection
                             showDialog(
                               context: context,
@@ -211,7 +257,7 @@ class _AddressSearchDialogState extends State<AddressSearchDialog> {
                                   (context) => AlertDialog(
                                     title: Text('배송 불가'),
                                     content: Text(
-                                      '해당 산간지역은 배송이 불가합니다. 다른 주소를 선택해주세요.',
+                                      '산간 지역/섬 지역은 배송이 불가합니다. 다른 주소를 선택해 주세요.',
                                     ),
                                     actions: [
                                       TextButton(
