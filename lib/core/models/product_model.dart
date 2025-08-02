@@ -28,6 +28,10 @@ class Product {
   final String category;
   final int stock;
   final int price;
+  final int supplyPrice;
+  int? deliveryPrice;
+  double? marginRate;
+  int? shippingFee;
   final int baselineTime;
   final List<PricePoint> pricePoints;
   final bool freeShipping;
@@ -56,6 +60,11 @@ class Product {
     required this.favBy,
     required this.deliveryManagerId,
     required this.address,
+    required this.supplyPrice,
+    this.deliveryPrice,
+    this.marginRate,
+
+    this.shippingFee,
     this.arrivalDate,
   });
 
@@ -65,6 +74,8 @@ class Product {
       productName: map['productName'] ?? '',
       instructions: map['instructions'] ?? '',
       stock: map['stock'] ?? 0,
+      supplyPrice: map['supplyPrice'] ?? 0,
+
       price:
           (map['pricePoints'] as List?)
               ?.map((pp) => PricePoint.fromMap(pp))
@@ -85,6 +96,9 @@ class Product {
       freeShipping: map['freeShipping'] ?? false,
       favBy: List<String>.from(map['favBy'] ?? []),
       deliveryManagerId: map['deliveryManagerId'] ?? '',
+      deliveryPrice: map['deliveryPrice'] ?? 0,
+      marginRate: map['marginRate'] ?? 0,
+      shippingFee: map['shippingFee'] ?? 0,
       address: map['address'],
       arrivalDate: map['arrivalDate'],
     );
@@ -97,6 +111,10 @@ class Product {
       'instructions': instructions,
       'stock': stock,
       'price': price,
+      'supplyPrice': supplyPrice,
+      'deliveryPrice': deliveryPrice,
+      'marginRate': marginRate,
+      'shippingFee': shippingFee,
       'baselineTime': baselineTime,
       'meridiem': meridiem,
       'imgUrl': imgUrl,
