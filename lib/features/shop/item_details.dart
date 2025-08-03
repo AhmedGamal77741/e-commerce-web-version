@@ -1,4 +1,5 @@
 import 'package:ecommerece_app/core/helpers/extensions.dart';
+import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
@@ -160,12 +161,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                 width: double.infinity,
                 height: 33,
                 color: Colors.black,
-                child: Center(
-                  child: Text(
-                    '프리미엄 회원 모든 제품 10% 할인',
-                    style: TextStyles.abeezee16px400wW,
-                  ),
-                ),
+                child: Center(child: _ShiningPremiumBanner()),
               ),
             ),
           Padding(
@@ -326,7 +322,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                         if (index < widget.product.pricePoints.length - 1)
                           const Divider(
                             height: 1,
-                            thickness: 0.27,
+                            thickness: 0.40,
                             color: Color(0xFF747474),
                           ),
                       ],
@@ -358,11 +354,19 @@ class _ItemDetailsState extends State<ItemDetails> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 // spacing: 10, // Column doesn't have a spacing property. Use SizedBox between children.
                 children: [
+                  _buildInfoRow('배송', widget.product.arrivalDate ?? ''),
+                  SizedBox(height: 10),
+                  const Divider(
+                    height: 1,
+                    thickness: 0.40,
+                    color: Color(0xFF747474),
+                  ),
+                  SizedBox(height: 10),
                   _buildInfoRow('보관법 및 소비기한', widget.product.instructions),
                   SizedBox(height: 10),
                   const Divider(
                     height: 1,
-                    thickness: 0.27,
+                    thickness: 0.40,
                     color: Color(0xFF747474),
                   ),
                   SizedBox(height: 10),
@@ -373,7 +377,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                   SizedBox(height: 10),
                   const Divider(
                     height: 1,
-                    thickness: 0.27,
+                    thickness: 0.40,
                     color: Color(0xFF747474),
                   ),
                   SizedBox(height: 10),
@@ -577,5 +581,91 @@ void _launchPaymentPage(String amount, String userId) async {
     // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not launch payment page.')));
     debugPrint('Could not launch $url'); // For debugging
     throw 'Could not launch $url';
+  }
+}
+
+// Shining animation widget for premium banner
+class _ShiningPremiumBanner extends StatefulWidget {
+  @override
+  State<_ShiningPremiumBanner> createState() => _ShiningPremiumBannerState();
+}
+
+class _ShiningPremiumBannerState extends State<_ShiningPremiumBanner>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _shineAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..repeat(reverse: false);
+    _shineAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        AnimatedBuilder(
+          animation: _shineAnimation,
+          builder: (context, child) {
+            return ShaderMask(
+              shaderCallback: (Rect bounds) {
+                final double shineWidth = bounds.width * 0.35;
+                final double shinePosition =
+                    bounds.width * _shineAnimation.value;
+                return LinearGradient(
+                  colors: [
+                    Colors.grey.shade700,
+                    Colors.white,
+                    Colors.grey.shade700,
+                  ],
+                  stops: [0.0, 0.5, 1.0],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ).createShader(
+                  Rect.fromLTWH(
+                    shinePosition - shineWidth / 2,
+                    0,
+                    shineWidth,
+                    bounds.height,
+                  ),
+                );
+              },
+              blendMode: BlendMode.srcATop,
+              child: Text(
+                '프리미엄 회원 모든 제품 10% 할인',
+                style: TextStyles.abeezee16px400wW.copyWith(
+                  color: Colors.black,
+                ),
+              ),
+            );
+          },
+        ),
+        horizontalSpace(3),
+        AnimatedBuilder(
+          animation: _shineAnimation,
+          builder: (context, child) {
+            return Opacity(
+              opacity: 1.0,
+              child: Image.asset('assets/sub_bar.png'),
+            );
+          },
+        ),
+      ],
+    );
   }
 }

@@ -463,52 +463,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                 style: TextStyles.abeezee16px400wPblack,
                               ),
                               verticalSpace(2),
-                              FutureBuilder<String>(
-                                future: getArrivalDay(
-                                  p.meridiem,
-                                  p.baselineTime,
-                                ),
-                                builder: (context, snapshot) {
-                                  if (p.stock == 0) {
-                                    return Text(
-                                      '품절',
-                                      style: TextStyles.abeezee14px400wP600,
-                                    );
-                                  }
-                                  if (snapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return Text(
-                                      '로딩 중...',
-                                      style: TextStyles.abeezee11px400wP600,
-                                    );
-                                  }
-                                  if (snapshot.hasError) {
-                                    return Text(
-                                      '오류 발생',
-                                      style: TextStyles.abeezee11px400wP600,
-                                    );
-                                  }
-
-                                  String deliveryText;
-                                  if (_isSameRegion(
-                                    userAddressMap,
-                                    p.address,
-                                  )) {
-                                    deliveryText = 'Fresh Delivery';
-                                  } else {
-                                    deliveryText =
-                                        p.freeShipping == true
-                                            ? '무료배송'
-                                            : '배송료가 부과됩니다';
-                                  }
-                                  return Text(
-                                    '${snapshot.data} 도착예정 · $deliveryText ',
-                                    style: TextStyles.abeezee14px400wP600,
-                                  );
-                                },
+                              Text(
+                                '${p.arrivalDate ?? ''} ',
+                                style: TextStyles.abeezee14px400wP600,
                               ),
-
-                              verticalSpace(4),
                             ],
                           ),
                         ),

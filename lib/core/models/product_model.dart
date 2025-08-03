@@ -63,7 +63,6 @@ class Product {
     required this.supplyPrice,
     this.deliveryPrice,
     this.marginRate,
-
     this.shippingFee,
     this.arrivalDate,
   });
@@ -97,7 +96,10 @@ class Product {
       favBy: List<String>.from(map['favBy'] ?? []),
       deliveryManagerId: map['deliveryManagerId'] ?? '',
       deliveryPrice: map['deliveryPrice'] ?? 0,
-      marginRate: map['marginRate'] ?? 0,
+      marginRate:
+          map['marginRate'] != null
+              ? (map['marginRate'] as num).toDouble()
+              : null,
       shippingFee: map['shippingFee'] ?? 0,
       address: map['address'],
       arrivalDate: map['arrivalDate'],

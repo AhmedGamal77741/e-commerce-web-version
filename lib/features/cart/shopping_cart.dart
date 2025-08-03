@@ -170,38 +170,6 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                                   TextStyles
                                                       .abeezee14px400wP600,
                                             ),
-                                            FutureBuilder<String>(
-                                              future: getArrivalDay(
-                                                productData['meridiem'],
-                                                productData['baselineTime'],
-                                              ),
-                                              builder: (context, snapshot) {
-                                                if (snapshot.connectionState ==
-                                                    ConnectionState.waiting) {
-                                                  return Text(
-                                                    '로딩 중...',
-                                                    style:
-                                                        TextStyles
-                                                            .abeezee14px400wP600,
-                                                  );
-                                                }
-                                                if (snapshot.hasError) {
-                                                  return Text(
-                                                    '오류 발생',
-                                                    style:
-                                                        TextStyles
-                                                            .abeezee14px400wP600,
-                                                  );
-                                                }
-
-                                                return Text(
-                                                  '${snapshot.data} 도착예정',
-                                                  style:
-                                                      TextStyles
-                                                          .abeezee14px400wP600,
-                                                );
-                                              },
-                                            ),
                                           ],
                                         ),
 

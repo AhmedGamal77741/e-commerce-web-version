@@ -8,6 +8,7 @@ import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:intl/intl.dart';
 
 class FavoritesScreen extends StatefulWidget {
@@ -29,218 +30,154 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         if (user == null) {
           return Center(child: Text('내 페이지 탭에서 회원가입 후 이용가능합니다.'));
         }
-        return Padding(
-          padding: EdgeInsets.only(left: 10, top: 12, bottom: 12),
-          child: StreamBuilder(
-            stream:
-                FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(user.uid)
-                    .collection('favorites')
-                    .snapshots(),
-            builder: (context, favoritesSnapshot) {
-              if (favoritesSnapshot.connectionState ==
-                  ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              }
-              final favoritesDocs = favoritesSnapshot.data!.docs;
-
-              return ListView.separated(
-                separatorBuilder: (context, index) {
-                  if (index == favoritesDocs.length - 1) {
-                    return SizedBox.shrink();
+        return StreamBuilder<DocumentSnapshot>(
+          stream:
+              FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots(),
+          builder: (context, userSnapshot) {
+            if (userSnapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            }
+            if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+              return Center(child: Text('User profile not found'));
+            }
+            final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
+            final isSub = userData != null && (userData['isSub'] ?? false);
+            return Padding(
+              padding: EdgeInsets.only(left: 10, top: 12, bottom: 12),
+              child: StreamBuilder(
+                stream:
+                    FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .collection('favorites')
+                        .snapshots(),
+                builder: (context, favoritesSnapshot) {
+                  if (favoritesSnapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
                   }
-                  return Divider();
-                },
-                itemCount: favoritesDocs.length,
-                itemBuilder: (ctx, index) {
-                  final favoriteData = favoritesDocs[index].data();
-                  final productId = favoriteData['product_id'];
+                  final favoritesDocs = favoritesSnapshot.data!.docs;
 
-                  return FutureBuilder<DocumentSnapshot>(
-                    future:
-                        FirebaseFirestore.instance
-                            .collection('products')
-                            .doc(productId)
-                            .get(),
-                    builder: (context, productSnapshot) {
-                      if (!productSnapshot.hasData) {
-                        return ListTile(title: Text('로딩 중...'));
+                  return ListView.separated(
+                    separatorBuilder: (context, index) {
+                      if (index == favoritesDocs.length - 1) {
+                        return SizedBox.shrink();
                       }
-                      final productData =
-                          productSnapshot.data!.data() as Map<String, dynamic>;
+                      return Divider();
+                    },
+                    itemCount: favoritesDocs.length,
+                    itemBuilder: (ctx, index) {
+                      final favoriteData = favoritesDocs[index].data();
+                      final productId = favoriteData['product_id'];
 
-                      print(productData);
-                      Product p = Product.fromMap(productData);
-                      return InkWell(
-                        onTap: () async {
-                          bool isSub = await isUserSubscribed();
-                          bool liked = isFavoritedByUser(
-                            p: p,
-                            userId:
-                                FirebaseAuth.instance.currentUser?.uid ?? '',
-                          );
-                          String arrivalTime = await getArrivalDay(
-                            p.meridiem,
-                            p.baselineTime,
-                          );
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) => ItemDetails(
-                                    product: p,
-                                    arrivalDay: arrivalTime,
-                                    isSub: isSub,
-                                  ),
-                            ),
-                          );
-
-                          // context.pushNamed(
-                          //   Routes.itemDetailsScreen,
-                          //   arguments: {
-                          // 'imgUrl': data['imgUrl'],
-                          // 'sellerName': data['sellerName	'],
-                          // 'price': data['price	'],
-                          // 'product_id': data['product_id'],
-                          // 'freeShipping': data['freeShipping	'],
-                          // 'meridiem': data['meridiem'],
-                          // 'baselinehour': data['baselinehour	'],
-                          // 'productName': data['productName	'],
-                          //   },
-                          // );
-                        },
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                productData['imgUrl'],
-                                width: 90,
-                                height: 90,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.only(left: 5),
-                              child: Column(
+                      return FutureBuilder<DocumentSnapshot>(
+                        future:
+                            FirebaseFirestore.instance
+                                .collection('products')
+                                .doc(productId)
+                                .get(),
+                        builder: (context, productSnapshot) {
+                          if (!productSnapshot.hasData) {
+                            return ListTile(title: Text('로딩 중...'));
+                          }
+                          final productData =
+                              productSnapshot.data!.data()
+                                  as Map<String, dynamic>;
+                          Product p = Product.fromMap(productData);
+                          return InkWell(
+                            onTap: () async {
+                              String arrivalTime = await getArrivalDay(
+                                p.meridiem,
+                                p.baselineTime,
+                              );
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => ItemDetails(
+                                        product: p,
+                                        arrivalDay: arrivalTime,
+                                        isSub: isSub,
+                                      ),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 1),
+                              child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    productData['sellerName'],
-                                    style: TextStyles.abeezee14px400wP600,
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Image.network(
+                                      p.imgUrl ?? '',
+                                      width: 106,
+                                      height: 110,
+                                      fit: BoxFit.cover,
+                                    ),
                                   ),
-                                  Text(
-                                    productData['productName'],
-                                    style: TextStyles.abeezee16px400wPblack,
-                                  ),
-
-                                  Row(
-                                    children: [
-                                      if ((productData['stock'] ?? 0) == 0)
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                                         Text(
-                                          '품절',
+                                          p.sellerName,
                                           style: TextStyles.abeezee14px400wP600,
-                                        )
-                                      else
-                                        FutureBuilder<String>(
-                                          future: getArrivalDay(
-                                            productData['meridiem'],
-                                            productData['baselineTime'],
-                                          ),
-                                          builder: (context, snapshot) {
-                                            if (snapshot.connectionState ==
-                                                ConnectionState.waiting) {
-                                              return Text(
-                                                '로딩 중...',
-                                                style:
-                                                    TextStyles
-                                                        .abeezee14px400wP600,
-                                              );
-                                            }
-                                            if (snapshot.hasError) {
-                                              return Text(
-                                                '오류 발생',
-                                                style:
-                                                    TextStyles
-                                                        .abeezee14px400wP600,
-                                              );
-                                            }
-
-                                            return Text(
-                                              '${snapshot.data} 도착예정',
-                                              style:
-                                                  TextStyles
-                                                      .abeezee11px400wP600,
-                                            );
-                                          },
                                         ),
-                                      if ((productData['stock'] ?? 0) > 0) ...[
-                                        horizontalSpace(5),
+
                                         Text(
-                                          '오늘 출발: ${productData['meridiem'] == 'AM' ? '오전' : '오후 '}${productData['baselineTime']}시까지',
-                                          style: TextStyles.abeezee13px400wP600,
+                                          p.productName,
+                                          style:
+                                              TextStyles.abeezee16px400wPblack,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.visible,
+                                        ),
+                                        Text(
+                                          isSub
+                                              ? '${formatCurrency.format(p.price)} 원'
+                                              : '${formatCurrency.format(p.price / 0.9)} 원',
+                                          style:
+                                              TextStyles.abeezee16px400wPblack,
+                                        ),
+
+                                        Text(
+                                          '${p.arrivalDate ?? ''} ',
+                                          style: TextStyles.abeezee14px400wP600,
                                         ),
                                       ],
-                                    ],
+                                    ),
                                   ),
-
-                                  FutureBuilder<bool>(
-                                    future: isUserSubscribed(),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return Text(
-                                          '로딩 중...',
-                                          style: TextStyles.abeezee14px400wP600,
-                                        );
-                                      }
-                                      if (snapshot.hasError) {
-                                        return Text(
-                                          '오류 발생',
-                                          style: TextStyles.abeezee14px400wP600,
-                                        );
-                                      }
-                                      if (snapshot.data == true) {
-                                        return Text(
-                                          '${formatCurrency.format(productData['pricePoints'][0]['price'] ?? 0)} 원',
-                                          style:
-                                              TextStyles.abeezee13px400wPblack,
-                                        );
-                                      } else {
-                                        return Text(
-                                          '${formatCurrency.format(productData['pricePoints'][0]['price'] / 0.9 ?? 0)} 원',
-                                          style:
-                                              TextStyles.abeezee13px400wPblack,
-                                        );
-                                      }
+                                  Spacer(),
+                                  IconButton(
+                                    onPressed: () async {
+                                      await removeProductFromFavorites(
+                                        userId:
+                                            FirebaseAuth
+                                                .instance
+                                                .currentUser!
+                                                .uid,
+                                        productId: p.product_id,
+                                      );
                                     },
+                                    icon: Icon(Icons.close, size: 18),
                                   ),
                                 ],
                               ),
                             ),
-                            Spacer(),
-                            IconButton(
-                              onPressed: () async {
-                                // Code to remove the product from favorites
-                                await removeProductFromFavorites(
-                                  userId:
-                                      FirebaseAuth.instance.currentUser!.uid,
-                                  productId: productData['product_id'],
-                                );
-                              },
-                              icon: Icon(Icons.close, size: 18),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       );
                     },
                   );
                 },
-              );
-            },
-          ),
+              ),
+            );
+          },
         );
       },
     );
