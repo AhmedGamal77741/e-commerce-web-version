@@ -170,6 +170,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
         'deliveryManagerIds': deliveryManagerIds,
         'carrierId': '',
         'isSent': false,
+        'confirmed': false,
         'phoneNo': phoneController.text.trim(),
       };
       await pendingOrderRef.set(orderData);
@@ -448,6 +449,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
           'deliveryManagerId': deliveryManagerIds[i],
           'carrierId': '',
           'isSent': false,
+          'confirmed': false,
           'phoneNo': data['phoneNo'],
         };
         await orderRef.set(orderData);
