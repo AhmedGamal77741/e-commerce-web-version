@@ -434,6 +434,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                           widget.isSub
                               ? pricePoint.price
                               : (pricePoint.price / 0.9).round(),
+                      deliveryManagerId: widget.product.deliveryManagerId ?? '',
                     );
                     if (mounted) {
                       // Check if the widget is still in the tree

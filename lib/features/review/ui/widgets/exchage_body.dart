@@ -70,6 +70,41 @@ class ExchangeBody extends StatelessWidget {
           txtColor: ColorsManager.white,
           func: () async {
             if (!_formKey.currentState!.validate()) return;
+            // Fetch order date
+            final orderDoc =
+                await FirebaseFirestore.instance
+                    .collection('orders')
+                    .doc(orderId)
+                    .get();
+            if (!orderDoc.exists) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('주문 정보를 찾을 수 없습니다.')));
+              return;
+            }
+            final orderDataMap = orderDoc.data();
+            final orderDateStr = orderDataMap?['orderDate'];
+            if (orderDateStr == null) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('주문 날짜 정보가 없습니다.')));
+              return;
+            }
+            final orderDate = DateTime.tryParse(orderDateStr);
+            if (orderDate == null) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('주문 날짜 형식이 올바르지 않습니다.')));
+              return;
+            }
+            final now = DateTime.now();
+            final daysSinceOrder = now.difference(orderDate).inDays;
+            if (daysSinceOrder > 7) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('주문 후 7일이 지나 교환 요청이 불가합니다.')),
+              );
+              return;
+            }
             final docRef =
                 FirebaseFirestore.instance.collection('exchanges').doc();
             final exchangeId = docRef.id;
@@ -86,7 +121,6 @@ class ExchangeBody extends StatelessWidget {
                   .collection('orders')
                   .doc(orderId)
                   .update({'isRequested': true});
-
               context.pop();
             } catch (e) {
               ScaffoldMessenger.of(

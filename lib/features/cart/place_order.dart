@@ -454,6 +454,16 @@ class _PlaceOrderState extends State<PlaceOrder> {
         };
         await orderRef.set(orderData);
         await productRef.update({'stock': FieldValue.increment(-orderQty)});
+        // Add to order_settlement collection for settlement automation
+        final settlementRef = FirebaseFirestore.instance
+            .collection('order_settlement')
+            .doc(orderRef.id);
+        await settlementRef.set({
+          'orderId': orderRef.id,
+          'price': prices[i],
+          'deliveryManagerId': deliveryManagerIds[i],
+          'createdAt': FieldValue.serverTimestamp(),
+        });
       }
       await doc.reference.delete();
       final cartSnapshot =
