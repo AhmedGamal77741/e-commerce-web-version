@@ -378,7 +378,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           children: [
                             InkWell(
                               onTap: _pickImage,
-                              child: Image.asset("assets/추가-007.png"),
+                              child: Image.asset("assets/plus-007.png"),
                             ),
                             SizedBox(width: 10),
                             Expanded(
