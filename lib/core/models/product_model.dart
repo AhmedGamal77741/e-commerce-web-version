@@ -42,6 +42,7 @@ class Product {
   final String? deliveryManagerId;
   final Map<String, dynamic>? address;
   final String? arrivalDate;
+  final String? description;
 
   Product({
     required this.product_id,
@@ -65,6 +66,7 @@ class Product {
     this.marginRate,
     this.shippingFee,
     this.arrivalDate,
+    this.description,
   });
 
   factory Product.fromMap(Map<String, dynamic> map) {
@@ -103,6 +105,7 @@ class Product {
       shippingFee: map['shippingFee'] ?? 0,
       address: map['address'],
       arrivalDate: map['arrivalDate'],
+      description: map['description'],
     );
   }
 
@@ -129,6 +132,7 @@ class Product {
       'deliveryManagerId': deliveryManagerId,
       'address': address,
       'arrivalDate': arrivalDate,
+      'description': description,
     };
   }
 }
