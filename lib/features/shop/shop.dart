@@ -132,7 +132,7 @@ class _ShopState extends State<Shop> {
         if (addressDoc.exists) {
           final addressData = addressDoc.data() as Map<String, dynamic>;
           setState(() {
-            addressName = addressData['name'] ?? 'Unknown';
+            addressName = addressData['address'] ?? 'Unknown';
           });
         }
       });
@@ -171,7 +171,7 @@ class _ShopState extends State<Shop> {
                       if (addressSnap != null && addressSnap.exists) {
                         final addressData =
                             addressSnap.data() as Map<String, dynamic>?;
-                        displayName = addressData?['name'] ?? '배송지 선택';
+                        displayName = addressData?['address'] ?? '배송지 선택';
                       }
                       return TextButton(
                         style: TextButton.styleFrom(
