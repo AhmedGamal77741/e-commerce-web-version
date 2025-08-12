@@ -31,6 +31,7 @@ class BuyNow extends StatefulWidget {
 }
 
 class _BuyNowState extends State<BuyNow> {
+  bool isAddingNewBank = false; // True if 'Add New' selected
   final deliveryAddressController = TextEditingController();
   final deliveryInstructionsController = TextEditingController();
   final cashReceiptController = TextEditingController();
@@ -47,6 +48,7 @@ class _BuyNowState extends State<BuyNow> {
     isDefault: false,
     addressMap: {},
   );
+  Map<String, dynamic>? userBank;
   final List<String> deliveryRequests = [
     '문앞',
     '직접 받고 부재 시 문앞',
@@ -59,11 +61,32 @@ class _BuyNowState extends State<BuyNow> {
   bool isProcessing = false;
   String? currentPaymentId;
   final Set<String> _finalizedPayments = {};
-  int paymentMethod = 0;
-  Map<String, dynamic>? userBank;
-  Map<String, dynamic>? userCard;
+
+  List<Map<String, dynamic>> bankAccounts = [];
+  int selectedBankIndex = 0;
+
   Timer? _paymentTimeoutTimer;
   String? _timeoutPaymentId;
+
+  Future<void> _fetchBankAccounts() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final data = userDoc.data();
+    if (data != null && data['bankAccounts'] != null) {
+      final accounts = List<Map<String, dynamic>>.from(data['bankAccounts']);
+      setState(() {
+        bankAccounts = accounts;
+        selectedBankIndex = accounts.isNotEmpty ? 0 : -1;
+      });
+    } else {
+      setState(() {
+        bankAccounts = [];
+        selectedBankIndex = -1;
+      });
+    }
+  }
 
   Future<void> _selectAddress() async {
     final result = await Navigator.push(
@@ -131,7 +154,7 @@ class _BuyNowState extends State<BuyNow> {
                 ? manualRequest?.trim() ?? ''
                 : selectedRequest.trim(),
         'cashReceipt': cashReceiptController.text.trim(),
-        'paymentMethod': paymentMethod == 0 ? 'bank' : 'card',
+        'paymentMethod': 'bank',
         'orderDate': DateTime.now().toIso8601String(),
         'createdAt': FieldValue.serverTimestamp(),
         'totalPrice': totalPrice,
@@ -150,53 +173,35 @@ class _BuyNowState extends State<BuyNow> {
         'email': emailController.text.trim(),
       };
       await pendingOrderRef.set(orderData);
-      final payerId =
-          paymentMethod == 0
-              ? (userBank != null ? userBank!['payerId'] as String? : null)
-              : (userCard != null ? userCard!['payerId'] as String? : null);
-      _startPaymentTimeout(paymentId, pendingOrderRef);
-      if (paymentMethod == 0) {
-        if (payerId != null && payerId.isNotEmpty) {
-          _launchBankRpaymentPage(
-            totalPrice.toString(),
-            uid,
-            phoneController.text.trim(),
-            paymentId,
-            payerId,
-            nameController.text.trim(),
-            emailController.text.trim(),
-          );
-        } else {
-          _launchBankPaymentPage(
-            totalPrice.toString(),
-            uid,
-            phoneController.text.trim(),
-            paymentId,
-            nameController.text.trim(),
-            emailController.text.trim(),
-          );
-        }
+      String? payerId;
+      if (bankAccounts.isNotEmpty &&
+          selectedBankIndex >= 0 &&
+          selectedBankIndex < bankAccounts.length) {
+        payerId = bankAccounts[selectedBankIndex]['payerId'] as String?;
       } else {
-        if (payerId != null && payerId.isNotEmpty) {
-          _launchCardRpaymentPage(
-            totalPrice.toString(),
-            uid,
-            phoneController.text.trim(),
-            paymentId,
-            payerId,
-            nameController.text.trim(),
-            emailController.text.trim(),
-          );
-        } else {
-          _launchCardPaymentPage(
-            totalPrice.toString(),
-            uid,
-            phoneController.text.trim(),
-            paymentId,
-            nameController.text.trim(),
-            emailController.text.trim(),
-          );
-        }
+        payerId = null;
+      }
+      _startPaymentTimeout(paymentId, pendingOrderRef);
+
+      if (payerId != null && payerId.isNotEmpty) {
+        _launchBankRpaymentPage(
+          totalPrice.toString(),
+          uid,
+          phoneController.text.trim(),
+          paymentId,
+          payerId,
+          nameController.text.trim(),
+          emailController.text.trim(),
+        );
+      } else {
+        _launchBankPaymentPage(
+          totalPrice.toString(),
+          uid,
+          phoneController.text.trim(),
+          paymentId,
+          nameController.text.trim(),
+          emailController.text.trim(),
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -251,58 +256,38 @@ class _BuyNowState extends State<BuyNow> {
                 func: () async {
                   await pendingDoc.reference.update({'status': 'pending'});
                   final data = pendingDoc.data() as Map<String, dynamic>;
-                  final payerId =
-                      paymentMethod == 0
-                          ? (userBank != null
-                              ? userBank!['payerId'] as String?
-                              : null)
-                          : (userCard != null
-                              ? userCard!['payerId'] as String?
-                              : null);
+                  String? payerId;
+                  if (bankAccounts.isNotEmpty &&
+                      selectedBankIndex >= 0 &&
+                      selectedBankIndex < bankAccounts.length) {
+                    payerId =
+                        bankAccounts[selectedBankIndex]['payerId'] as String?;
+                  } else {
+                    payerId = null;
+                  }
+
                   final name = data['name'] ?? '';
                   final email = data['email'] ?? '';
-                  if (paymentMethod == 0) {
-                    if (payerId != null && payerId.isNotEmpty) {
-                      _launchBankRpaymentPage(
-                        (data['totalPrice'] ?? '').toString(),
-                        data['userId'] ?? uid,
-                        data['phoneNo'] ?? '',
-                        data['paymentId'] ?? '',
-                        payerId,
-                        name,
-                        email,
-                      );
-                    } else {
-                      _launchBankPaymentPage(
-                        (data['totalPrice'] ?? '').toString(),
-                        data['userId'] ?? uid,
-                        data['phoneNo'] ?? '',
-                        data['paymentId'] ?? '',
-                        name,
-                        email,
-                      );
-                    }
+
+                  if (payerId != null && payerId.isNotEmpty) {
+                    _launchBankRpaymentPage(
+                      (data['totalPrice'] ?? '').toString(),
+                      data['userId'] ?? uid,
+                      data['phoneNo'] ?? '',
+                      data['paymentId'] ?? '',
+                      payerId,
+                      name,
+                      email,
+                    );
                   } else {
-                    if (payerId != null && payerId.isNotEmpty) {
-                      _launchCardRpaymentPage(
-                        (data['totalPrice'] ?? '').toString(),
-                        data['userId'] ?? uid,
-                        data['phoneNo'] ?? '',
-                        data['paymentId'] ?? '',
-                        payerId,
-                        name,
-                        email,
-                      );
-                    } else {
-                      _launchCardPaymentPage(
-                        (data['totalPrice'] ?? '').toString(),
-                        data['userId'] ?? uid,
-                        data['phoneNo'] ?? '',
-                        data['paymentId'] ?? '',
-                        name,
-                        email,
-                      );
-                    }
+                    _launchBankPaymentPage(
+                      (data['totalPrice'] ?? '').toString(),
+                      data['userId'] ?? uid,
+                      data['phoneNo'] ?? '',
+                      data['paymentId'] ?? '',
+                      name,
+                      email,
+                    );
                   }
                 },
                 color: Colors.black,
@@ -500,6 +485,7 @@ class _BuyNowState extends State<BuyNow> {
   @override
   void initState() {
     super.initState();
+    _fetchBankAccounts();
     _fetchUserPaymentInfo();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCachedUserValues();
@@ -532,7 +518,6 @@ class _BuyNowState extends State<BuyNow> {
     final data = userDoc.data();
     setState(() {
       userBank = data?['bank'] as Map<String, dynamic>?;
-      userCard = data?['card'] as Map<String, dynamic>?;
     });
   }
 
@@ -758,7 +743,7 @@ class _BuyNowState extends State<BuyNow> {
                                               fontSize: 15,
                                               fontFamily: 'NotoSans',
                                               fontWeight: FontWeight.w400,
-                                              height: 1.40,
+                                              height: 1.4,
                                             ),
                                           ),
                                           SizedBox(height: 8),
@@ -835,7 +820,7 @@ class _BuyNowState extends State<BuyNow> {
                                             fontSize: 16,
                                             fontFamily: 'NotoSans',
                                             fontWeight: FontWeight.w400,
-                                            height: 1.40,
+                                            height: 1.4,
                                           ),
                                         ),
                                       ),
@@ -884,7 +869,7 @@ class _BuyNowState extends State<BuyNow> {
                       ],
                       SizedBox(height: 15),
                       Text(
-                        paymentMethod == 0 ? '간편 계좌 결제' : '간편 카드 결제',
+                        '간편 계좌 결제',
                         style: TextStyle(
                           color: const Color(0xFF121212),
                           fontSize: 16,
@@ -911,21 +896,13 @@ class _BuyNowState extends State<BuyNow> {
                                 enabled: false,
                                 decoration: InputDecoration(
                                   hintText:
-                                      paymentMethod == 0
-                                          ? (userBank != null &&
-                                                  userBank!['bankName'] !=
-                                                      null &&
-                                                  userBank!['accountNumber'] !=
-                                                      null
-                                              ? '${userBank!['bankName']} / ${userBank!['accountNumber']}'
-                                              : '등록된 계좌가 없습니다.')
-                                          : (userCard != null &&
-                                                  userCard!['cardName'] !=
-                                                      null &&
-                                                  userCard!['cardNumber'] !=
-                                                      null
-                                              ? '${userCard!['cardName']} / ${userCard!['cardNumber']}'
-                                              : '등록된 카드가 없습니다.'),
+                                      (bankAccounts.isNotEmpty &&
+                                              selectedBankIndex >= 0 &&
+                                              selectedBankIndex <
+                                                  bankAccounts.length)
+                                          ? '${bankAccounts[selectedBankIndex]['bankName']} / ${bankAccounts[selectedBankIndex]['bankNumber']}'
+                                          : '등록된 계좌가 없습니다.',
+
                                   hintStyle: TextStyle(
                                     fontSize: 15,
                                     color: ColorsManager.primary400,
@@ -938,31 +915,155 @@ class _BuyNowState extends State<BuyNow> {
                             ),
                             TextButton(
                               onPressed:
-                                  (isProcessing ||
-                                          (currentPaymentId != null &&
-                                              _pendingOrdersStream != null &&
-                                              _finalizedPayments.contains(
-                                                    currentPaymentId,
-                                                  ) ==
-                                                  false &&
-                                              _getCurrentPendingStatus() ==
-                                                  'pending'))
-                                      ? () {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              '결제 진행 중에는 결제수단을 변경할 수 없습니다.',
-                                            ),
-                                          ),
-                                        );
-                                      }
+                                  isProcessing
+                                      ? null
                                       : () async {
-                                        setState(() {
-                                          paymentMethod =
-                                              paymentMethod == 0 ? 1 : 0;
-                                        });
+                                        await showDialog(
+                                          context: context,
+                                          builder: (context) {
+                                            return StatefulBuilder(
+                                              builder: (
+                                                context,
+                                                setStateDialog,
+                                              ) {
+                                                return Dialog(
+                                                  backgroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          16,
+                                                        ),
+                                                  ),
+                                                  child: Padding(
+                                                    padding: EdgeInsets.all(20),
+                                                    child: Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          '계좌 선택',
+                                                          style: TextStyle(
+                                                            fontSize: 18,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: Colors.black,
+                                                          ),
+                                                        ),
+                                                        SizedBox(height: 16),
+                                                        if (bankAccounts
+                                                            .isEmpty)
+                                                          Text(
+                                                            '등록된 계좌가 없습니다.',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.black,
+                                                            ),
+                                                          ),
+                                                        ...bankAccounts.asMap().entries.map((
+                                                          entry,
+                                                        ) {
+                                                          int idx = entry.key;
+                                                          var acc = entry.value;
+                                                          return ListTile(
+                                                            title: Text(
+                                                              '${acc['bankName']} / ${acc['bankNumber']}',
+                                                              style: TextStyle(
+                                                                color:
+                                                                    Colors
+                                                                        .black,
+                                                              ),
+                                                            ),
+                                                            subtitle: Text(
+                                                              'Payer ID: ${acc['payerId']}',
+                                                              style: TextStyle(
+                                                                color:
+                                                                    Colors.grey,
+                                                              ),
+                                                            ),
+                                                            tileColor:
+                                                                idx ==
+                                                                        selectedBankIndex
+                                                                    ? Colors
+                                                                        .black12
+                                                                    : Colors
+                                                                        .white,
+                                                            shape: RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    8,
+                                                                  ),
+                                                            ),
+                                                            onTap: () {
+                                                              setState(() {
+                                                                selectedBankIndex =
+                                                                    idx;
+                                                                isAddingNewBank =
+                                                                    false;
+                                                              });
+                                                              setStateDialog(
+                                                                () {},
+                                                              );
+                                                              Navigator.of(
+                                                                context,
+                                                              ).pop();
+                                                            },
+                                                          );
+                                                        }).toList(),
+                                                        Divider(
+                                                          height: 32,
+                                                          color: Colors.black,
+                                                        ),
+                                                        ListTile(
+                                                          title: Text(
+                                                            '새 계좌로 결제',
+                                                            style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color:
+                                                                  Colors.black,
+                                                            ),
+                                                          ),
+                                                          tileColor:
+                                                              selectedBankIndex ==
+                                                                      -1
+                                                                  ? Colors
+                                                                      .black12
+                                                                  : Colors
+                                                                      .white,
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  8,
+                                                                ),
+                                                          ),
+                                                          onTap: () {
+                                                            setState(() {
+                                                              selectedBankIndex =
+                                                                  -1;
+                                                              isAddingNewBank =
+                                                                  true;
+                                                            });
+                                                            setStateDialog(
+                                                              () {},
+                                                            );
+                                                            Navigator.of(
+                                                              context,
+                                                            ).pop();
+                                                          },
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            );
+                                          },
+                                        );
+                                        setState(() {});
                                       },
                               style: TextButton.styleFrom(
                                 fixedSize: Size(48, 30),

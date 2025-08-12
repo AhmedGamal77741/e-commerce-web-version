@@ -10,7 +10,6 @@ import 'package:ecommerece_app/features/cart/models/address.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,6 +22,124 @@ class PlaceOrder extends StatefulWidget {
 }
 
 class _PlaceOrderState extends State<PlaceOrder> {
+  void _showBankAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '계좌 선택',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    if (bankAccounts.isEmpty)
+                      Text(
+                        '등록된 계좌가 없습니다.',
+                        style: TextStyle(color: Colors.black),
+                      ),
+                    ...bankAccounts.asMap().entries.map((entry) {
+                      int idx = entry.key;
+                      var acc = entry.value;
+                      return ListTile(
+                        title: Text(
+                          '${acc['bankName']} / ${acc['bankNumber']}',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                        subtitle: Text(
+                          'Payer ID: ${acc['payerId']}',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        tileColor:
+                            idx == selectedBankIndex
+                                ? Colors.black12
+                                : Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        onTap: () {
+                          setState(() {
+                            selectedBankIndex = idx;
+                            isAddingNewBank = false;
+                          });
+                          setStateDialog(() {});
+                          Navigator.of(context).pop();
+                        },
+                      );
+                    }).toList(),
+                    Divider(height: 32, color: Colors.black),
+                    ListTile(
+                      title: Text(
+                        '새 계좌로 결제',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      tileColor:
+                          selectedBankIndex == -1
+                              ? Colors.black12
+                              : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      onTap: () {
+                        setState(() {
+                          selectedBankIndex = -1;
+                          isAddingNewBank = true;
+                        });
+                        setStateDialog(() {});
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _fetchBankAccounts() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final data = userDoc.data();
+    if (data != null && data['bankAccounts'] != null) {
+      final accounts = List<Map<String, dynamic>>.from(data['bankAccounts']);
+      setState(() {
+        bankAccounts = accounts;
+        selectedBankIndex = accounts.isNotEmpty ? 0 : -1;
+      });
+    } else {
+      setState(() {
+        bankAccounts = [];
+        selectedBankIndex = -1;
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> bankAccounts = [];
+  int selectedBankIndex = -1;
+  bool isAddingNewBank = false;
   final deliveryAddressController = TextEditingController();
   final deliveryInstructionsController = TextEditingController();
   final cashReceiptController = TextEditingController();
@@ -157,7 +274,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                 ? manualRequest?.trim() ?? ''
                 : selectedRequest.trim(),
         'cashReceipt': cashReceiptController.text.trim(),
-        'paymentMethod': paymentMethod == 0 ? 'bank' : 'card',
+        'paymentMethod': 'bank',
         'orderDate': DateTime.now().toIso8601String(),
         'createdAt': FieldValue.serverTimestamp(),
         'totalPrice': totalPrice,
@@ -174,53 +291,35 @@ class _PlaceOrderState extends State<PlaceOrder> {
         'phoneNo': phoneController.text.trim(),
       };
       await pendingOrderRef.set(orderData);
-      final payerId =
-          paymentMethod == 0
-              ? (userBank != null ? userBank!['payerId'] as String? : null)
-              : (userCard != null ? userCard!['payerId'] as String? : null);
-      _startPaymentTimeout(paymentId, pendingOrderRef);
-      if (paymentMethod == 0) {
-        if (payerId != null && payerId.isNotEmpty) {
-          _launchBankRpaymentPage(
-            totalPrice.toString(),
-            uid,
-            phoneController.text.trim(),
-            paymentId,
-            payerId,
-            nameController.text.trim(), // pass name
-            emailController.text.trim(), // pass email
-          );
-        } else {
-          _launchBankPaymentPage(
-            totalPrice.toString(),
-            uid,
-            phoneController.text.trim(),
-            paymentId,
-            nameController.text.trim(), // pass name
-            emailController.text.trim(), // pass email
-          );
-        }
+      String? payerId;
+      if (bankAccounts.isNotEmpty &&
+          selectedBankIndex >= 0 &&
+          selectedBankIndex < bankAccounts.length) {
+        payerId = bankAccounts[selectedBankIndex]['payerId'] as String?;
       } else {
-        if (payerId != null && payerId.isNotEmpty) {
-          _launchCardRpaymentPage(
-            totalPrice.toString(),
-            uid,
-            phoneController.text.trim(),
-            paymentId,
-            payerId,
-            nameController.text.trim(), // pass name
-            emailController.text.trim(), // pass email
-          );
-        } else {
-          _launchCardPaymentPage(
-            totalPrice.toString(),
-            uid,
-            phoneController.text.trim(),
-            paymentId,
-            nameController.text.trim(), // pass name
-            emailController.text.trim(), // pass email
-          );
-        }
+        payerId = null;
+      }
+      _startPaymentTimeout(paymentId, pendingOrderRef);
+
+      if (payerId != null && payerId.isNotEmpty) {
+        _launchBankRpaymentPage(
+          totalPrice.toString(),
+          uid,
+          phoneController.text.trim(),
+          paymentId,
+          payerId,
+          nameController.text.trim(), // pass name
+          emailController.text.trim(), // pass email
+        );
+      } else {
+        _launchBankPaymentPage(
+          totalPrice.toString(),
+          uid,
+          phoneController.text.trim(),
+          paymentId,
+          nameController.text.trim(), // pass name
+          emailController.text.trim(), // pass email
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -276,55 +375,29 @@ class _PlaceOrderState extends State<PlaceOrder> {
                   await pendingDoc.reference.update({'status': 'pending'});
                   final data = pendingDoc.data() as Map<String, dynamic>;
                   final payerId =
-                      paymentMethod == 0
-                          ? (userBank != null
-                              ? userBank!['payerId'] as String?
-                              : null)
-                          : (userCard != null
-                              ? userCard!['payerId'] as String?
-                              : null);
-                  if (paymentMethod == 0) {
-                    if (payerId != null && payerId.isNotEmpty) {
-                      _launchBankRpaymentPage(
-                        (data['totalPrice'] ?? '').toString(),
-                        data['userId'] ?? uid,
-                        data['phoneNo'] ?? '',
-                        data['paymentId'] ?? '',
-                        payerId,
-                        nameController.text.trim(), // pass name
-                        emailController.text.trim(), // pass email
-                      );
-                    } else {
-                      _launchBankPaymentPage(
-                        (data['totalPrice'] ?? '').toString(),
-                        data['userId'] ?? uid,
-                        data['phoneNo'] ?? '',
-                        data['paymentId'] ?? '',
-                        nameController.text.trim(), // pass name
-                        emailController.text.trim(), // pass email
-                      );
-                    }
+                      (userBank != null
+                          ? userBank!['payerId'] as String?
+                          : null);
+
+                  if (payerId != null && payerId.isNotEmpty) {
+                    _launchBankRpaymentPage(
+                      (data['totalPrice'] ?? '').toString(),
+                      data['userId'] ?? uid,
+                      data['phoneNo'] ?? '',
+                      data['paymentId'] ?? '',
+                      payerId,
+                      nameController.text.trim(), // pass name
+                      emailController.text.trim(), // pass email
+                    );
                   } else {
-                    if (payerId != null && payerId.isNotEmpty) {
-                      _launchCardRpaymentPage(
-                        (data['totalPrice'] ?? '').toString(),
-                        data['userId'] ?? uid,
-                        data['phoneNo'] ?? '',
-                        data['paymentId'] ?? '',
-                        payerId,
-                        nameController.text.trim(), // pass name
-                        emailController.text.trim(), // pass email
-                      );
-                    } else {
-                      _launchCardPaymentPage(
-                        (data['totalPrice'] ?? '').toString(),
-                        data['userId'] ?? uid,
-                        data['phoneNo'] ?? '',
-                        data['paymentId'] ?? '',
-                        nameController.text.trim(), // pass name
-                        emailController.text.trim(), // pass email
-                      );
-                    }
+                    _launchBankPaymentPage(
+                      (data['totalPrice'] ?? '').toString(),
+                      data['userId'] ?? uid,
+                      data['phoneNo'] ?? '',
+                      data['paymentId'] ?? '',
+                      nameController.text.trim(), // pass name
+                      emailController.text.trim(), // pass email
+                    );
                   }
                 },
                 color: Colors.black,
@@ -454,6 +527,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
         };
         await orderRef.set(orderData);
         await productRef.update({'stock': FieldValue.increment(-orderQty)});
+
         // Add to order_settlement collection for settlement automation
         final settlementRef = FirebaseFirestore.instance
             .collection('order_settlement')
@@ -521,6 +595,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
   @override
   void initState() {
     super.initState();
+    _fetchBankAccounts();
     _fetchUserPaymentInfo();
     _loadCachedUserValues(); // NEW: load cached name/phone
   }
@@ -567,11 +642,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
     print(data);
     setState(() {
       userBank = data?['bank'] as Map<String, dynamic>?;
-      userCard = data?['card'] as Map<String, dynamic>?;
       print('userBank:');
       print(userBank);
-      print('userCard:');
-      print(userCard);
     });
   }
 
@@ -950,21 +1022,12 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                 enabled: false,
                                 decoration: InputDecoration(
                                   hintText:
-                                      paymentMethod == 0
-                                          ? (userBank != null &&
-                                                  userBank!['bankName'] !=
-                                                      null &&
-                                                  userBank!['bankNumber'] !=
-                                                      null
-                                              ? '${userBank!['bankName']} / ${userBank!['bankNumber']}'
-                                              : '등록된 계좌가 없습니다.')
-                                          : (userCard != null &&
-                                                  userCard!['cardName'] !=
-                                                      null &&
-                                                  userCard!['cardNumber'] !=
-                                                      null
-                                              ? '${userCard!['cardName']} / ${userCard!['cardNumber']}'
-                                              : '등록된 카드가 없습니다.'),
+                                      (bankAccounts.isNotEmpty &&
+                                              selectedBankIndex >= 0 &&
+                                              selectedBankIndex <
+                                                  bankAccounts.length)
+                                          ? '${bankAccounts[selectedBankIndex]['bankName']} / ${bankAccounts[selectedBankIndex]['bankNumber']}'
+                                          : '등록된 계좌가 없습니다.',
                                   hintStyle: TextStyle(
                                     fontSize: 15,
                                     color: ColorsManager.primary400,
@@ -977,32 +1040,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                             ),
                             TextButton(
                               onPressed:
-                                  (isProcessing ||
-                                          (currentPaymentId != null &&
-                                              _pendingOrdersStream != null &&
-                                              _finalizedPayments.contains(
-                                                    currentPaymentId,
-                                                  ) ==
-                                                  false &&
-                                              _getCurrentPendingStatus() ==
-                                                  'pending'))
-                                      ? () {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              '결제 진행 중에는 결제수단을 변경할 수 없습니다.',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                      : () async {
-                                        setState(() {
-                                          paymentMethod =
-                                              paymentMethod == 0 ? 1 : 0;
-                                        });
-                                      },
+                                  isProcessing ? null : _showBankAccountDialog,
                               style: TextButton.styleFrom(
                                 fixedSize: Size(48, 30),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1334,43 +1372,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
     return total;
   }
 
-  void _launchCardPaymentPage(
-    String amount,
-    String userId,
-    String phoneNo,
-    String paymentId,
-    String userName,
-    String email,
-  ) async {
-    final url = Uri.parse(
-      'https://pay.pang2chocolate.com/p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&userName=$userName&email=$email',
-    );
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
-
-  void _launchCardRpaymentPage(
-    String amount,
-    String userId,
-    String phoneNo,
-    String paymentId,
-    String payerId,
-    String userName,
-    String email,
-  ) async {
-    final url = Uri.parse(
-      'https://pay.pang2chocolate.com/r-p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&userName=$userName&email=$email',
-    );
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
-
   void _launchBankPaymentPage(
     String amount,
     String userId,
@@ -1406,39 +1407,5 @@ class _PlaceOrderState extends State<PlaceOrder> {
     } else {
       throw 'Could not launch $url';
     }
-  }
-
-  Future<bool> isPaymentCompleted(String orderId, String uid) async {
-    final querySnapshot =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .collection('payments')
-            .where('paymentId', isEqualTo: orderId)
-            .limit(1)
-            .get();
-    return querySnapshot.docs.isNotEmpty;
-  }
-
-  Future<String?> fetchPayerId(String uid) async {
-    try {
-      final userDoc = FirebaseFirestore.instance.collection('users').doc(uid);
-      final snapshot = await userDoc.get();
-      if (!snapshot.exists) {
-        print("User document doesn't exist.");
-        return null;
-      }
-      final data = snapshot.data();
-      final card = data?['card'] as Map<String, dynamic>?;
-      final payerId = card?['payerId'] as String?;
-      return payerId;
-    } catch (e) {
-      print("Error fetching payerId: $e");
-      return null;
-    }
-  }
-
-  String? _getCurrentPendingStatus() {
-    return null;
   }
 }
