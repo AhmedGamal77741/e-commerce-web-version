@@ -152,7 +152,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                       ],
                                     ),
                                   ),
-                                  Spacer(),
                                   IconButton(
                                     onPressed: () async {
                                       await removeProductFromFavorites(
