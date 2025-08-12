@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
 import 'package:ecommerece_app/core/helpers/loading_service.dart';
@@ -9,6 +10,7 @@ import 'package:ecommerece_app/core/widgets/underline_text_filed.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:image_picker/image_picker.dart';
@@ -33,7 +35,7 @@ class _SignupScreenState extends State<SignupScreen> {
   String error = '';
   final fireBaseRepo = FirebaseUserRepo();
   XFile? selectedImage;
-
+  Uint8List? selectedImageBytes;
   Future<void> pickImage() async {
     try {
       final XFile? image = await ImagePicker().pickImage(
@@ -41,9 +43,17 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (image != null) {
-        setState(() {
-          selectedImage = image;
-        });
+        if (kIsWeb) {
+          final bytes = await image.readAsBytes();
+          setState(() {
+            selectedImage = image;
+            selectedImageBytes = bytes;
+          });
+        } else {
+          setState(() {
+            selectedImage = image;
+          });
+        }
       }
     } catch (e) {
       print('Error picking image: $e');
@@ -99,12 +109,20 @@ class _SignupScreenState extends State<SignupScreen> {
                                 child:
                                     selectedImage != null
                                         ? ClipOval(
-                                          child: Image.file(
-                                            File(selectedImage!.path),
-                                            height: 55,
-                                            width: 56,
-                                            fit: BoxFit.cover,
-                                          ),
+                                          child:
+                                              kIsWeb
+                                                  ? Image.memory(
+                                                    selectedImageBytes!,
+                                                    height: 55,
+                                                    width: 56,
+                                                    fit: BoxFit.cover,
+                                                  )
+                                                  : Image.file(
+                                                    File(selectedImage!.path),
+                                                    height: 55,
+                                                    width: 56,
+                                                    fit: BoxFit.cover,
+                                                  ),
                                         )
                                         : Image.asset(
                                           'assets/avatar.png',
