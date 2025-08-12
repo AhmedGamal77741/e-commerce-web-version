@@ -31,101 +31,14 @@ class GuestPostItem extends StatelessWidget {
       child: FutureBuilder<MyUser>(
         future: getUser(post['userId']),
         builder: (context, snapshot) {
-          final bool isDeleted = snapshot.hasError || !snapshot.hasData;
-          final String avatarUrl =
-              isDeleted ? 'assets/avatar.png' : snapshot.data!.url.toString();
-          final String displayName = isDeleted ? '삭제된 계정' : snapshot.data!.name;
-          final myuser = isDeleted ? null : snapshot.data!;
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildPostSkeleton();
-          }
-          if (isDeleted) {
-            return Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(width: 10),
-                    Flexible(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 20),
-                        child: Container(
-                          width: 56,
-                          height: 55,
-                          decoration: ShapeDecoration(
-                            image: DecorationImage(
-                              image: AssetImage('assets/avatar.png'),
-                              fit: BoxFit.cover,
-                            ),
-                            shape: OvalBorder(),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 4,
-                      child: Padding(
-                        padding: EdgeInsets.only(right: 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        displayName,
-                                        style: TextStyles.abeezee16px400wPblack,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (post['text'] != null &&
-                                post['text'].toString().isNotEmpty)
-                              Padding(
-                                padding: EdgeInsets.only(top: 5),
-                                child: Text(
-                                  post['text'],
-                                  style: TextStyle(
-                                    color: const Color(0xFF343434),
-                                    fontSize: 16,
-                                    fontFamily: 'NotoSans',
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.40,
-                                    letterSpacing: -0.09,
-                                  ),
-                                ),
-                              ),
-                            verticalSpace(5),
-                            if (post['imgUrl'] != null &&
-                                post['imgUrl'].toString().isNotEmpty)
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  post['imgUrl'],
-                                  fit: BoxFit.fitWidth,
-                                  width: double.infinity,
-                                ),
-                              ),
-                            verticalSpace(5),
-                            GuestPostActions(post: post),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          }
-          // ...existing code for non-deleted user...
+          final bool userMissing =
+              snapshot.hasError ||
+              !snapshot.hasData ||
+              (snapshot.data?.userId ?? '').isEmpty;
+          final myuser = snapshot.data;
+          final displayName =
+              myuser?.name.isNotEmpty == true ? myuser!.name : '삭제된 사용자';
+          final profileUrl = !userMissing ? (myuser?.url ?? '') : '';
           return Column(
             children: [
               Row(
@@ -141,7 +54,11 @@ class GuestPostItem extends StatelessWidget {
                         height: 55,
                         decoration: ShapeDecoration(
                           image: DecorationImage(
-                            image: NetworkImage(avatarUrl),
+                            image:
+                                profileUrl.isNotEmpty
+                                    ? NetworkImage(profileUrl)
+                                    : AssetImage('assets/avatar.png')
+                                        as ImageProvider,
                             fit: BoxFit.cover,
                           ),
                           shape: OvalBorder(),
@@ -167,16 +84,15 @@ class GuestPostItem extends StatelessWidget {
                                       displayName,
                                       style: TextStyles.abeezee16px400wPblack,
                                     ),
-                                    if (post['fromComments'] == true)
+                                    // Only show follower counter if user exists and userId is not empty
+                                    if (post['fromComments'] == true &&
+                                        !userMissing &&
+                                        myuser!.userId.isNotEmpty)
                                       StreamBuilder<QuerySnapshot>(
                                         stream:
                                             FirebaseFirestore.instance
                                                 .collection('users')
-                                                .doc(
-                                                  myuser != null
-                                                      ? myuser.userId
-                                                      : '',
-                                                )
+                                                .doc(myuser.userId)
                                                 .collection('followers')
                                                 .snapshots(),
                                         builder: (context, subSnap) {
@@ -218,13 +134,17 @@ class GuestPostItem extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              if (post['fromComments'] == true)
+                              // Only show follow button if user exists and is not current user
+                              if (post['fromComments'] == true &&
+                                  !userMissing &&
+                                  myuser!.userId !=
+                                      FirebaseAuth.instance.currentUser?.uid &&
+                                  myuser.userId.isNotEmpty)
                                 Builder(
                                   builder: (context) {
                                     final currentUserId =
                                         FirebaseAuth.instance.currentUser?.uid;
-                                    if (myuser != null &&
-                                        myuser.userId != currentUserId &&
+                                    if (myuser.userId != currentUserId &&
                                         currentUserId != null) {
                                       return StreamBuilder<DocumentSnapshot>(
                                         stream:
@@ -232,11 +152,7 @@ class GuestPostItem extends StatelessWidget {
                                                 .collection('users')
                                                 .doc(currentUserId)
                                                 .collection('following')
-                                                .doc(
-                                                  myuser != null
-                                                      ? myuser.userId
-                                                      : '',
-                                                )
+                                                .doc(myuser.userId)
                                                 .snapshots(),
                                         builder: (context, snapshot) {
                                           final isFollowing =
@@ -266,11 +182,7 @@ class GuestPostItem extends StatelessWidget {
                                             ),
                                             onPressed: () async {
                                               await FollowService()
-                                                  .toggleFollow(
-                                                    myuser != null
-                                                        ? myuser.userId
-                                                        : '',
-                                                  );
+                                                  .toggleFollow(myuser.userId);
                                             },
                                             child: Text(
                                               isFollowing ? '구독 취소' : '구독',

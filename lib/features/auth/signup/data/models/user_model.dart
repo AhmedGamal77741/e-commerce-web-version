@@ -92,18 +92,18 @@ class MyUser {
 
   static MyUser fromDocument(Map<String, dynamic> doc) {
     return MyUser(
-      userId: doc['userId'],
-      email: doc['email'],
-      name: doc['name'],
-      url: doc['url'],
+      userId: (doc['userId'] ?? '') as String,
+      email: (doc['email'] ?? '') as String,
+      name: (doc['name'] ?? '삭제된 사용자') as String,
+      url: (doc['url'] ?? '') as String,
       blocked:
           (doc['blocked'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
       isSub: doc['isSub'] ?? false,
-      defaultAddressId: doc['defaultAddressId'],
-      payerId: doc['payerId'],
+      defaultAddressId: (doc['defaultAddressId'] ?? '') as String?,
+      payerId: (doc['payerId'] ?? '') as String?,
       isOnline: doc['isOnline'] ?? false,
       lastSeen: DateTime.fromMillisecondsSinceEpoch(doc['lastSeen'] ?? 0),
       chatRooms: List<String>.from(doc['chatRooms'] ?? []),
@@ -114,9 +114,9 @@ class MyUser {
       ),
       followerCount: doc['followerCount'] ?? 0,
       followingCount: doc['followingCount'] ?? 0,
-      bio: doc['bio'] ?? '',
-      phoneNumber: doc['phoneNumber'] ?? '',
-      type: doc['type'] ?? 'user',
+      bio: (doc['bio'] ?? '') as String?,
+      phoneNumber: (doc['phoneNumber'] ?? '') as String?,
+      type: (doc['type'] ?? 'user') as String,
     );
   }
 

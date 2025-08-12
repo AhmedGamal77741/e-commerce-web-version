@@ -50,15 +50,22 @@ class PostItem extends StatelessWidget {
         return FutureBuilder<MyUser>(
           future: getUser(postData['userId']),
           builder: (context, snapshot) {
-            final bool isDeleted = snapshot.hasError || !snapshot.hasData;
-            final String avatarUrl =
-                isDeleted ? 'assets/avatar.png' : snapshot.data!.url.toString();
-            final String displayName =
-                isDeleted ? '삭제된 계정' : snapshot.data!.name;
-            final myuser = isDeleted ? null : snapshot.data!;
-            final isMyPost =
-                myuser != null &&
-                myuser.userId == FirebaseAuth.instance.currentUser?.uid;
+            if (snapshot.hasError || !snapshot.hasData) {
+              return _buildPostSkeleton();
+            }
+
+            final bool userMissing =
+                snapshot.hasError ||
+                !snapshot.hasData ||
+                (snapshot.data?.userId ?? '').isEmpty;
+            final myuser = snapshot.data;
+            final displayName =
+                myuser?.name.isNotEmpty == true ? myuser!.name : '삭제된 사용자';
+
+            final String profileUrl = !userMissing ? (myuser?.url ?? '') : '';
+            final bool isMyPost =
+                !userMissing &&
+                myuser!.userId == FirebaseAuth.instance.currentUser?.uid;
 
             return Column(
               children: [
@@ -72,16 +79,14 @@ class PostItem extends StatelessWidget {
                           width: 56,
                           height: 55,
                           decoration: ShapeDecoration(
-                            image:
-                                isDeleted
-                                    ? DecorationImage(
-                                      image: AssetImage('assets/avatar.png'),
-                                      fit: BoxFit.cover,
-                                    )
-                                    : DecorationImage(
-                                      image: NetworkImage(avatarUrl),
-                                      fit: BoxFit.cover,
-                                    ),
+                            image: DecorationImage(
+                              image:
+                                  profileUrl.isNotEmpty
+                                      ? NetworkImage(profileUrl)
+                                      : AssetImage('assets/avatar.png')
+                                          as ImageProvider,
+                              fit: BoxFit.cover,
+                            ),
                             shape: OvalBorder(),
                           ),
                         ),
@@ -97,8 +102,8 @@ class PostItem extends StatelessWidget {
                                     style: TextStyles.abeezee16px400wPblack,
                                   ),
                                   Spacer(),
-                                  if (myuser != null &&
-                                      myuser.userId !=
+                                  if (!userMissing &&
+                                      myuser!.userId !=
                                           FirebaseAuth
                                               .instance
                                               .currentUser
@@ -159,7 +164,8 @@ class PostItem extends StatelessWidget {
                                     ),
                                 ],
                               ),
-                              if (myuser != null)
+                              // Only show follower counter if user exists and userId is not empty
+                              if (!userMissing && myuser!.userId.isNotEmpty)
                                 StreamBuilder<QuerySnapshot>(
                                   stream:
                                       FirebaseFirestore.instance
@@ -223,7 +229,7 @@ class PostItem extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      if (showMoreButton && myuser != null) ...[
+                                      if (showMoreButton) ...[
                                         IconButton(
                                           icon: Icon(
                                             Icons.more_vert,
@@ -234,7 +240,7 @@ class PostItem extends StatelessWidget {
                                             showPostMenu(
                                               context,
                                               postId,
-                                              myuser.userId,
+                                              myuser?.userId ?? '',
                                             );
                                           },
                                         ),
@@ -286,16 +292,15 @@ class PostItem extends StatelessWidget {
                             width: 56,
                             height: 55,
                             decoration: ShapeDecoration(
-                              image:
-                                  isDeleted
-                                      ? DecorationImage(
-                                        image: AssetImage('assets/avatar.png'),
-                                        fit: BoxFit.cover,
-                                      )
-                                      : DecorationImage(
-                                        image: NetworkImage(avatarUrl),
-                                        fit: BoxFit.cover,
-                                      ),
+                              image: DecorationImage(
+                                image:
+                                    (myuser?.url != null &&
+                                            myuser!.url.isNotEmpty)
+                                        ? NetworkImage(myuser.url)
+                                        : AssetImage('assets/avatar.png')
+                                            as ImageProvider,
+                                fit: BoxFit.cover,
+                              ),
                               shape: OvalBorder(),
                             ),
                           ),
@@ -312,7 +317,7 @@ class PostItem extends StatelessWidget {
                                         style: TextStyles.abeezee16px400wPblack,
                                       ),
                                     ),
-                                    if (showMoreButton && myuser != null) ...[
+                                    if (showMoreButton) ...[
                                       IconButton(
                                         icon: Icon(
                                           Icons.more_horiz,
@@ -395,7 +400,7 @@ class PostItem extends StatelessWidget {
                                                                         controller:
                                                                             _controller,
                                                                         maxLines:
-                                                                            4,
+                                                                            20,
                                                                         style: TextStyle(
                                                                           color:
                                                                               Colors.black,
@@ -728,8 +733,12 @@ class PostItem extends StatelessWidget {
                                                 );
                                               },
                                             );
-                                          } else if (myuser == null) {
-                                            showPostMenu(context, postId, '');
+                                          } else {
+                                            showPostMenu(
+                                              context,
+                                              postId,
+                                              myuser?.userId ?? '',
+                                            );
                                           }
                                         },
                                       ),
