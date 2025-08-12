@@ -410,6 +410,19 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                 Product p = data2;
                 return InkWell(
                   onTap: () async {
+                    final currentUser = FirebaseAuth.instance.currentUser;
+                    if (currentUser == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '로그인 후에 상품 상세를 볼 수 있습니다.',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          backgroundColor: Colors.black,
+                        ),
+                      );
+                      return;
+                    }
                     String arrivalTime = await getArrivalDay(
                       p.meridiem,
                       p.baselineTime,

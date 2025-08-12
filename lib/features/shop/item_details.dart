@@ -96,20 +96,6 @@ class _ItemDetailsState extends State<ItemDetails> {
           }
         }
         return Scaffold(
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: () {
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                } else {
-                  Navigator.of(context).pushReplacementNamed('/shop');
-                }
-              },
-            ),
-          ),
           body: ListView(
             children: [
               SizedBox(
@@ -162,6 +148,21 @@ class _ItemDetailsState extends State<ItemDetails> {
                           ),
                         ),
                       ),
+                    Positioned(
+                      top: 5, // adjust as needed for your design
+                      left: 5,
+                      child: IconButton(
+                        icon: Icon(Icons.arrow_back), // white, semi-transparent
+                        // no background
+                        onPressed: () {
+                          if (Navigator.canPop(context)) {
+                            Navigator.pop(context);
+                          } else {
+                            Navigator.of(context).pushReplacementNamed('/shop');
+                          }
+                        },
+                      ),
+                    ),
                   ],
                 ),
               ),
