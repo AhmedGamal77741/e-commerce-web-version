@@ -282,7 +282,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       myUser.email = emailController.text;
                       myUser.name = nameController.text;
                       imgUrl.isEmpty
-                          ? myUser.url = "https://i.ibb.co/ccfDzhyH/avatar.png"
+                          ? myUser.url = "https://i.ibb.co/mrVrHy7z/avatar.png"
                           : myUser.url = imgUrl;
                       myUser.phoneNumber = phoneController.text;
                       var result = await fireBaseRepo.signUp(
