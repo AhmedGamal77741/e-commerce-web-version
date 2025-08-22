@@ -145,44 +145,44 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                       fit: BoxFit.cover,
                                     ),
                                   ),
-                                  Padding(
-                                    padding: EdgeInsets.only(left: 10),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          productData['sellerName'],
-                                          style: TextStyles.abeezee14px400wP600,
-                                        ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(left: 10),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            productData['sellerName'],
+                                            style:
+                                                TextStyles.abeezee14px400wP600,
+                                          ),
 
-                                        Text(
-                                          productData['productName'],
-                                          style:
-                                              TextStyles.abeezee16px400wPblack,
-                                        ),
+                                          Text(
+                                            productData['productName'],
+                                            style:
+                                                TextStyles
+                                                    .abeezee16px400wPblack,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.visible,
+                                          ),
 
-                                        Row(
-                                          children: [
-                                            Text(
-                                              '수량 : ${cartData['quantity'].toString()}  ',
-                                              style:
-                                                  TextStyles
-                                                      .abeezee14px400wP600,
-                                            ),
-                                          ],
-                                        ),
+                                          Text(
+                                            '수량 : ${cartData['quantity'].toString()}  ',
+                                            style:
+                                                TextStyles.abeezee14px400wP600,
+                                          ),
 
-                                        Text(
-                                          '${formatCurrency.format(cartData['price'] ?? 0)} 원',
-                                          style:
-                                              TextStyles.abeezee16px400wPblack,
-                                        ),
-                                      ],
+                                          Text(
+                                            '${formatCurrency.format(cartData['price'] ?? 0)} 원',
+                                            style:
+                                                TextStyles
+                                                    .abeezee16px400wPblack,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
-
-                                  Spacer(),
                                   IconButton(
                                     onPressed: () async {
                                       await deleteCartItem(cartDocs[index].id);
