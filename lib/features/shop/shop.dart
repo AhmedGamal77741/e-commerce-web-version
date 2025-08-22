@@ -357,10 +357,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               FirebaseFirestore.instance
                   .collection('products')
                   .where('category', isEqualTo: widget.categoryId)
+                  .orderBy('createdAt', descending: true)
                   .snapshots(),
           builder: (context, snapshot) {
             final formatCurrency = NumberFormat('#,###');
             if (snapshot.hasError) {
+              print('Error: ${snapshot.error}');
               return Center(child: Text('오류: ${snapshot.error}'));
             }
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -370,7 +372,8 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               return const Center(child: Text('아직 제품이 없습니다'));
             }
             final products = snapshot.data!.docs;
-            List<Product> sameRegion = [];
+            /*             List<Product> sameRegion = [];
+ */
             List<Product> otherRegion = [];
             List<Product> soldOut = [];
 
@@ -380,14 +383,17 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               );
               if (product.stock == 0) {
                 soldOut.add(product);
-              } else if (_isSameRegion(userAddressMap, product.address)) {
+              } /* else if (_isSameRegion(userAddressMap, product.address)) {
                 sameRegion.add(product);
-              } else {
+              }  */ else {
                 otherRegion.add(product);
               }
             }
 
-            final sortedProducts = [...sameRegion, ...otherRegion, ...soldOut];
+            final sortedProducts = [
+              /* ...sameRegion,  */ ...otherRegion,
+              ...soldOut,
+            ];
             /*             // Sort: available products first, then sold out
             final sortedProducts = List.from(products)..sort((a, b) {
               final stockA = (a.data() as Map<String, dynamic>)['stock'] ?? 0;
