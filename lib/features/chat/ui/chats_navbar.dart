@@ -15,7 +15,7 @@ class ChatsNavbar extends StatefulWidget {
 class _ChatsNavbarState extends State<ChatsNavbar> {
   int _selectedIndex = 0;
 
-  final String supportUserId = '4hSVptbp63W7Ctl05FjbVUkOO9u1';
+  final String supportUserId = 'GAm0m4Xjy5XcQejLu1lEyoCNBiU2';
 
   List<Widget> get widgetOptions {
     final user = FirebaseAuth.instance.currentUser;
