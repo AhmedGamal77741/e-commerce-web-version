@@ -24,9 +24,18 @@ class GuestPostActions extends StatelessWidget {
             SizedBox(
               width: 22,
               height: 22,
-              child: ImageIcon(
-                AssetImage("assets/icon=like,status=off.png"),
-                color: Colors.grey,
+              child: InkWell(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("프리미엄 회원 가입 후 게시글 작성, 좋아요, 댓글 사용할 수 있습니다!"),
+                    ),
+                  );
+                },
+                child: ImageIcon(
+                  AssetImage("assets/icon=like,status=off.png"),
+                  color: Colors.grey,
+                ),
               ),
             ),
             SizedBox(width: 4),

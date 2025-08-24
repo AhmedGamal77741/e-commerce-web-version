@@ -474,14 +474,29 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                                 child: Text('Error'),
                                               );
                                             }
-                                            return Text(
-                                              snapshot.data!
-                                                  .data()!['outerPlaceholderText'],
-                                              style: TextStyle(
-                                                color: const Color(0xFF5F5F5F),
-                                                fontSize: 13,
-                                                fontFamily: 'NotoSans',
-                                                fontWeight: FontWeight.w400,
+                                            return InkWell(
+                                              onTap: () {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      "프리미엄 회원 가입 후 게시글 작성, 좋아요, 댓글 사용할 수 있습니다!",
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                              child: Text(
+                                                snapshot.data!
+                                                    .data()!['outerPlaceholderText'],
+                                                style: TextStyle(
+                                                  color: const Color(
+                                                    0xFF5F5F5F,
+                                                  ),
+                                                  fontSize: 13,
+                                                  fontFamily: 'NotoSans',
+                                                  fontWeight: FontWeight.w400,
+                                                ),
                                               ),
                                             );
                                           },
