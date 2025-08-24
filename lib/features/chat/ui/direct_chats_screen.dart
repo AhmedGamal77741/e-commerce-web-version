@@ -213,7 +213,7 @@ class _DirectChatsScreenState extends State<DirectChatsScreen> {
               return FutureBuilder<MyUser?>(
                 future: getOtherUser(chat),
                 builder: (context, userSnap) {
-                  if (!userSnap.hasData) {
+                  if (userSnap.connectionState == ConnectionState.waiting) {
                     return const ListTile(
                       leading: CircleAvatar(
                         radius: 25,
@@ -222,6 +222,111 @@ class _DirectChatsScreenState extends State<DirectChatsScreen> {
                       title: Text('Loading...'),
                     );
                   }
+                  if (!userSnap.hasData) {
+                    final showCheckbox = editMode;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: InkWell(
+                        onTap:
+                            editMode
+                                ? () {
+                                  onSelectChat(
+                                    chat.id,
+                                    !selectedChatIds.contains(chat.id),
+                                  );
+                                }
+                                : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => ChatScreen(
+                                            chatRoomId: chat.id,
+                                            chatRoomName: '삭제된 사용자',
+                                            isDeleted: true,
+                                          ),
+                                    ),
+                                  );
+                                },
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 25,
+                              backgroundImage: AssetImage('assets/avatar.png'),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '삭제된 사용자',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (chat.unreadCount[FirebaseAuth
+                                        .instance
+                                        .currentUser!
+                                        .uid] !=
+                                    null &&
+                                chat.unreadCount[FirebaseAuth
+                                        .instance
+                                        .currentUser!
+                                        .uid]! >
+                                    0)
+                              Container(
+                                width: 20,
+                                height: 20,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  chat
+                                      .unreadCount[FirebaseAuth
+                                          .instance
+                                          .currentUser!
+                                          .uid]!
+                                      .toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            if (showCheckbox)
+                              StatefulBuilder(
+                                builder: (context, checkboxState) {
+                                  return Checkbox(
+                                    value: selectedChatIds.contains(chat.id),
+                                    onChanged: (checked) {
+                                      checkboxState(() {
+                                        if (checked ?? false) {
+                                          selectedChatIds.add(chat.id);
+                                        } else {
+                                          selectedChatIds.remove(chat.id);
+                                        }
+                                      });
+
+                                      /*                                 onSelectChat(chat.id, );
+                                 */
+                                    },
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
                   final friend = userSnap.data!;
                   // Filter by search query
                   if (searchQuery.isNotEmpty &&
