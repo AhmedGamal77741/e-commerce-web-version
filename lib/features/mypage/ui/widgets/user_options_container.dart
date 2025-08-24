@@ -1,6 +1,6 @@
 import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/core/routing/app_router.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
@@ -12,6 +12,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ecommerece_app/features/chat/services/chat_service.dart';
 import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
+
+// app router (root-level GoRouter)
+import 'package:ecommerece_app/core/routing/app_router.dart';
 
 class UserOptionsContainer extends StatefulWidget {
   final bool isSub;
@@ -27,43 +30,72 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
   final ChatService _chatService = ChatService();
   final String supportUserId = 'GAm0m4Xjy5XcQejLu1lEyoCNBiU2';
 
+  bool _isLoading = false;
+
   Future<void> openSupportChat(BuildContext context) async {
+    if (_isLoading) return;
     if (user == null) return;
-    if (user?.uid == supportUserId) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('고객센터 계정에서는 고객센터 채팅을 이용할 수 없습니다.')),
-      );
-      return;
-    }
-    String? chatRoomId;
-    try {
-      chatRoomId = await _chatService.createDirectChatRoom(supportUserId, true);
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('고객센터 채팅방 생성에 실패했습니다.')));
-      return;
-    }
-    // Get support user name (optional, fallback to '고객센터')
-    String supportName = '고객센터';
-    try {
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(supportUserId)
-              .get();
-      if (doc.exists && doc.data()?['name'] != null) {
-        supportName = doc.data()!['name'];
+
+    if (user!.uid == supportUserId) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('고객센터 계정에서는 고객센터 채팅을 이용할 수 없습니다.')),
+        );
       }
-    } catch (_) {}
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) =>
-                ChatScreen(chatRoomId: chatRoomId!, chatRoomName: supportName),
-      ),
-    );
+      return;
+    }
+
+    // show inline loader
+    if (mounted) setState(() => _isLoading = true);
+
+    try {
+      final chatRoomId = await _chatService.createDirectChatRoom(
+        supportUserId,
+        true,
+      );
+
+      if (chatRoomId == null || chatRoomId.isEmpty) {
+        throw Exception('Failed to create chat room');
+      }
+
+      // Fetch support name (best-effort)
+      String supportName = '고객센터';
+      try {
+        final doc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(supportUserId)
+                .get();
+        final data = doc.data();
+        if (doc.exists &&
+            data != null &&
+            (data['name'] as String?)?.isNotEmpty == true) {
+          supportName = data['name'] as String;
+        }
+      } catch (_) {
+        // ignore - keep fallback
+      }
+
+      // Clear loading BEFORE navigation so UI updates and doesn't look stuck
+      if (mounted) setState(() => _isLoading = false);
+
+      // Navigate using app-level router (root navigation — won't be cancelled by local rebuilds)
+      // Use named route with params to match your router.dart
+      AppRouter.router.pushNamed(
+        Routes.chatScreen,
+        pathParameters: {'id': chatRoomId},
+        extra: {'name': supportName},
+      );
+    } catch (e, st) {
+      // optional: print('openSupportChat error: $e\n$st');
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('고객센터 채팅방 생성에 실패했습니다.')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> resubscribeDialog(DateTime nextBillingDate) async {
@@ -193,28 +225,43 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: InkWell(
-                    onTap: isSupport ? null : () => openSupportChat(context),
+                    onTap:
+                        (isSupport || _isLoading)
+                            ? null
+                            : () => openSupportChat(context),
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         vertical: 8.0,
                         horizontal: 4.0,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '고객센터 연결',
-                            style: TextStyles.abeezee17px800wPblack.copyWith(
-                              color: isSupport ? Colors.grey : null,
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '고객센터 연결',
+                                style: TextStyles.abeezee17px800wPblack
+                                    .copyWith(
+                                      color: isSupport ? Colors.grey : null,
+                                    ),
+                              ),
+                              Text(
+                                '고객센터 운영시간 : 10:00시 ~ 23:00시',
+                                style: TextStyles.abeezee11px400wP600.copyWith(
+                                  color: isSupport ? Colors.grey : null,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            '고객센터 운영시간 : 10:00시 ~ 23:00시',
-                            style: TextStyles.abeezee11px400wP600.copyWith(
-                              color: isSupport ? Colors.grey : null,
+                          if (_isLoading)
+                            const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -333,12 +380,8 @@ void _launchPaymentPage(String amount, String userId) async {
   final url = Uri.parse(
     'https://e-commerce-app-34fb2.web.app/payment.html?amount=$amount&userId=$userId',
   );
-
   if (await canLaunchUrl(url)) {
-    await launchUrl(
-      url,
-      // mode: LaunchMode.externalApplication, // Forces external browser
-    );
+    await launchUrl(url);
   } else {
     throw 'Could not launch $url';
   }
@@ -346,12 +389,8 @@ void _launchPaymentPage(String amount, String userId) async {
 
 void _launchPartnerPage() async {
   final url = Uri.parse('https://tally.so/r/w5O556');
-
   if (await canLaunchUrl(url)) {
-    await launchUrl(
-      url,
-      // mode: LaunchMode.externalApplication, // Forces external browser
-    );
+    await launchUrl(url);
   } else {
     throw 'Could not launch $url';
   }

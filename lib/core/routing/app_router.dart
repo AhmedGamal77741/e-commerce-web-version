@@ -18,6 +18,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_comments.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
+import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
 
 class AppRouter {
   static final router = GoRouter(
@@ -207,6 +208,21 @@ class AppRouter {
                   );
                 },
               );
+            },
+          ),
+          GoRoute(
+            name: Routes.chatScreen,
+            path: '/chat/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id'] ?? '';
+              String name = '고객센터';
+              final extra = state.extra;
+              if (extra is Map &&
+                  extra['name'] is String &&
+                  (extra['name'] as String).isNotEmpty) {
+                name = extra['name'] as String;
+              }
+              return ChatScreen(chatRoomId: id, chatRoomName: name);
             },
           ),
           GoRoute(

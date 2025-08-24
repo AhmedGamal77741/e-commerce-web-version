@@ -14,9 +14,9 @@ class ChatService {
   String get currentUserId => _auth.currentUser?.uid ?? '';
 
   // Create or get direct chat room (updated with friend check, support exception)
-  Future<String?> createDirectChatRoom(String otherUserId, bool isBrand) async {
+  Future<String> createDirectChatRoom(String otherUserId, bool isBrand) async {
     // Allow support chat for everyone
-    const supportUserId = 'GAm0m4Xjy5XcQejLu1lEyoCNBiU2';
+    const String supportUserId = 'GAm0m4Xjy5XcQejLu1lEyoCNBiU2';
     if (otherUserId != supportUserId) {
       // Check if users are friends
       final areFriends = await _friendsService.areFriends(otherUserId);
@@ -35,9 +35,13 @@ class ChatService {
       // Get other user's data
       final otherUserDoc =
           await _firestore.collection('users').doc(otherUserId).get();
-      final otherUser = MyUser.fromDocument(otherUserDoc.data()!);
+      if (!otherUserDoc.exists) {
+        throw Exception('Other user not found');
+      }
 
+      final otherUser = MyUser.fromDocument(otherUserDoc.data()!);
       final now = DateTime.now();
+
       final chatRoom = ChatRoomModel(
         id: chatRoomId,
         name: otherUser.name,
@@ -48,13 +52,17 @@ class ChatService {
         unreadCount: {currentUserId: 0, otherUserId: 0},
       );
 
-      await chatRoomRef.set(chatRoom.toMap());
-
-      // Update participants' chatRooms list
-      await _updateUserChatRooms(currentUserId, chatRoomId);
-      await _updateUserChatRooms(otherUserId, chatRoomId);
+      // Use batch for atomic writes
+      final batch = _firestore.batch();
+      batch.set(chatRoomRef, chatRoom.toMap());
+      batch.update(_firestore.collection('users').doc(currentUserId), {
+        'chatRooms': FieldValue.arrayUnion([chatRoomId]),
+      });
+      batch.update(_firestore.collection('users').doc(otherUserId), {
+        'chatRooms': FieldValue.arrayUnion([chatRoomId]),
+      });
+      await batch.commit();
     } else {
-      // If chat room exists but lastMessageTime is missing, set it
       final data = chatRoomDoc.data();
       if (data != null && !data.containsKey('lastMessageTime')) {
         await chatRoomRef.update({
@@ -63,7 +71,7 @@ class ChatService {
       }
     }
 
-    return chatRoomId;
+    return chatRoomId; // Non-nullable
   }
 
   Future<bool> toggleLoveReaction({
