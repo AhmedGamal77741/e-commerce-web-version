@@ -3,6 +3,7 @@ import 'package:ecommerece_app/core/helpers/basetime.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
+import 'package:ecommerece_app/features/cart/delete_func.dart';
 import 'package:ecommerece_app/features/shop/cart_func.dart';
 import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
@@ -80,8 +81,19 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 .doc(productId)
                                 .get(),
                         builder: (context, productSnapshot) {
-                          if (!productSnapshot.hasData) {
+                          if (productSnapshot.connectionState ==
+                              ConnectionState.waiting) {
                             return ListTile(title: Text('로딩 중...'));
+                          }
+                          if (!productSnapshot.hasData ||
+                              !productSnapshot.data!.exists) {
+                            // delete the cart item if product is gone
+                            WidgetsBinding.instance.addPostFrameCallback((
+                              _,
+                            ) async {
+                              await deleteFavItem(favoritesDocs[index].id);
+                            });
+                            return SizedBox.shrink(); // don't render anything
                           }
                           final productData =
                               productSnapshot.data!.data()
