@@ -62,7 +62,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
                 children: [
                   Icon(Icons.add, size: 14),
                   SizedBox(width: 4),
-                  Text('기본배송지 등록', style: TextStyle(fontSize: 14)),
+                  Text('배송지 추가', style: TextStyle(fontSize: 14)),
                 ],
               ),
             ),
