@@ -1,8 +1,10 @@
 // screens/chat_screen.dart
 import 'dart:io';
 import 'dart:math';
+import 'package:ecommerece_app/core/cache/user_cache.dart';
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
 import 'package:ecommerece_app/features/chat/models/chat_room_model.dart';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -536,11 +538,7 @@ class MessageBubble extends StatelessWidget {
                   } else ...{
                     Flexible(
                       child: FutureBuilder(
-                        future:
-                            FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(message.senderId)
-                                .get(),
+                        future: UserCache.getUser(message.senderId),
                         builder: (context, asyncSnapshot) {
                           if (!asyncSnapshot.hasData) {
                             return SizedBox(
@@ -553,11 +551,20 @@ class MessageBubble extends StatelessWidget {
                               ),
                             );
                           }
+
+                          if (!asyncSnapshot.data!.exists) {
+                            return CircleAvatar(
+                              radius: 20,
+                              backgroundColor: Colors.grey[300],
+                              backgroundImage: AssetImage('assets/avatar.png'),
+                            );
+                          }
                           return CircleAvatar(
                             radius: 20,
                             backgroundColor: Colors.grey[300],
                             backgroundImage: NetworkImage(
-                              asyncSnapshot.data!.data()!['url'],
+                              (asyncSnapshot.data!.data()!
+                                  as Map<String, dynamic>)['url'],
                             ),
                           );
                         },
