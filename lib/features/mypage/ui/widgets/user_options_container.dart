@@ -28,7 +28,7 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
     with RouteAware {
   final user = FirebaseAuth.instance.currentUser;
   final ChatService _chatService = ChatService();
-  final String supportUserId = 'GAm0m4Xjy5XcQejLu1lEyoCNBiU2';
+  final String supportUserId = 'JuxEfED9YSc2XyHRFgkPcNCFUSJ3';
 
   bool _isLoading = false;
 

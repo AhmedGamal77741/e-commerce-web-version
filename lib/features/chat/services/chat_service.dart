@@ -16,7 +16,7 @@ class ChatService {
   // Create or get direct chat room (updated with friend check, support exception)
   Future<String> createDirectChatRoom(String otherUserId, bool isBrand) async {
     // Allow support chat for everyone
-    const String supportUserId = 'GAm0m4Xjy5XcQejLu1lEyoCNBiU2';
+    const String supportUserId = 'JuxEfED9YSc2XyHRFgkPcNCFUSJ3';
     if (otherUserId != supportUserId) {
       // Check if users are friends
       final areFriends = await _friendsService.areFriends(otherUserId);
