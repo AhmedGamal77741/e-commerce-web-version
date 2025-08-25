@@ -27,7 +27,7 @@ class TextAndButtons extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(sellerName, style: TextStyles.abeezee14px400wP600),
-        Text(productName, style: TextStyles.abeezee16px400wPblack),
+        Text(productName, style: TextStyles.abeezee16px400wPblack, maxLines: 1),
         Row(
           children: [
             Text('옵션 : $qunatity 개 ', style: TextStyles.abeezee14px400wP600),

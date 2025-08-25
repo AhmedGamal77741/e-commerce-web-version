@@ -7,169 +7,103 @@ class DeliveryStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return orderStatus == 'OUT_FOR_DELIVERY'
-        ? Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primaryblack,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double iconSize = constraints.maxWidth * 0.12;
+        final double boxSize = constraints.maxWidth * 0.22;
+        final double connectorWidth = constraints.maxWidth * 0.11;
+        final double connectorHeight = constraints.maxWidth * 0.03;
+        final double borderRadius = boxSize * 0.2;
+
+        Widget statusRow(
+          Color firstColor,
+          Color secondColor,
+          Color thirdColor,
+          Color firstConnector,
+          Color secondConnector,
+        ) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: boxSize,
+                height: boxSize,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(borderRadius),
+                  color: firstColor,
+                ),
+                child: Icon(
+                  Icons.dashboard_customize_rounded,
+                  size: iconSize,
+                  color: ColorsManager.white,
+                ),
               ),
-              child: Icon(
-                Icons.dashboard_customize_rounded,
-                size: 50,
-                color: ColorsManager.white,
+              Container(
+                width: connectorWidth,
+                height: connectorHeight,
+                decoration: BoxDecoration(color: firstConnector),
               ),
-            ),
-            Container(
-              width: 50,
-              height: 15,
-              decoration: BoxDecoration(color: ColorsManager.primaryblack),
-            ),
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primaryblack,
+              Container(
+                width: boxSize,
+                height: boxSize,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(borderRadius),
+                  color: secondColor,
+                ),
+                child: Icon(
+                  Icons.local_shipping,
+                  size: iconSize,
+                  color: ColorsManager.white,
+                ),
               ),
-              child: Icon(
-                Icons.local_shipping,
-                size: 50,
-                color: ColorsManager.white,
+              Container(
+                width: connectorWidth,
+                height: connectorHeight,
+                decoration: BoxDecoration(color: secondConnector),
               ),
-            ),
-            Container(
-              width: 50,
-              height: 15,
-              decoration: BoxDecoration(color: ColorsManager.primary300),
-            ),
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primary300,
+              Container(
+                width: boxSize,
+                height: boxSize,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(borderRadius),
+                  color: thirdColor,
+                ),
+                child: Icon(
+                  Icons.checklist_rounded,
+                  size: iconSize,
+                  color: ColorsManager.white,
+                ),
               ),
-              child: Icon(
-                Icons.checklist_rounded,
-                size: 50,
-                color: ColorsManager.white,
-              ),
-            ),
-          ],
-        )
-        : orderStatus == 'DELIVERED'
-        ? Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primaryblack,
-              ),
-              child: Icon(
-                Icons.dashboard_customize_rounded,
-                size: 50,
-                color: ColorsManager.white,
-              ),
-            ),
-            Container(
-              width: 50,
-              height: 15,
-              decoration: BoxDecoration(color: ColorsManager.primaryblack),
-            ),
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primaryblack,
-              ),
-              child: Icon(
-                Icons.local_shipping,
-                size: 50,
-                color: ColorsManager.white,
-              ),
-            ),
-            Container(
-              width: 50,
-              height: 15,
-              decoration: BoxDecoration(color: ColorsManager.primaryblack),
-            ),
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primaryblack,
-              ),
-              child: Icon(
-                Icons.checklist_rounded,
-                size: 50,
-                color: ColorsManager.white,
-              ),
-            ),
-          ],
-        )
-        : Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primaryblack,
-              ),
-              child: Icon(
-                Icons.dashboard_customize_rounded,
-                size: 50,
-                color: ColorsManager.white,
-              ),
-            ),
-            Container(
-              width: 50,
-              height: 15,
-              decoration: BoxDecoration(color: ColorsManager.primary300),
-            ),
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primary300,
-              ),
-              child: Icon(
-                Icons.local_shipping,
-                size: 50,
-                color: ColorsManager.white,
-              ),
-            ),
-            Container(
-              width: 50,
-              height: 15,
-              decoration: BoxDecoration(color: ColorsManager.primary300),
-            ),
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: ColorsManager.primary300,
-              ),
-              child: Icon(
-                Icons.checklist_rounded,
-                size: 50,
-                color: ColorsManager.white,
-              ),
-            ),
-          ],
-        );
+            ],
+          );
+        }
+
+        if (orderStatus == 'OUT_FOR_DELIVERY') {
+          return statusRow(
+            ColorsManager.primaryblack,
+            ColorsManager.primaryblack,
+            ColorsManager.primary300,
+            ColorsManager.primaryblack,
+            ColorsManager.primary300,
+          );
+        } else if (orderStatus == 'DELIVERED') {
+          return statusRow(
+            ColorsManager.primaryblack,
+            ColorsManager.primaryblack,
+            ColorsManager.primaryblack,
+            ColorsManager.primaryblack,
+            ColorsManager.primaryblack,
+          );
+        } else {
+          return statusRow(
+            ColorsManager.primaryblack,
+            ColorsManager.primary300,
+            ColorsManager.primary300,
+            ColorsManager.primary300,
+            ColorsManager.primary300,
+          );
+        }
+      },
+    );
   }
 }
