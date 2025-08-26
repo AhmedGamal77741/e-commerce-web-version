@@ -617,7 +617,7 @@ class _ItemDetailsState extends State<ItemDetails> {
 
 void _launchPaymentPage(String amount, String userId) async {
   final url = Uri.parse(
-    'https://e-commerce-app-34fb2.web.app/payment.html?amount=$amount&userId=$userId',
+    'https://e-commerce-app-34fb2.web.app/web-payment.html?amount=$amount&userId=$userId',
   );
 
   if (await canLaunchUrl(url)) {
