@@ -203,6 +203,7 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         forceMaterialTransparency: true,
+        title: Text(widget.chatRoomName, style: TextStyle(color: Colors.black)),
       ),
       body:
           _loadingBlockState
