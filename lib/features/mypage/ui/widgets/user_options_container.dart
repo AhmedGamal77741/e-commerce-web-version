@@ -249,7 +249,7 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
                                     ),
                               ),
                               Text(
-                                '고객센터 운영시간 : 10:00시 ~ 23:00시',
+                                '고객센터 운영시간 : 09:00시 ~ 16:30시',
                                 style: TextStyles.abeezee11px400wP600.copyWith(
                                   color: isSupport ? Colors.grey : null,
                                 ),
