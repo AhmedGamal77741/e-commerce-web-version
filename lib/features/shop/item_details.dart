@@ -1,3 +1,4 @@
+import 'package:ecommerece_app/core/helpers/drag_scroll_behavior.dart';
 import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
@@ -105,8 +106,10 @@ class _ItemDetailsState extends State<ItemDetails> {
                   children: [
                     if (imageUrls.isNotEmpty)
                       PageView.builder(
+                        scrollBehavior: DragScrollBehavior(),
                         controller: _pageController,
                         itemCount: imageUrls.length,
+                        physics: const BouncingScrollPhysics(),
                         onPageChanged:
                             (index) => setState(
                               () {},
@@ -144,6 +147,13 @@ class _ItemDetailsState extends State<ItemDetails> {
                                   dotHeight: 10,
                                   dotWidth: 10,
                                 ),
+                                onDotClicked: (index) {
+                                  _pageController.animateToPage(
+                                    index,
+                                    duration: const Duration(milliseconds: 400),
+                                    curve: Curves.easeInOut,
+                                  );
+                                },
                               ),
                             ),
                           ),
