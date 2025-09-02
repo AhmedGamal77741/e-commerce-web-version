@@ -572,7 +572,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
   ) {
     _paymentTimeoutTimer?.cancel();
     _timeoutPaymentId = paymentId;
-    _paymentTimeoutTimer = Timer(Duration(minutes: 2), () async {
+    _paymentTimeoutTimer = Timer(Duration(minutes: 1), () async {
       final doc = await pendingOrderRef.get();
       if (doc.exists &&
           (doc.data() as Map<String, dynamic>)['status'] == 'pending') {
