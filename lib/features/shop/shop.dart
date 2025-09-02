@@ -433,16 +433,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                       p.meridiem,
                       p.baselineTime,
                     );
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => ItemDetails(
-                              product: p,
-                              arrivalDay: arrivalTime,
-                              isSub: widget.isSub,
-                            ),
-                      ),
+                    GoRouter.of(context).pushNamed(
+                      'productDetails',
+                      pathParameters: {
+                        'productId':
+                            p.product_id.toString(), // <- fills :productId
+                      },
                     );
                   },
                   child: Padding(

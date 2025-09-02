@@ -7,6 +7,7 @@ import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:intl/intl.dart';
 
@@ -141,16 +142,11 @@ class _ShopSearchState extends State<ShopSearch> {
                         product.meridiem,
                         product.baselineTime,
                       );
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => ItemDetails(
-                                product: product,
-                                arrivalDay: arrivalTime,
-                                isSub: isSub,
-                              ),
-                        ),
+                      GoRouter.of(context).pushNamed(
+                        'productDetails',
+                        pathParameters: {
+                          'productId': product.product_id.toString(),
+                        },
                       );
                     },
                   );

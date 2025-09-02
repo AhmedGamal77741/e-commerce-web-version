@@ -1,6 +1,7 @@
 import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
+import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/shop/cart_func.dart';
@@ -155,10 +156,10 @@ class _ItemDetailsState extends State<ItemDetails> {
                         icon: Icon(Icons.arrow_back), // white, semi-transparent
                         // no background
                         onPressed: () {
-                          if (Navigator.canPop(context)) {
-                            Navigator.pop(context);
+                          if (GoRouter.of(context).canPop()) {
+                            GoRouter.of(context).pop();
                           } else {
-                            Navigator.of(context).pushReplacementNamed('/shop');
+                            GoRouter.of(context).goNamed(Routes.navBar);
                           }
                         },
                       ),
@@ -478,7 +479,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                         );
                         if (mounted) {
                           // Check if the widget is still in the tree
-                          Navigator.of(context).pop();
+                          GoRouter.of(context).pop();
                         }
                       }
                     },
