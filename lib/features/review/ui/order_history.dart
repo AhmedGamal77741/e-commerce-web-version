@@ -124,7 +124,7 @@ class _OrderHistoryState extends State<OrderHistory> {
                                       },
                                     ),
                                     horizontalSpace(5),
-                                    isDispatched(product, data['orderDate'])
+                                    data['confirmed']
                                         ? (data['isRequested']
                                             ? BlackTextButton(
                                               txt: '교환 · 반품 신청',
