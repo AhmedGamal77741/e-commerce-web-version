@@ -172,8 +172,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
   int paymentMethod = 0;
   Map<String, dynamic>? userBank;
   Map<String, dynamic>? userCard;
-  Timer? _paymentTimeoutTimer;
-  String? _timeoutPaymentId;
+  // Removed timer logic
 
   Future<void> _selectAddress() async {
     final result = await Navigator.push(
@@ -299,28 +298,57 @@ class _PlaceOrderState extends State<PlaceOrder> {
       } else {
         payerId = null;
       }
-      _startPaymentTimeout(paymentId, pendingOrderRef);
+      // Removed payment timeout logic
 
-      if (payerId != null && payerId.isNotEmpty) {
-        _launchBankRpaymentPage(
-          totalPrice.toString(),
-          uid,
-          phoneController.text.trim(),
-          paymentId,
-          payerId,
-          nameController.text.trim(), // pass name
-          emailController.text.trim(), // pass email
-        );
-      } else {
-        _launchBankPaymentPage(
-          totalPrice.toString(),
-          uid,
-          phoneController.text.trim(),
-          paymentId,
-          nameController.text.trim(), // pass name
-          emailController.text.trim(), // pass email
-        );
-      }
+      // Show dialog for user to launch payment page
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text('결제 진행', style: TextStyle(color: Colors.black)),
+            content: Text(
+              '결제 페이지를 열려면 아래 버튼을 누르세요.',
+              style: TextStyle(color: Colors.black),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // close dialog
+                  if (payerId != null && payerId.isNotEmpty) {
+                    _launchBankRpaymentPage(
+                      totalPrice.toString(),
+                      uid,
+                      phoneController.text.trim(),
+                      paymentId,
+                      payerId,
+                      nameController.text.trim(),
+                      emailController.text.trim(),
+                    );
+                  } else {
+                    _launchBankPaymentPage(
+                      totalPrice.toString(),
+                      uid,
+                      phoneController.text.trim(),
+                      paymentId,
+                      nameController.text.trim(),
+                      emailController.text.trim(),
+                    );
+                  }
+                },
+                child: Text(
+                  '결제 페이지 열기',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -363,10 +391,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
           );
         }
         if (status == 'failed') {
-          _cancelPaymentTimeoutIfNeeded(
-            pendingDoc['paymentId'] as String?,
-            status,
-          );
           return Column(
             children: [
               WideTextButton(
@@ -379,26 +403,58 @@ class _PlaceOrderState extends State<PlaceOrder> {
                           ? userBank!['payerId'] as String?
                           : null);
 
-                  if (payerId != null && payerId.isNotEmpty) {
-                    _launchBankRpaymentPage(
-                      (data['totalPrice'] ?? '').toString(),
-                      data['userId'] ?? uid,
-                      data['phoneNo'] ?? '',
-                      data['paymentId'] ?? '',
-                      payerId,
-                      nameController.text.trim(), // pass name
-                      emailController.text.trim(), // pass email
-                    );
-                  } else {
-                    _launchBankPaymentPage(
-                      (data['totalPrice'] ?? '').toString(),
-                      data['userId'] ?? uid,
-                      data['phoneNo'] ?? '',
-                      data['paymentId'] ?? '',
-                      nameController.text.trim(), // pass name
-                      emailController.text.trim(), // pass email
-                    );
-                  }
+                  // Show dialog for user to launch payment page again
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) {
+                      return AlertDialog(
+                        backgroundColor: Colors.white,
+                        title: Text(
+                          '결제 재시도',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                        content: Text(
+                          '결제 페이지를 다시 열려면 아래 버튼을 누르세요.',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context); // close dialog
+                              if (payerId != null && payerId.isNotEmpty) {
+                                _launchBankRpaymentPage(
+                                  (data['totalPrice'] ?? '').toString(),
+                                  data['userId'] ?? uid,
+                                  data['phoneNo'] ?? '',
+                                  data['paymentId'] ?? '',
+                                  payerId,
+                                  nameController.text.trim(),
+                                  emailController.text.trim(),
+                                );
+                              } else {
+                                _launchBankPaymentPage(
+                                  (data['totalPrice'] ?? '').toString(),
+                                  data['userId'] ?? uid,
+                                  data['phoneNo'] ?? '',
+                                  data['paymentId'] ?? '',
+                                  nameController.text.trim(),
+                                  emailController.text.trim(),
+                                );
+                              }
+                            },
+                            child: Text(
+                              '결제 페이지 열기',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
                 },
                 color: Colors.black,
                 txtColor: Colors.white,
@@ -409,10 +465,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
           );
         }
         if (status == 'success') {
-          _cancelPaymentTimeoutIfNeeded(
-            pendingDoc['paymentId'] as String?,
-            status,
-          );
           final paymentId = pendingDoc['paymentId'] as String?;
           if (paymentId != null && !_finalizedPayments.contains(paymentId)) {
             _finalizedPayments.add(paymentId);
@@ -566,31 +618,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
     }
   }
 
-  void _startPaymentTimeout(
-    String paymentId,
-    DocumentReference pendingOrderRef,
-  ) {
-    _paymentTimeoutTimer?.cancel();
-    _timeoutPaymentId = paymentId;
-    _paymentTimeoutTimer = Timer(Duration(minutes: 1), () async {
-      final doc = await pendingOrderRef.get();
-      if (doc.exists &&
-          (doc.data() as Map<String, dynamic>)['status'] == 'pending') {
-        await pendingOrderRef.update({'status': 'failed'});
-        if (mounted) setState(() {});
-      }
-    });
-  }
-
-  void _cancelPaymentTimeoutIfNeeded(String? paymentId, String? status) {
-    if (_paymentTimeoutTimer != null &&
-        _timeoutPaymentId == paymentId &&
-        status != 'pending') {
-      _paymentTimeoutTimer?.cancel();
-      _paymentTimeoutTimer = null;
-      _timeoutPaymentId = null;
-    }
-  }
+  // Removed timer and timeout logic
 
   @override
   void initState() {

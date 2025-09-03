@@ -65,9 +65,6 @@ class _BuyNowState extends State<BuyNow> {
   List<Map<String, dynamic>> bankAccounts = [];
   int selectedBankIndex = 0;
 
-  Timer? _paymentTimeoutTimer;
-  String? _timeoutPaymentId;
-
   Future<void> _fetchBankAccounts() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -181,28 +178,56 @@ class _BuyNowState extends State<BuyNow> {
       } else {
         payerId = null;
       }
-      _startPaymentTimeout(paymentId, pendingOrderRef);
 
-      if (payerId != null && payerId.isNotEmpty) {
-        _launchBankRpaymentPage(
-          totalPrice.toString(),
-          uid,
-          phoneController.text.trim(),
-          paymentId,
-          payerId,
-          nameController.text.trim(),
-          emailController.text.trim(),
-        );
-      } else {
-        _launchBankPaymentPage(
-          totalPrice.toString(),
-          uid,
-          phoneController.text.trim(),
-          paymentId,
-          nameController.text.trim(),
-          emailController.text.trim(),
-        );
-      }
+      // Show dialog for user to launch payment page
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text('결제 진행', style: TextStyle(color: Colors.black)),
+            content: Text(
+              '결제 페이지를 열려면 아래 버튼을 누르세요.',
+              style: TextStyle(color: Colors.black),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // close dialog
+                  if (payerId != null && payerId.isNotEmpty) {
+                    _launchBankRpaymentPage(
+                      totalPrice.toString(),
+                      uid,
+                      phoneController.text.trim(),
+                      paymentId,
+                      payerId,
+                      nameController.text.trim(),
+                      emailController.text.trim(),
+                    );
+                  } else {
+                    _launchBankPaymentPage(
+                      totalPrice.toString(),
+                      uid,
+                      phoneController.text.trim(),
+                      paymentId,
+                      nameController.text.trim(),
+                      emailController.text.trim(),
+                    );
+                  }
+                },
+                child: Text(
+                  '결제 페이지 열기',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -245,10 +270,6 @@ class _BuyNowState extends State<BuyNow> {
           );
         }
         if (status == 'failed') {
-          _cancelPaymentTimeoutIfNeeded(
-            pendingDoc['paymentId'] as String?,
-            status,
-          );
           return Column(
             children: [
               WideTextButton(
@@ -269,26 +290,58 @@ class _BuyNowState extends State<BuyNow> {
                   final name = data['name'] ?? '';
                   final email = data['email'] ?? '';
 
-                  if (payerId != null && payerId.isNotEmpty) {
-                    _launchBankRpaymentPage(
-                      (data['totalPrice'] ?? '').toString(),
-                      data['userId'] ?? uid,
-                      data['phoneNo'] ?? '',
-                      data['paymentId'] ?? '',
-                      payerId,
-                      name,
-                      email,
-                    );
-                  } else {
-                    _launchBankPaymentPage(
-                      (data['totalPrice'] ?? '').toString(),
-                      data['userId'] ?? uid,
-                      data['phoneNo'] ?? '',
-                      data['paymentId'] ?? '',
-                      name,
-                      email,
-                    );
-                  }
+                  // Show dialog for user to launch payment page again
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) {
+                      return AlertDialog(
+                        backgroundColor: Colors.white,
+                        title: Text(
+                          '결제 재시도',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                        content: Text(
+                          '결제 페이지를 다시 열려면 아래 버튼을 누르세요.',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context); // close dialog
+                              if (payerId != null && payerId.isNotEmpty) {
+                                _launchBankRpaymentPage(
+                                  (data['totalPrice'] ?? '').toString(),
+                                  data['userId'] ?? uid,
+                                  data['phoneNo'] ?? '',
+                                  data['paymentId'] ?? '',
+                                  payerId,
+                                  name,
+                                  email,
+                                );
+                              } else {
+                                _launchBankPaymentPage(
+                                  (data['totalPrice'] ?? '').toString(),
+                                  data['userId'] ?? uid,
+                                  data['phoneNo'] ?? '',
+                                  data['paymentId'] ?? '',
+                                  name,
+                                  email,
+                                );
+                              }
+                            },
+                            child: Text(
+                              '결제 페이지 열기',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
                 },
                 color: Colors.black,
                 txtColor: Colors.white,
@@ -299,10 +352,6 @@ class _BuyNowState extends State<BuyNow> {
           );
         }
         if (status == 'success') {
-          _cancelPaymentTimeoutIfNeeded(
-            pendingDoc['paymentId'] as String?,
-            status,
-          );
           final paymentId = pendingDoc['paymentId'] as String?;
           if (paymentId != null && !_finalizedPayments.contains(paymentId)) {
             _finalizedPayments.add(paymentId);
@@ -453,32 +502,6 @@ class _BuyNowState extends State<BuyNow> {
       setState(() {
         isProcessing = false;
       });
-    }
-  }
-
-  void _startPaymentTimeout(
-    String paymentId,
-    DocumentReference pendingOrderRef,
-  ) {
-    _paymentTimeoutTimer?.cancel();
-    _timeoutPaymentId = paymentId;
-    _paymentTimeoutTimer = Timer(Duration(minutes: 1), () async {
-      final doc = await pendingOrderRef.get();
-      if (doc.exists &&
-          (doc.data() as Map<String, dynamic>)['status'] == 'pending') {
-        await pendingOrderRef.update({'status': 'failed'});
-        if (mounted) setState(() {});
-      }
-    });
-  }
-
-  void _cancelPaymentTimeoutIfNeeded(String? paymentId, String? status) {
-    if (_paymentTimeoutTimer != null &&
-        _timeoutPaymentId == paymentId &&
-        status != 'pending') {
-      _paymentTimeoutTimer?.cancel();
-      _paymentTimeoutTimer = null;
-      _timeoutPaymentId = null;
     }
   }
 
