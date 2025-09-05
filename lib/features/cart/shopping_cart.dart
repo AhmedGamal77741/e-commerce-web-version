@@ -269,7 +269,43 @@ class _ShoppingCartState extends State<ShoppingCart> {
                           Padding(
                             padding: EdgeInsets.only(right: 20),
                             child: TextButton(
-                              onPressed: () {
+                              onPressed: () async {
+                                // Extra stock check before proceeding
+                                final cartDocs = cartSnapshot.data!.docs;
+                                bool hasInsufficientStock = false;
+                                String insufficientProductName = '';
+                                int remainingQuantity = 0;
+                                for (final cartDoc in cartDocs) {
+                                  final cartData =
+                                      cartDoc.data() as Map<String, dynamic>;
+                                  final productId = cartData['product_id'];
+                                  final quantity = cartData['quantity'] ?? 0;
+                                  final productRef = FirebaseFirestore.instance
+                                      .collection('products')
+                                      .doc(productId);
+                                  final productSnapshot =
+                                      await productRef.get();
+                                  final currentStock =
+                                      productSnapshot.data()?['stock'] ?? 0;
+                                  if (quantity > currentStock) {
+                                    hasInsufficientStock = true;
+                                    insufficientProductName =
+                                        cartData['productName'] ?? '';
+                                    remainingQuantity = currentStock;
+                                    break;
+                                  }
+                                }
+                                if (hasInsufficientStock) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '(${insufficientProductName})의 남은 수량은 (${remainingQuantity})개 입니다.',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
                                 context.go(Routes.placeOrderScreen);
                               },
                               style: TextButton.styleFrom(

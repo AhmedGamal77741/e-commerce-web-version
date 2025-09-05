@@ -7,6 +7,7 @@ Future<void> addProductAsNewEntryToCart({
   required int quantity,
   required String deliveryManagerId,
   required int price,
+  required String productName,
 }) async {
   final cartRef = FirebaseFirestore.instance
       .collection('users')
@@ -20,6 +21,7 @@ Future<void> addProductAsNewEntryToCart({
     'price': price,
     'added_at': FieldValue.serverTimestamp(),
     'deliveryManagerId': deliveryManagerId,
+    'productName': productName,
   });
 }
 
