@@ -802,6 +802,38 @@ class _ItemDetailsState extends State<ItemDetails> {
                           );
                           return;
                         }
+                        // Before adding to cart, check total quantity in cart
+                        final cartQuery =
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(currentUser.uid)
+                                .collection('cart')
+                                .where(
+                                  'product_id',
+                                  isEqualTo: widget.product.product_id,
+                                )
+                                .get();
+
+                        int cartTotalQuantity = 0;
+                        for (var doc in cartQuery.docs) {
+                          final data = doc.data();
+                          cartTotalQuantity += (data['quantity'] ?? 0) as int;
+                        }
+
+                        if (cartTotalQuantity + pricePoint.quantity >
+                            currentStock) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '해당 상품의 남은 수량은 ${currentStock - cartTotalQuantity}개 입니다.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        // ...then call addProductAsNewEntryToCart(...)
                         await addProductAsNewEntryToCart(
                           userId: currentUser.uid,
                           productId: widget.product.product_id,
@@ -879,6 +911,38 @@ class _ItemDetailsState extends State<ItemDetails> {
                           );
                           return;
                         }
+                        // Before adding to cart, check total quantity in cart
+                        final cartQuery =
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(currentUser.uid)
+                                .collection('cart')
+                                .where(
+                                  'product_id',
+                                  isEqualTo: widget.product.product_id,
+                                )
+                                .get();
+
+                        int cartTotalQuantity = 0;
+                        for (var doc in cartQuery.docs) {
+                          final data = doc.data();
+                          cartTotalQuantity += (data['quantity'] ?? 0) as int;
+                        }
+
+                        if (cartTotalQuantity + pricePoint.quantity >
+                            currentStock) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '해당 상품의 남은 수량은 ${currentStock - cartTotalQuantity}개 입니다.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        // ...then call addProductAsNewEntryToCart(...)
                         // Navigate to BuyNow page with product info
                         context.go(
                           '/buy-now',
