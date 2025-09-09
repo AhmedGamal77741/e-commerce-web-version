@@ -270,86 +270,20 @@ class _BuyNowState extends State<BuyNow> {
           );
         }
         if (status == 'failed') {
-          return Column(
-            children: [
-              WideTextButton(
-                txt: '주문',
-                func: () async {
-                  await pendingDoc.reference.update({'status': 'pending'});
-                  final data = pendingDoc.data() as Map<String, dynamic>;
-                  String? payerId;
-                  if (bankAccounts.isNotEmpty &&
-                      selectedBankIndex >= 0 &&
-                      selectedBankIndex < bankAccounts.length) {
-                    payerId =
-                        bankAccounts[selectedBankIndex]['payerId'] as String?;
-                  } else {
-                    payerId = null;
-                  }
-
-                  final name = data['name'] ?? '';
-                  final email = data['email'] ?? '';
-
-                  // Show dialog for user to launch payment page again
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) {
-                      return AlertDialog(
-                        backgroundColor: Colors.white,
-                        title: Text(
-                          '결제 재시도',
-                          style: TextStyle(color: Colors.black),
-                        ),
-                        content: Text(
-                          '결제 페이지를 다시 열려면 아래 버튼을 누르세요.',
-                          style: TextStyle(color: Colors.black),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context); // close dialog
-                              if (payerId != null && payerId.isNotEmpty) {
-                                _launchBankRpaymentPage(
-                                  (data['totalPrice'] ?? '').toString(),
-                                  data['userId'] ?? uid,
-                                  data['phoneNo'] ?? '',
-                                  data['paymentId'] ?? '',
-                                  payerId,
-                                  name,
-                                  email,
-                                );
-                              } else {
-                                _launchBankPaymentPage(
-                                  (data['totalPrice'] ?? '').toString(),
-                                  data['userId'] ?? uid,
-                                  data['phoneNo'] ?? '',
-                                  data['paymentId'] ?? '',
-                                  name,
-                                  email,
-                                );
-                              }
-                            },
-                            child: Text(
-                              '결제 페이지 열기',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-                color: Colors.black,
-                txtColor: Colors.white,
-              ),
-              SizedBox(height: 8),
-              Text('결제 실패. 다시 시도해주세요.', style: TextStyle(color: Colors.red)),
-            ],
-          );
+          // Show failure message and delete pending order, then go back
+          Future.microtask(() async {
+            await pendingDoc.reference.delete();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('결제 실패. 다시 시도해주세요.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              Navigator.pop(context);
+            }
+          });
+          return SizedBox.shrink();
         }
         if (status == 'success') {
           final paymentId = pendingDoc['paymentId'] as String?;
