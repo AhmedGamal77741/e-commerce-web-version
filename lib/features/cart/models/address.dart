@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Address {
+  final String id;
   final String name;
   final String phone;
   final String address;
@@ -10,6 +11,7 @@ class Address {
   final Timestamp? createdAt;
 
   Address({
+    required this.id,
     required this.name,
     required this.phone,
     required this.address,
@@ -22,6 +24,7 @@ class Address {
   // Create Address from Firestore document
   factory Address.fromMap(Map<String, dynamic> map) {
     return Address(
+      id: map['id'] ?? '',
       name: map['name'] ?? '',
       phone: map['phone'] ?? '',
       address: map['address'] ?? '',
@@ -35,6 +38,7 @@ class Address {
   // Convert Address to Map for Firestore
   Map<String, dynamic> toFirestore() {
     return {
+      'id': id,
       'name': name,
       'phone': phone,
       'address': address,
@@ -47,6 +51,7 @@ class Address {
 
   // Create a copy of Address with some changes
   Address copyWith({
+    String? id,
     String? name,
     String? phone,
     String? address,
@@ -56,6 +61,7 @@ class Address {
     Timestamp? createdAt,
   }) {
     return Address(
+      id: id ?? this.id,
       name: name ?? this.name,
       phone: phone ?? this.phone,
       address: address ?? this.address,

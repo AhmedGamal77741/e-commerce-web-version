@@ -41,6 +41,7 @@ class _BuyNowState extends State<BuyNow> {
   int selectedOption = 1;
   final _formKey = GlobalKey<FormState>();
   Address address = Address(
+    id: '',
     name: '',
     phone: '',
     address: '',
@@ -108,6 +109,43 @@ class _BuyNowState extends State<BuyNow> {
       isProcessing = true;
     });
     try {
+      if (deliveryAddressController.text.isEmpty) {
+        final userData =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(FirebaseAuth.instance.currentUser!.uid)
+                .get();
+        if (userData['defaultAddressId'] == null ||
+            userData['defaultAddressId'] == '') {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('배송 주소를 선택해주세요.')));
+          setState(() {
+            isProcessing = false;
+          });
+          return;
+        } else {
+          final defaultAddressDoc =
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid)
+                  .collection('addresses')
+                  .doc(userData['defaultAddressId'])
+                  .get();
+          final defaultAddress =
+              defaultAddressDoc.data() as Map<String, dynamic>;
+          deliveryAddressController.text = defaultAddress['address'];
+          address = Address(
+            id: defaultAddress['id'],
+            name: defaultAddress['name'],
+            phone: defaultAddress['phone'],
+            address: defaultAddress['address'],
+            detailAddress: defaultAddress['detailAddress'],
+            isDefault: defaultAddress['isDefault'],
+            addressMap: defaultAddress['addressMap'],
+          );
+        }
+      }
       // Check stock for the single product
       final productRef = FirebaseFirestore.instance
           .collection('products')
@@ -145,6 +183,7 @@ class _BuyNowState extends State<BuyNow> {
         'pendingOrderId': pendingOrderRef.id,
         'userId': uid,
         'paymentId': paymentId,
+        'deliveryAddressId': address.id,
         'deliveryAddress': deliveryAddressController.text.trim(),
         'deliveryInstructions':
             selectedRequest == '직접입력'
@@ -379,6 +418,7 @@ class _BuyNowState extends State<BuyNow> {
           'orderId': orderRef.id,
           'userId': data['userId'],
           'paymentId': data['paymentId'],
+          'deliveryAddressId': data['deliveryAddressId'],
           'deliveryAddress': data['deliveryAddress'],
           'deliveryInstructions': data['deliveryInstructions'],
           'cashReceipt': data['cashReceipt'],
