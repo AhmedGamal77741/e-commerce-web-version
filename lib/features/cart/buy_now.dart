@@ -1,3 +1,5 @@
+import 'package:flutter/rendering.dart';
+
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
@@ -6,6 +8,9 @@ import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/core/widgets/underline_text_filed.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
+import 'dart:html' as html;
 import 'package:ecommerece_app/features/cart/models/address.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,6 +19,33 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
+
+final GlobalKey _orderSummaryKey = GlobalKey();
+
+Future<void> _saveOrderSummaryAsImage(BuildContext context) async {
+  try {
+    RenderRepaintBoundary boundary =
+        _orderSummaryKey.currentContext!.findRenderObject()
+            as RenderRepaintBoundary;
+    ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData != null) {
+      final pngBytes = byteData.buffer.asUint8List();
+      final blob = html.Blob([pngBytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor =
+          html.AnchorElement()
+            ..href = url
+            ..download = 'order_summary.png'
+            ..click();
+      html.Url.revokeObjectUrl(url);
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('이미지 저장에 실패했습니다. 다시 시도해주세요.')));
+  }
+}
 
 class BuyNow extends StatefulWidget {
   final Product product;
@@ -218,25 +250,291 @@ class _BuyNowState extends State<BuyNow> {
         payerId = null;
       }
 
-      // Show dialog for user to launch payment page
+      // Show dialog for user to launch payment page and view order summary
+      final orderDate = DateTime.now();
+      final receiptType = selectedOption == 1 ? '현금 영수증' : '세금 계산서';
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) {
           return AlertDialog(
             backgroundColor: Colors.white,
-            title: Text('결제 진행', style: TextStyle(color: Colors.black)),
-            content: Text(
-              '결제 페이지를 열려면 아래 버튼을 누르세요.',
-              style: TextStyle(color: Colors.black),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.receipt_long, color: Colors.black, size: 32),
+                SizedBox(width: 8),
+                Text(
+                  '주문 요약',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                Spacer(),
+                IconButton(
+                  icon: Icon(Icons.download, color: Colors.black),
+                  tooltip: '이미지로 저장',
+                  onPressed: () => _saveOrderSummaryAsImage(context),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RepaintBoundary(
+                    key: _orderSummaryKey,
+                    child: Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 1. Order date/time
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '주문일',
+                                style: TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                              Text(
+                                '${orderDate.year}-${orderDate.month.toString().padLeft(2, '0')}-${orderDate.day.toString().padLeft(2, '0')} ${orderDate.hour.toString().padLeft(2, '0')}:${orderDate.minute.toString().padLeft(2, '0')}',
+                                style: TextStyle(color: Colors.black),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 8),
+                          // 2. User name
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '이름',
+                                style: TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                              Text(
+                                '${nameController.text}',
+                                style: TextStyle(color: Colors.black),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 8),
+                          // 3. Address
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '주소',
+                                style: TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                              Flexible(
+                                child: Text(
+                                  address.address.isNotEmpty
+                                      ? address.address
+                                      : deliveryAddressController.text,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 8),
+                          // 4. Receipt type
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '영수증 종류',
+                                style: TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                              Text(
+                                '$receiptType',
+                                style: TextStyle(color: Colors.black),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 16),
+                          Divider(thickness: 1.2),
+                          // 5. Product info
+                          Text(
+                            '상품 목록',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                              fontSize: 16,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${widget.product.productName}',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                Text('수량: ${widget.quantity}'),
+
+                                FutureBuilder<DocumentSnapshot>(
+                                  future:
+                                      widget.product.deliveryManagerId != null
+                                          ? FirebaseFirestore.instance
+                                              .collection('delivery_managers')
+                                              .doc(
+                                                widget
+                                                    .product
+                                                    .deliveryManagerId,
+                                              )
+                                              .get()
+                                          : Future.value(null),
+                                  builder: (context, snapshot) {
+                                    if (widget.product.deliveryManagerId ==
+                                        null) {
+                                      return SizedBox.shrink();
+                                    }
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return Text('배송 매니저: 조회 중...');
+                                    }
+                                    if (snapshot.hasError ||
+                                        !snapshot.hasData ||
+                                        !snapshot.data!.exists) {
+                                      return Text('배송 매니저: 정보 없음');
+                                    }
+                                    final managerData =
+                                        snapshot.data!.data()
+                                            as Map<String, dynamic>?;
+                                    final managerName =
+                                        managerData != null &&
+                                                managerData.containsKey('name')
+                                            ? managerData['name']
+                                            : widget.product.deliveryManagerId;
+                                    return Text('배송 매니저: $managerName');
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(thickness: 1.2),
+                          SizedBox(height: 8),
+                          // 6. Total price
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('총 결제 금액', style: TextStyle(fontSize: 16)),
+                              Text(
+                                '${formatCurrency.format(widget.price)}원',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ],
+                          ),
+                          // 7. Tax (if cash receipt)
+                          if (selectedOption == 1) ...[
+                            SizedBox(height: 8),
+                            Builder(
+                              builder: (context) {
+                                final supplyCost = (widget.price / 1.1).round();
+                                final tax = widget.price - supplyCost;
+                                return Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('부가세', style: TextStyle(fontSize: 14)),
+                                    Text(
+                                      '${formatCurrency.format(tax)}원',
+                                      style: TextStyle(fontSize: 14),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                          SizedBox(height: 16),
+                          // 8. Operation ID
+                          Center(
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Operation ID: $paymentId',
+                                style: TextStyle(
+                                  color: Colors.grey[800],
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          Center(
+                            child: Image.asset(
+                              'assets/mypage_icon.png',
+                              height: 40,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      '결제 페이지를 열려면 아래 버튼을 누르세요.',
+                      style: TextStyle(color: Colors.black, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
             ),
             actions: [
+              TextButton(
+                onPressed: () async {
+                  // Cancel: delete pending order and close dialog
+                  await FirebaseFirestore.instance
+                      .collection('pending_orders')
+                      .doc(pendingOrderRef.id)
+                      .delete();
+                  Navigator.pop(context);
+                  setState(() {
+                    isProcessing = false;
+                    currentPaymentId = null;
+                  });
+                },
+                child: Text(
+                  '취소',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
               TextButton(
                 onPressed: () {
                   Navigator.pop(context); // close dialog
                   if (payerId != null && payerId.isNotEmpty) {
                     _launchBankRpaymentPage(
-                      totalPrice.toString(),
+                      widget.price.toString(),
                       uid,
                       phoneController.text.trim(),
                       paymentId,
@@ -246,7 +544,7 @@ class _BuyNowState extends State<BuyNow> {
                     );
                   } else {
                     _launchBankPaymentPage(
-                      totalPrice.toString(),
+                      widget.price.toString(),
                       uid,
                       phoneController.text.trim(),
                       paymentId,
@@ -256,7 +554,7 @@ class _BuyNowState extends State<BuyNow> {
                   }
                 },
                 child: Text(
-                  '결제 페이지 열기',
+                  '확인',
                   style: TextStyle(
                     color: Colors.black,
                     fontWeight: FontWeight.bold,
@@ -534,7 +832,7 @@ class _BuyNowState extends State<BuyNow> {
           title: Text("주문 결제", style: TextStyle(fontFamily: 'NotoSans')),
         ),
         body: Padding(
-          padding: EdgeInsets.only(left: 15, top: 30, right: 15),
+          padding: EdgeInsets.only(left: 15, top: 10, right: 15),
           child: ListView(
             children: [
               Container(
@@ -1184,7 +1482,7 @@ class _BuyNowState extends State<BuyNow> {
                   ),
                 ),
               ),
-              verticalSpace(20),
+              verticalSpace(10),
               // --- Single product summary for Buy Now ---
               Container(
                 padding: EdgeInsets.only(left: 15, top: 15, bottom: 15),
@@ -1227,8 +1525,19 @@ class _BuyNowState extends State<BuyNow> {
                   ],
                 ),
               ),
-              verticalSpace(20),
+              verticalSpace(10),
+
               // --- Total and payment button for Buy Now ---
+            ],
+          ),
+        ),
+        bottomNavigationBar: Container(
+          padding: EdgeInsets.fromLTRB(16, 10, 16, 28),
+          decoration: BoxDecoration(color: Colors.white),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1254,6 +1563,7 @@ class _BuyNowState extends State<BuyNow> {
                   ),
                 ],
               ),
+              SizedBox(height: 8),
               _buildPaymentButton(widget.price, uid),
             ],
           ),
