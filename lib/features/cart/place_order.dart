@@ -315,6 +315,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
         'paymentId': paymentId,
         'deliveryAddressId': address.id,
         'deliveryAddress': deliveryAddressController.text.trim(),
+        'deliveryAddressDetail': address.detailAddress,
         'deliveryInstructions':
             selectedRequest == '직접입력'
                 ? manualRequest?.trim() ?? ''
@@ -886,6 +887,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
           'paymentId': data['paymentId'],
           'deliveryAddressId': data['deliveryAddressId'],
           'deliveryAddress': data['deliveryAddress'],
+          'deliveryAddressDetail': data['deliveryAddressDetail'],
+
           'deliveryInstructions': data['deliveryInstructions'],
           'cashReceipt': data['cashReceipt'],
           'paymentMethod': data['paymentMethod'],
