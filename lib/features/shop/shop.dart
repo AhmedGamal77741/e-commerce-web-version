@@ -356,7 +356,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
           stream:
               FirebaseFirestore.instance
                   .collection('products')
-                  .where('category', isEqualTo: widget.categoryId)
+                  .where('categoryList', arrayContains: widget.categoryId)
                   .orderBy('createdAt', descending: true)
                   .snapshots(),
           builder: (context, snapshot) {
@@ -365,9 +365,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               print('Error: ${snapshot.error}');
               return Center(child: Text('오류: ${snapshot.error}'));
             }
-            if (snapshot.connectionState == ConnectionState.waiting) {
+            /*             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
-            }
+            } */
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
               return const Center(child: Text('아직 제품이 없습니다'));
             }
