@@ -28,7 +28,8 @@ class PlaceOrder extends StatefulWidget {
 
 class _PlaceOrderState extends State<PlaceOrder> {
   final GlobalKey _orderSummaryKey = GlobalKey();
-
+  bool isCheckoutValid = true;
+  String? checkoutErrorMessage;
   void _showBankAccountDialog() {
     showDialog(
       context: context,
@@ -124,6 +125,73 @@ class _PlaceOrderState extends State<PlaceOrder> {
     );
   }
 
+  Future<void> _validateCheckout() async {
+    // Address check
+
+    // Cart check
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      setState(() {
+        isCheckoutValid = false;
+        checkoutErrorMessage = '로그인이 필요합니다.';
+      });
+      return;
+    }
+    final cartSnapshot =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('cart')
+            .get();
+    final cartItems = cartSnapshot.docs.map((doc) => doc.data()).toList();
+    if (cartItems.isEmpty) {
+      setState(() {
+        isCheckoutValid = false;
+        checkoutErrorMessage = '장바구니가 비어 있습니다.';
+      });
+      return;
+    }
+
+    // Product existence and stock check
+    for (var item in cartItems) {
+      final productId = item['product_id'];
+      final quantityOrdered = item['quantity'];
+      final productRef = FirebaseFirestore.instance
+          .collection('products')
+          .doc(productId);
+      final productSnapshot = await productRef.get();
+      if (!productSnapshot.exists) {
+        setState(() {
+          isCheckoutValid = false;
+          checkoutErrorMessage = '상품이 더 이상 존재하지 않습니다.';
+        });
+        return;
+      }
+      final currentStock = productSnapshot.data()?['stock'] ?? 0;
+      if (quantityOrdered is! int || quantityOrdered <= 0) {
+        setState(() {
+          isCheckoutValid = false;
+          checkoutErrorMessage = '주문 수량이 올바르지 않습니다.';
+        });
+        return;
+      }
+      if (currentStock < quantityOrdered) {
+        setState(() {
+          isCheckoutValid = false;
+          checkoutErrorMessage =
+              '재고가 부족한 상품이 있습니다. (주문 수량: $quantityOrdered, 남은 재고: $currentStock)';
+        });
+        return;
+      }
+    }
+
+    // All checks passed
+    setState(() {
+      isCheckoutValid = true;
+      checkoutErrorMessage = null;
+    });
+  }
+
   Future<void> _fetchBankAccounts() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -189,6 +257,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
     );
     if (result != null) {
       deliveryAddressController.text = result.address;
+
       setState(() {
         address = result;
       });
@@ -200,144 +269,15 @@ class _PlaceOrderState extends State<PlaceOrder> {
   Future<void> _handlePlaceOrder(int totalPrice, String uid) async {
     if (!_formKey.currentState!.validate()) return;
     // Save name/phone/email to cache before placing order
-    await _saveCachedUserValues();
+
     setState(() {
       isProcessing = true;
     });
     try {
-      if (deliveryAddressController.text.isEmpty) {
-        final userData =
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(FirebaseAuth.instance.currentUser!.uid)
-                .get();
-        if (userData['defaultAddressId'] == null ||
-            userData['defaultAddressId'] == '') {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('배송 주소를 선택해주세요.')));
-          setState(() {
-            isProcessing = false;
-          });
-          return;
-        } else {
-          final defaultAddressDoc =
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(uid)
-                  .collection('addresses')
-                  .doc(userData['defaultAddressId'])
-                  .get();
-          final defaultAddress =
-              defaultAddressDoc.data() as Map<String, dynamic>;
-          deliveryAddressController.text = defaultAddress['address'];
-          address = Address(
-            id: defaultAddress['id'],
-            name: defaultAddress['name'],
-            phone: defaultAddress['phone'],
-            address: defaultAddress['address'],
-            detailAddress: defaultAddress['detailAddress'],
-            isDefault: defaultAddress['isDefault'],
-            addressMap: defaultAddress['addressMap'],
-          );
-        }
-      }
-
-      final cartSnapshot =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .collection('cart')
-              .get();
-      final cartItems = cartSnapshot.docs.map((doc) => doc.data()).toList();
-      if (cartItems.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('장바구니가 비어 있습니다.')));
-        setState(() {
-          isProcessing = false;
-        });
-        return;
-      }
-      for (var item in cartItems) {
-        final productId = item['product_id'];
-        final quantityOrdered = item['quantity'];
-        final productRef = FirebaseFirestore.instance
-            .collection('products')
-            .doc(productId);
-        final productSnapshot = await productRef.get();
-        if (!productSnapshot.exists) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('상품이 더 이상 존재하지 않습니다.')));
-          setState(() {
-            isProcessing = false;
-          });
-          return;
-        }
-        final currentStock = productSnapshot.data()?['stock'] ?? 0;
-        if (quantityOrdered is! int || quantityOrdered <= 0) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('주문 수량이 올바르지 않습니다.')));
-          setState(() {
-            isProcessing = false;
-          });
-          return;
-        }
-        if (currentStock < quantityOrdered) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '재고가 부족한 상품이 있습니다. (주문 수량: $quantityOrdered, 남은 재고: $currentStock)',
-              ),
-            ),
-          );
-          setState(() {
-            isProcessing = false;
-          });
-          return;
-        }
-      }
       final docRef = FirebaseFirestore.instance.collection('orders').doc();
       final paymentId = docRef.id;
       currentPaymentId = paymentId;
-      final pendingOrderRef =
-          FirebaseFirestore.instance.collection('pending_orders').doc();
-      final productIds = cartItems.map((item) => item['product_id']).toList();
-      final quantities = cartItems.map((item) => item['quantity']).toList();
-      final prices = cartItems.map((item) => item['price']).toList();
-      final deliveryManagerIds =
-          cartItems.map((item) => item['deliveryManagerId']).toList();
-      final orderData = {
-        'pendingOrderId': pendingOrderRef.id,
-        'userId': uid,
-        'paymentId': paymentId,
-        'deliveryAddressId': address.id,
-        'deliveryAddress': deliveryAddressController.text.trim(),
-        'deliveryAddressDetail': address.detailAddress,
-        'deliveryInstructions':
-            selectedRequest == '직접입력'
-                ? manualRequest?.trim() ?? ''
-                : selectedRequest.trim(),
-        'cashReceipt': cashReceiptController.text.trim(),
-        'paymentMethod': 'bank',
-        'orderDate': DateTime.now().toIso8601String(),
-        'createdAt': FieldValue.serverTimestamp(),
-        'totalPrice': totalPrice,
-        'productIds': productIds,
-        'quantities': quantities,
-        'prices': prices,
-        'orderStatus': 'pending',
-        'status': 'pending',
-        'isRequested': false,
-        'deliveryManagerIds': deliveryManagerIds,
-        'carrierId': '',
-        'isSent': false,
-        'confirmed': false,
-        'phoneNo': phoneController.text.trim(),
-      };
-      await pendingOrderRef.set(orderData);
+
       String? payerId;
       if (bankAccounts.isNotEmpty &&
           selectedBankIndex >= 0 &&
@@ -349,391 +289,26 @@ class _PlaceOrderState extends State<PlaceOrder> {
       // Removed payment timeout logic
 
       // Show dialog for user to launch payment page and view order summary
-      final orderDate = DateTime.now();
-      final addressShort =
-          address.address.isNotEmpty
-              ? address.address
-              : deliveryAddressController.text;
-      final receiptType = selectedOption == 1 ? '현금 영수증' : '세금 계산서';
-      // Fetch product names and delivery manager names for each cart item
-      List<Map<String, dynamic>> productList = [];
-      for (int i = 0; i < cartItems.length; i++) {
-        var item = cartItems[i];
-        String productName = '';
-        String deliveryManagerName = '';
-        try {
-          final productId = item['product_id'];
-          final productSnap =
-              await FirebaseFirestore.instance
-                  .collection('products')
-                  .doc(productId)
-                  .get();
-          if (productSnap.exists) {
-            final prodData = productSnap.data() as Map<String, dynamic>;
-            productName = prodData['productName'] ?? '';
-          }
-        } catch (e) {}
-        // Fetch delivery manager name
-        if (deliveryManagerIds.length > i) {
-          final deliveryManagerId = deliveryManagerIds[i];
-          if (deliveryManagerId != null &&
-              deliveryManagerId.toString().isNotEmpty) {
-            try {
-              final managerSnap =
-                  await FirebaseFirestore.instance
-                      .collection('deliveryManagers')
-                      .doc(deliveryManagerId)
-                      .get();
-              if (managerSnap.exists) {
-                final managerData = managerSnap.data() as Map<String, dynamic>;
-                deliveryManagerName = managerData['name'] ?? '';
-              }
-            } catch (e) {}
-          }
-        }
-        productList.add({
-          'name': productName,
-          'quantity': item['quantity'],
-          'price': item['price'],
-          'deliveryManagerName': deliveryManagerName,
-        });
+      if (payerId != null && payerId.isNotEmpty) {
+        _launchBankRpaymentPage(
+          totalPrice.toString(),
+          uid,
+          phoneController.text.trim(),
+          paymentId,
+          payerId,
+          nameController.text.trim(), // pass name
+          emailController.text.trim(), // pass email
+        );
+      } else {
+        _launchBankPaymentPage(
+          totalPrice.toString(),
+          uid,
+          phoneController.text.trim(),
+          paymentId,
+          nameController.text.trim(), // pass name
+          emailController.text.trim(), // pass email
+        );
       }
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.receipt_long, color: Colors.black, size: 32),
-                SizedBox(width: 8),
-                Text(
-                  '주문 요약',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                Spacer(),
-                IconButton(
-                  icon: Icon(Icons.download, color: Colors.black),
-                  tooltip: '이미지로 저장',
-                  onPressed: _saveOrderSummaryAsImage,
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RepaintBoundary(
-                    key: _orderSummaryKey,
-                    child: Container(
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(
-                          color: Colors.grey.shade300,
-                          width: 1,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 1. Order date/time
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '주문일',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                '${orderDate.year}-${orderDate.month.toString().padLeft(2, '0')}-${orderDate.day.toString().padLeft(2, '0')} ${orderDate.hour.toString().padLeft(2, '0')}:${orderDate.minute.toString().padLeft(2, '0')}',
-                                style: TextStyle(color: Colors.black),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 8),
-                          // 2. User name
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '이름',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                '${nameController.text}',
-                                style: TextStyle(color: Colors.black),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 8),
-                          // 3. Short address
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '주소',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Flexible(
-                                child: Text(
-                                  '$addressShort',
-                                  style: TextStyle(color: Colors.black),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 8),
-                          // 4. Receipt type
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '영수증 종류',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                '$receiptType',
-                                style: TextStyle(color: Colors.black),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 16),
-                          Divider(thickness: 1.2),
-                          // 5. Product list
-                          Text(
-                            '상품 목록',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                              fontSize: 16,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          ...productList.map(
-                            (p) => Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 6.0,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          '${p['name']} x${p['quantity']}',
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        '${formatCurrency.format(p['price'])}원',
-                                        style: TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if ((p['deliveryManagerName'] ?? '')
-                                      .isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        left: 8.0,
-                                        top: 2.0,
-                                      ),
-                                      child: Text(
-                                        '배송 매니저: ${p['deliveryManagerName']}',
-                                        style: TextStyle(
-                                          color: Colors.grey[700],
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Divider(thickness: 1.2),
-                          SizedBox(height: 8),
-                          // 6. Total price
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '총 결제 금액',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              Text(
-                                '${formatCurrency.format(totalPrice)}원',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                          // 7. Tax (if cash receipt)
-                          if (selectedOption == 1) ...[
-                            SizedBox(height: 8),
-                            Builder(
-                              builder: (context) {
-                                final supplyCost = (totalPrice / 1.1).round();
-                                final tax = totalPrice - supplyCost;
-                                return Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '부가세',
-                                      style: TextStyle(color: Colors.black),
-                                    ),
-                                    Text(
-                                      '${formatCurrency.format(tax)}원',
-                                      style: TextStyle(color: Colors.black),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ],
-                          SizedBox(height: 16),
-                          // Add Operation ID (paymentId) back to the dialog, under the title
-                          Center(
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[200],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'Operation ID: $paymentId',
-                                style: TextStyle(
-                                  color: Colors.grey[800],
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 12),
-                          Center(
-                            child: Image.asset(
-                              'assets/mypage_icon.png',
-                              height: 40,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Add payment instructions outside the image container, right before the buttons
-                  SizedBox(height: 12),
-                  Center(
-                    child: Text(
-                      '결제 페이지를 열려면 아래 버튼을 누르세요.',
-                      style: TextStyle(color: Colors.black, fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  // Cancel: delete pending order and close dialog
-                  await FirebaseFirestore.instance
-                      .collection('pending_orders')
-                      .doc(pendingOrderRef.id)
-                      .delete();
-                  Navigator.pop(context);
-                  setState(() {
-                    isProcessing = false;
-                    currentPaymentId = null;
-                  });
-                },
-                child: Text(
-                  '취소', // Cancel in Korean
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // close dialog
-                  if (payerId != null && payerId.isNotEmpty) {
-                    _launchBankRpaymentPage(
-                      totalPrice.toString(),
-                      uid,
-                      phoneController.text.trim(),
-                      paymentId,
-                      payerId,
-                      nameController.text.trim(),
-                      emailController.text.trim(),
-                    );
-                  } else {
-                    _launchBankPaymentPage(
-                      totalPrice.toString(),
-                      uid,
-                      phoneController.text.trim(),
-                      paymentId,
-                      nameController.text.trim(),
-                      emailController.text.trim(),
-                    );
-                  }
-                },
-                child: Text(
-                  '확인', // Confirm in Korean
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      );
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -863,13 +438,44 @@ class _PlaceOrderState extends State<PlaceOrder> {
       isProcessing = true;
     });
     try {
+      final userData =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(FirebaseAuth.instance.currentUser!.uid)
+              .get();
+      final defaultAddressDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('addresses')
+              .doc(userData['defaultAddressId'])
+              .get();
+      final defaultAddress = defaultAddressDoc.data() as Map<String, dynamic>;
+      deliveryAddressController.text = defaultAddress['address'];
+      address = Address(
+        id: defaultAddress['id'],
+        name: defaultAddress['name'],
+        phone: defaultAddress['phone'],
+        address: defaultAddress['address'],
+        detailAddress: defaultAddress['detailAddress'],
+        isDefault: defaultAddress['isDefault'],
+        addressMap: defaultAddress['addressMap'],
+      );
+      final cartSnapshot =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('cart')
+              .get();
+      final cartItems = cartSnapshot.docs.map((doc) => doc.data()).toList();
+      final productIds = cartItems.map((item) => item['product_id']).toList();
+      final quantities = cartItems.map((item) => item['quantity']).toList();
+      final prices = cartItems.map((item) => item['price']).toList();
+      final deliveryManagerIds =
+          cartItems.map((item) => item['deliveryManagerId']).toList();
       if (pendingDocs.isEmpty) return;
       final doc = pendingDocs.first;
-      final data = doc.data() as Map<String, dynamic>;
-      final productIds = List.from(data['productIds'] ?? []);
-      final quantities = List.from(data['quantities'] ?? []);
-      final prices = List.from(data['prices'] ?? []);
-      final deliveryManagerIds = List.from(data['deliveryManagerIds'] ?? []);
+
       for (int i = 0; i < productIds.length; i++) {
         final productRef = FirebaseFirestore.instance
             .collection('products')
@@ -883,16 +489,19 @@ class _PlaceOrderState extends State<PlaceOrder> {
         final orderRef = FirebaseFirestore.instance.collection('orders').doc();
         final orderData = {
           'orderId': orderRef.id,
-          'userId': data['userId'],
-          'paymentId': data['paymentId'],
-          'deliveryAddressId': data['deliveryAddressId'],
-          'deliveryAddress': data['deliveryAddress'],
-          'deliveryAddressDetail': data['deliveryAddressDetail'],
+          'userId': uid,
+          'paymentId': currentPaymentId,
+          'deliveryAddressId': address.id,
+          'deliveryAddress': deliveryAddressController.text.trim(),
+          'deliveryAddressDetail': address.detailAddress,
 
-          'deliveryInstructions': data['deliveryInstructions'],
-          'cashReceipt': data['cashReceipt'],
-          'paymentMethod': data['paymentMethod'],
-          'orderDate': data['orderDate'],
+          'deliveryInstructions':
+              selectedRequest == '직접입력'
+                  ? manualRequest?.trim() ?? ''
+                  : selectedRequest.trim(),
+          'cashReceipt': cashReceiptController.text.trim(),
+          'paymentMethod': 'bank',
+          'orderDate': DateTime.now().toIso8601String(),
           'totalPrice': prices[i],
           'productId': productIds[i],
           'quantity': orderQty,
@@ -900,12 +509,12 @@ class _PlaceOrderState extends State<PlaceOrder> {
           'trackingNumber': '',
           'trackingEvents': {},
           'orderStatus': 'orderComplete',
-          'isRequested': data['isRequested'],
+          'isRequested': false,
           'deliveryManagerId': deliveryManagerIds[i],
           'carrierId': '',
           'isSent': false,
           'confirmed': false,
-          'phoneNo': data['phoneNo'],
+          'phoneNo': phoneController.text.trim(),
         };
         await orderRef.set(orderData);
         await productRef.update({'stock': FieldValue.increment(-orderQty)});
@@ -922,12 +531,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
         });
       }
       await doc.reference.delete();
-      final cartSnapshot =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .collection('cart')
-              .get();
+
       for (var doc in cartSnapshot.docs) {
         await doc.reference.delete();
       }
@@ -955,7 +559,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
     super.initState();
     _fetchBankAccounts();
     _fetchUserPaymentInfo();
-    _loadCachedUserValues(); // NEW: load cached name/phone
+    _loadCachedUserValues();
+
+    // NEW: load cached name/phone
   }
 
   Future<void> _loadCachedUserValues() async {
@@ -1778,6 +1384,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
       'https://pay.pang2chocolate.com/b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&userName=$userName&email=$email',
     );
     if (await canLaunchUrl(url)) {
+      print(userId + " " + paymentId);
       await launchUrl(url);
     } else {
       throw 'Could not launch $url';
