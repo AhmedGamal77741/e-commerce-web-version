@@ -37,7 +37,6 @@ class _NotificationsState extends State<Notifications> {
       child: Scaffold(
         appBar: AppBar(
           titleSpacing: 0,
-          backgroundColor: Colors.white,
           automaticallyImplyLeading: false, // Don't show the leading button
           title: Row(
             mainAxisAlignment: MainAxisAlignment.start,

@@ -73,10 +73,7 @@ class _ShopState extends State<Shop> {
     // If no categories, show a message
     if (_categories.isEmpty) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text('Shop'),
-          backgroundColor: ColorsManager.white,
-        ),
+        appBar: AppBar(title: Text('Shop')),
         body: Center(child: Text('No categories available')),
       );
     }
@@ -156,7 +153,6 @@ class _ShopState extends State<Shop> {
         ),
         appBar: AppBar(
           toolbarHeight: 42,
-          backgroundColor: ColorsManager.white,
           title: Text(''),
           centerTitle: false,
           bottom: PreferredSize(

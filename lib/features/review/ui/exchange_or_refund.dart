@@ -25,7 +25,6 @@ class _ExchangeOrRefundState extends State<ExchangeOrRefund> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: ColorsManager.white,
         title: Text('교환/반품 요청', style: TextStyles.abeezee16px400wPblack),
         centerTitle: true,
       ),

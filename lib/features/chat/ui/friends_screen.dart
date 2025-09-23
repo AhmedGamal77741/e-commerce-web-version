@@ -86,7 +86,6 @@ class _FriendsScreenState extends State<FriendsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         actionsPadding: EdgeInsets.only(right: 5),
 

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 class ColorsManager {
   static const Color red = Color(0xffda3a48);
   static const Color white = Color(0xffffffff);
+  static const Color primary = Color(0xffeeeeee);
   static const Color primaryblack = Color(0xff121212);
   static const Color primary900 = Color(0xff343434);
   static const Color primary800 = Color(0xff494949);

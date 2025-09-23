@@ -1,4 +1,5 @@
 import 'package:ecommerece_app/core/routing/app_router.dart';
+import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -23,7 +24,10 @@ class EcommerceApp extends StatelessWidget {
             child: ClipRect(
               child: MaterialApp.router(
                 theme: ThemeData(
-                  scaffoldBackgroundColor: Colors.white,
+                  scaffoldBackgroundColor: ColorsManager.primary,
+                  appBarTheme: AppBarTheme(
+                    backgroundColor: ColorsManager.primary,
+                  ),
                   unselectedWidgetColor: Colors.grey,
                   radioTheme: RadioThemeData(
                     fillColor: WidgetStateColor.resolveWith(

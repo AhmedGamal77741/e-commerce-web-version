@@ -28,9 +28,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
 
     final addressService = AddressService(userId: currentUser.uid);
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black, size: 21),

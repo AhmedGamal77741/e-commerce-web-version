@@ -29,7 +29,6 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
         title: Text('회원 탈퇴', style: TextStyles.abeezee16px400wPblack),
         centerTitle: true,
       ),

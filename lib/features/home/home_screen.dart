@@ -38,7 +38,6 @@ class _HomeScreenState extends State<HomeScreen>
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: 130,
-          backgroundColor: ColorsManager.white,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [

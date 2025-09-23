@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/features/cart/services/kakao_service.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_search_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -224,9 +225,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),

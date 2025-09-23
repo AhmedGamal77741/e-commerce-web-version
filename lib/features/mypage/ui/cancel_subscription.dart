@@ -23,7 +23,6 @@ class _CancelSubscriptionState extends State<CancelSubscription> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
         title: Text('프리미엄 멤버십 해지', style: TextStyles.abeezee16px400wPblack),
         centerTitle: true,
       ),

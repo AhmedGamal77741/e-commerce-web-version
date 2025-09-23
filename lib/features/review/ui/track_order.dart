@@ -31,7 +31,6 @@ class _TrackOrderState extends State<TrackOrder> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: ColorsManager.white,
         title: Text('배송조회', style: TextStyles.abeezee16px400wPblack),
         centerTitle: true,
       ),
