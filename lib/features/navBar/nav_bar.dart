@@ -151,8 +151,8 @@ class _NavBarState extends State<NavBar> {
       body: IndexedStack(index: _selectedIndex, children: widgetOptions),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: ColorsManager.primary,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.black, // Same as unselected color
         unselectedItemColor: Colors.grey[400],
