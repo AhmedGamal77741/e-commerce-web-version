@@ -230,10 +230,9 @@ class _ShoppingCartState extends State<ShoppingCart> {
                 return FutureBuilder<int>(
                   future: calculateCartTotal(cartSnapshot.data!.docs),
                   builder: (context, totalSnapshot) {
-                    return Container(
+                    return SizedBox(
                       width: 428,
                       height: 50,
-                      decoration: BoxDecoration(color: Colors.white),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [

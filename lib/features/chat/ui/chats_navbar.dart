@@ -1,3 +1,4 @@
+import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/features/chat/ui/direct_chats_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/friends_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/group_chats_screen.dart';
@@ -50,7 +51,7 @@ class _ChatsNavbarState extends State<ChatsNavbar> {
       body: IndexedStack(index: _selectedIndex, children: widgetOptions),
       floatingActionButton: ExpandableFAB(),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
+        backgroundColor: ColorsManager.primary,
         showSelectedLabels: true,
         showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
