@@ -74,8 +74,9 @@ class _ItemDetailsState extends State<ItemDetails> {
 
     final formatCurrency = NumberFormat('#,###');
     final currentUser = FirebaseAuth.instance.currentUser;
+    // Not logged in: show product details, but disable purchase actions
     if (currentUser == null) {
-      // Not logged in: show product details, but disable purchase actions
+      // Always show non-premium prices for not-logged-in users
       return Scaffold(
         body: ListView(
           children: [
@@ -243,13 +244,14 @@ class _ItemDetailsState extends State<ItemDetails> {
                       int index = entry.key;
                       PricePoint pricePoint = entry.value;
                       double perUnit = pricePoint.price / pricePoint.quantity;
+                      // Show non-premium price (no discount)
                       return Column(
                         children: [
                           RadioListTile<String>(
                             title: Row(
                               children: [
                                 Text(
-                                  '${pricePoint.quantity}개 ${formatCurrency.format(pricePoint.price)}원',
+                                  '${pricePoint.quantity}개 ${formatCurrency.format((pricePoint.price / 0.9).round())}원',
                                   style: TextStyle(
                                     fontFamily: 'NotoSans',
                                     fontWeight: FontWeight.w400,
