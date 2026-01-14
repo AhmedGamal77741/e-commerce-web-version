@@ -295,7 +295,7 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
                       style: TextStyles.abeezee17px800wPblack,
                     ),
                     onTap: () async {
-                      _launchPaymentPage('3000', user!.uid);
+                      _launchPaymentPage('10000', user!.uid);
                     },
                   ),
                 if (isSub == true && nextBillingDate != null)
@@ -307,7 +307,7 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
                     ),
                   ),
                 Text(
-                  '월 회비 : 3,000원 혜택 : 전 제품 10% 할인',
+                  '월 회비 : 10,000원 혜택 : 전 제품 20% 할인',
                   style: TextStyles.abeezee11px400wP600,
                 ),
                 Divider(color: ColorsManager.primary100),
