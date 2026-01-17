@@ -453,7 +453,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                               Text(
                                 widget.isSub
                                     ? '${formatCurrency.format(p.price)} 원'
-                                    : '${formatCurrency.format(p.price / 0.9)} 원',
+                                    : '${formatCurrency.format(p.price / 0.8)} 원',
                                 style: TextStyles.abeezee16px400wPblack,
                               ),
                               verticalSpace(2),

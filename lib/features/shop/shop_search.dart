@@ -22,11 +22,20 @@ class _ShopSearchState extends State<ShopSearch> {
   TextEditingController _searchController = TextEditingController();
   List<Product> _allProducts = [];
   List<Product> _filteredProducts = [];
+  bool _isSub = false;
 
   @override
   void initState() {
     super.initState();
     _fetchProducts();
+    _checkSubscriptionStatus();
+  }
+
+  Future<void> _checkSubscriptionStatus() async {
+    bool isSub = await isUserSubscribed();
+    setState(() {
+      _isSub = isSub;
+    });
   }
 
   // Fetch all products from Firestore
@@ -123,7 +132,12 @@ class _ShopSearchState extends State<ShopSearch> {
                   final product = _filteredProducts[index];
                   return ListTile(
                     title: Text(product.productName),
-                    subtitle: Text('${formatCurrency.format(product.price)} 원'),
+                    subtitle:
+                        _isSub
+                            ? Text('${formatCurrency.format(product.price)} 원')
+                            : Text(
+                              '${formatCurrency.format(product.price / 0.8)} 원',
+                            ),
                     leading: Image.network(
                       product.imgUrl!,
                       width: 50,
