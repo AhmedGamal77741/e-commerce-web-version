@@ -8,9 +8,7 @@ import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/core/widgets/underline_text_filed.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
-import 'dart:ui' as ui;
-import 'dart:typed_data';
-import 'dart:html' as html;
+
 import 'package:ecommerece_app/features/cart/models/address.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,31 +19,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
 
 final GlobalKey _orderSummaryKey = GlobalKey();
-
-Future<void> _saveOrderSummaryAsImage(BuildContext context) async {
-  try {
-    RenderRepaintBoundary boundary =
-        _orderSummaryKey.currentContext!.findRenderObject()
-            as RenderRepaintBoundary;
-    ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (byteData != null) {
-      final pngBytes = byteData.buffer.asUint8List();
-      final blob = html.Blob([pngBytes]);
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor =
-          html.AnchorElement()
-            ..href = url
-            ..download = 'order_summary.png'
-            ..click();
-      html.Url.revokeObjectUrl(url);
-    }
-  } catch (e) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('이미지 저장에 실패했습니다. 다시 시도해주세요.')));
-  }
-}
 
 class BuyNow extends StatefulWidget {
   final Product product;
@@ -63,6 +36,10 @@ class BuyNow extends StatefulWidget {
 }
 
 class _BuyNowState extends State<BuyNow> {
+  String invoiceeType = '사업자'; // 사업자 / 개인 / 외국인
+  final invoiceeCorpNumController = TextEditingController(); // 사업자번호
+  final invoiceeCorpNameController = TextEditingController(); // 상호명 or 개인 이름
+  final invoiceeCEONameController = TextEditingController(); //
   bool isAddingNewBank = false; // True if 'Add New' selected
   final deliveryAddressController = TextEditingController();
   final deliveryInstructionsController = TextEditingController();
@@ -72,6 +49,7 @@ class _BuyNowState extends State<BuyNow> {
   final emailController = TextEditingController();
   int selectedOption = 1;
   final _formKey = GlobalKey<FormState>();
+  final _bottomSheetFormKey = GlobalKey<FormState>();
   Address address = Address(
     id: '',
     name: '',
@@ -97,6 +75,87 @@ class _BuyNowState extends State<BuyNow> {
 
   List<Map<String, dynamic>> bankAccounts = [];
   int selectedBankIndex = 0;
+
+  void _showBankAccountDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '계좌 선택',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  if (bankAccounts.isEmpty)
+                    Text(
+                      '등록된 계좌가 없습니다.',
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ...bankAccounts.asMap().entries.map((entry) {
+                    int idx = entry.key;
+                    var acc = entry.value;
+                    return Column(
+                      children: [
+                        ListTile(
+                          title: Text(
+                            '${acc['bankName']} / ${acc['bankNumber']}',
+                            style: TextStyle(color: Colors.black),
+                          ),
+
+                          tileColor:
+                              idx == selectedBankIndex
+                                  ? Colors.black12
+                                  : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              selectedBankIndex = idx;
+                              isAddingNewBank = false;
+                            });
+                            setStateDialog(() {});
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                        SizedBox(height: 5),
+                      ],
+                    );
+                  }),
+
+                  WideTextButton(
+                    txt: '새 계좌 등록하기',
+                    func: () {
+                      setState(() {
+                        selectedBankIndex = -1;
+                        isAddingNewBank = true;
+                      });
+                      setStateDialog(() {});
+                      Navigator.of(context).pop();
+                    },
+                    color: Colors.black,
+                    txtColor: Colors.white,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   Future<void> _fetchBankAccounts() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -132,11 +191,49 @@ class _BuyNowState extends State<BuyNow> {
   }
 
   final formatCurrency = NumberFormat('#,###');
+  bool _validateReceiptTypeFields() {
+    // Check cash receipt fields (현금 영수증)
+    if (selectedOption == 1) {
+      if (nameController.text.trim().isEmpty ||
+          emailController.text.trim().isEmpty ||
+          phoneController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('현금 영수증: 이름, 이메일, 전화번호를 모두 입력해주세요')),
+        );
+        return false;
+      }
+    }
+    // Check tax invoice fields (세금 계산서)
+    else if (selectedOption == 2) {
+      if (nameController.text.trim().isEmpty ||
+          emailController.text.trim().isEmpty ||
+          phoneController.text.trim().isEmpty ||
+          invoiceeType.isEmpty ||
+          invoiceeCorpNumController.text.trim().isEmpty ||
+          invoiceeCorpNameController.text.trim().isEmpty ||
+          invoiceeCEONameController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('세금 계산서: 모든 필수 필드를 입력해주세요')),
+        );
+        return false;
+      }
+    }
+    return true;
+  }
 
   Future<void> _handlePlaceOrder(int totalPrice, String uid) async {
     if (!_formKey.currentState!.validate()) return;
     // Save name/phone/email to cache before placing order (for consistency with PlaceOrder)
-
+    if (selectedOption != 1 && selectedOption != 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('현금 영수증 또는 세금 계산서를 선택해주세요'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    if (!_validateReceiptTypeFields()) return;
     setState(() {
       isProcessing = true;
     });
@@ -162,8 +259,8 @@ class _BuyNowState extends State<BuyNow> {
           phoneController.text.trim(),
           paymentId,
           payerId,
-          nameController.text.trim(),
-          emailController.text.trim(),
+          selectedOption.toString(),
+          widget.product.deliveryManagerId.toString(),
         );
       } else {
         _launchBankPaymentPage(
@@ -171,8 +268,8 @@ class _BuyNowState extends State<BuyNow> {
           uid,
           phoneController.text.trim(),
           paymentId,
-          nameController.text.trim(),
-          emailController.text.trim(),
+          selectedOption.toString(),
+          widget.product.deliveryManagerId.toString(),
         );
       }
     } catch (e) {
@@ -431,6 +528,11 @@ class _BuyNowState extends State<BuyNow> {
         nameController.text = data['name'] ?? '';
         emailController.text = data['email'] ?? '';
         phoneController.text = data['phone'] ?? '';
+        invoiceeType = data['invoiceeType'];
+        invoiceeCorpNumController.text = data['invoiceeCorpNum'];
+        invoiceeCorpNameController.text = data['invoiceeCorpName'];
+        invoiceeCEONameController.text = data['invoiceeCEOName'];
+        selectedOption = data['selectedOption'] ?? 1;
       }
     }
   }
@@ -459,7 +561,13 @@ class _BuyNowState extends State<BuyNow> {
             onPressed: () => Navigator.pop(context),
             icon: Icon(Icons.arrow_back_ios),
           ),
-          title: Text("주문 결제", style: TextStyle(fontFamily: 'NotoSans')),
+          title: Text(
+            "주문 / 결제",
+            style: TextStyle(
+              fontFamily: 'NotoSans',
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ),
         body: Padding(
           padding: EdgeInsets.only(left: 15, top: 10, right: 15),
@@ -473,706 +581,930 @@ class _BuyNowState extends State<BuyNow> {
                   right: 15,
                 ),
                 decoration: ShapeDecoration(
-                  color: Colors.white,
+                  color: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                    side: BorderSide(
-                      width: 0.27,
-                      color: const Color(0xFF747474),
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.only(bottom: 5),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: ColorsManager.primary400,
-                              width: 1.0,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child:
-                                  address.name.isEmpty
-                                      ? FutureBuilder(
-                                        future:
-                                            FirebaseFirestore.instance
-                                                .collection('users')
-                                                .doc(
-                                                  FirebaseAuth
-                                                      .instance
-                                                      .currentUser!
-                                                      .uid,
-                                                )
-                                                .get(),
-                                        builder: (context, snapshot) {
-                                          if (snapshot.connectionState ==
-                                              ConnectionState.waiting) {
-                                            return Center(
-                                              child:
-                                                  CircularProgressIndicator(),
-                                            );
-                                          }
-
-                                          if (snapshot.hasError) {
-                                            return Center(
-                                              child: Text(
-                                                'Error loading user address: ${snapshot.error}',
-                                              ),
-                                            );
-                                          }
-
-                                          if (!snapshot.hasData ||
-                                              !snapshot.data!.exists) {
-                                            return Center(
-                                              child: Text(
-                                                'User data not found',
-                                              ),
-                                            );
-                                          }
-
-                                          final userData =
-                                              snapshot.data?.data();
-                                          if (userData == null ||
-                                              userData['defaultAddressId'] ==
-                                                  null ||
-                                              userData['defaultAddressId'] ==
-                                                  '') {
-                                            return Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  '배송지 미설정',
-                                                  style: TextStyle(
-                                                    color: Colors.black,
-                                                    fontSize: 15,
-                                                    fontFamily: 'NotoSans',
-                                                    fontWeight: FontWeight.w400,
-                                                    height: 1.40,
-                                                  ),
-                                                ),
-                                                SizedBox(height: 8),
-                                                Text(
-                                                  '배송지를 설정해주세요',
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    color: Color(0xFF9E9E9E),
-                                                    fontFamily: 'NotoSans',
-                                                  ),
-                                                ),
-                                              ],
-                                            );
-                                          }
-                                          return FutureBuilder(
-                                            future:
-                                                FirebaseFirestore.instance
-                                                    .collection('users')
-                                                    .doc(
-                                                      FirebaseAuth
-                                                          .instance
-                                                          .currentUser!
-                                                          .uid,
-                                                    )
-                                                    .collection('addresses')
-                                                    .doc(
-                                                      userData['defaultAddressId'],
-                                                    )
-                                                    .get(),
-                                            builder: (context, snapshot) {
-                                              if (snapshot.connectionState ==
-                                                  ConnectionState.waiting) {
-                                                return Center(
-                                                  child:
-                                                      CircularProgressIndicator(),
-                                                );
-                                              }
-
-                                              if (snapshot.hasError) {
-                                                return Center(
-                                                  child: Text(
-                                                    'Error loading user address: ${snapshot.error}',
-                                                  ),
-                                                );
-                                              }
-
-                                              if (!snapshot.hasData ||
-                                                  !snapshot.data!.exists) {
-                                                return Center(
-                                                  child: Text(
-                                                    'User data not found',
-                                                  ),
-                                                );
-                                              }
-
-                                              final addressData =
-                                                  snapshot.data?.data();
-                                              return Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    '베송지 | ${addressData!['name']}',
-                                                    style: TextStyle(
-                                                      color: Colors.black,
-                                                      fontSize: 15,
-                                                      fontFamily: 'NotoSans',
-                                                      fontWeight:
-                                                          FontWeight.w400,
-                                                      height: 1.40,
-                                                    ),
-                                                  ),
-                                                  SizedBox(height: 8),
-
-                                                  Text(
-                                                    addressData['phone'],
-                                                    style: TextStyle(
-                                                      fontSize: 15,
-                                                      color: Color(0xFF9E9E9E),
-                                                      fontFamily: 'NotoSans',
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    addressData['address'],
-                                                    style: TextStyle(
-                                                      fontSize: 15,
-                                                      color: Color(0xFF9E9E9E),
-                                                      fontFamily: 'NotoSans',
-                                                    ),
-                                                  ),
-                                                ],
-                                              );
-                                            },
-                                          );
-                                        },
-                                      )
-                                      : Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '베송지 | ${address.name}',
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 15,
-                                              fontFamily: 'NotoSans',
-                                              fontWeight: FontWeight.w400,
-                                              height: 1.4,
-                                            ),
-                                          ),
-                                          SizedBox(height: 8),
-
-                                          Text(
-                                            address.phone,
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              color: Color(0xFF9E9E9E),
-                                              fontFamily: 'NotoSans',
-                                            ),
-                                          ),
-                                          Text(
-                                            address.detailAddress,
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              color: Color(0xFF9E9E9E),
-                                              fontFamily: 'NotoSans',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                            ),
-                            TextButton(
-                              onPressed: _selectAddress,
-                              style: TextButton.styleFrom(
-                                fixedSize: Size(48, 30),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                side: BorderSide(
-                                  color: Colors.grey.shade300,
-                                  width: 1.0,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4.0),
-                                ),
-                              ),
-                              child: Text(
-                                '변경',
-                                style: TextStyle(
-                                  color: ColorsManager.primaryblack,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 15),
-                      Text(
-                        '배송 요청사항',
-                        style: TextStyle(
-                          color: const Color(0xFF121212),
-                          fontSize: 16,
-                          fontFamily: 'NotoSans',
-                          fontWeight: FontWeight.w400,
-                          height: 1.40,
-                        ),
-                      ),
-                      StatefulBuilder(
-                        builder: (context, setStateDropdown) {
-                          return DropdownButtonFormField<String>(
-                            value: selectedRequest,
-                            dropdownColor: Colors.white,
-                            items:
-                                deliveryRequests
-                                    .map(
-                                      (request) => DropdownMenuItem(
-                                        value: request,
-                                        child: Text(
-                                          request,
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontSize: 16,
-                                            fontFamily: 'NotoSans',
-                                            fontWeight: FontWeight.w400,
-                                            height: 1.4,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                            decoration: const InputDecoration(
-                              border: UnderlineInputBorder(),
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 0,
-                                vertical: 8,
-                              ),
-                            ),
-                            onChanged: (value) {
-                              setStateDropdown(() {
-                                selectedRequest = value!;
-                                // clear manual text when switching away
-                                if (selectedRequest != '직접입력')
-                                  manualRequest = null;
-                              });
-                              // also notify parent state if needed:
-                              setState(() {});
-                            },
-                            icon: Icon(Icons.keyboard_arrow_down),
-                          );
-                        },
-                      ),
-                      // only show when “직접입력” is selected:
-                      if (selectedRequest == '직접입력') ...[
-                        SizedBox(height: 12),
-                        TextFormField(
-                          initialValue: manualRequest,
-                          onChanged:
-                              (text) => setState(() => manualRequest = text),
-                          decoration: InputDecoration(
-                            labelText: '직접 입력',
-                            hintText: '배송 요청을 입력하세요',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                      SizedBox(height: 15),
-                      Text(
-                        '간편 계좌 결제',
-                        style: TextStyle(
-                          color: const Color(0xFF121212),
-                          fontSize: 16,
-                          fontFamily: 'NotoSans',
-                          fontWeight: FontWeight.w400,
-                          height: 1.40,
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: ColorsManager.primary400,
-                              width: 1.0,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Flexible(
-                              child: TextFormField(
-                                controller: cashReceiptController,
-                                enabled: false,
-                                decoration: InputDecoration(
-                                  hintText:
-                                      (bankAccounts.isNotEmpty &&
-                                              selectedBankIndex >= 0 &&
-                                              selectedBankIndex <
-                                                  bankAccounts.length)
-                                          ? '${bankAccounts[selectedBankIndex]['bankName']} / ${bankAccounts[selectedBankIndex]['bankNumber']}'
-                                          : '등록된 계좌가 없습니다.',
-
-                                  hintStyle: TextStyle(
-                                    fontSize: 15,
-                                    color: ColorsManager.primary400,
-                                  ),
-                                  border: InputBorder.none,
-                                ),
-                                obscureText: false,
-                                keyboardType: TextInputType.text,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed:
-                                  isProcessing
-                                      ? null
-                                      : () async {
-                                        await showDialog(
-                                          context: context,
-                                          builder: (context) {
-                                            return StatefulBuilder(
-                                              builder: (
-                                                context,
-                                                setStateDialog,
-                                              ) {
-                                                return Dialog(
-                                                  backgroundColor: Colors.white,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          16,
-                                                        ),
-                                                  ),
-                                                  child: Padding(
-                                                    padding: EdgeInsets.all(20),
-                                                    child: Column(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          '계좌 선택',
-                                                          style: TextStyle(
-                                                            fontSize: 18,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color: Colors.black,
-                                                          ),
-                                                        ),
-                                                        SizedBox(height: 16),
-                                                        if (bankAccounts
-                                                            .isEmpty)
-                                                          Text(
-                                                            '등록된 계좌가 없습니다.',
-                                                            style: TextStyle(
-                                                              color:
-                                                                  Colors.black,
-                                                            ),
-                                                          ),
-                                                        ...bankAccounts.asMap().entries.map((
-                                                          entry,
-                                                        ) {
-                                                          int idx = entry.key;
-                                                          var acc = entry.value;
-                                                          return ListTile(
-                                                            title: Text(
-                                                              '${acc['bankName']} / ${acc['bankNumber']}',
-                                                              style: TextStyle(
-                                                                color:
-                                                                    Colors
-                                                                        .black,
-                                                              ),
-                                                            ),
-                                                            subtitle: Text(
-                                                              'Payer ID: ${acc['payerId']}',
-                                                              style: TextStyle(
-                                                                color:
-                                                                    Colors.grey,
-                                                              ),
-                                                            ),
-                                                            tileColor:
-                                                                idx ==
-                                                                        selectedBankIndex
-                                                                    ? Colors
-                                                                        .black12
-                                                                    : Colors
-                                                                        .white,
-                                                            shape: RoundedRectangleBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    8,
-                                                                  ),
-                                                            ),
-                                                            onTap: () {
-                                                              setState(() {
-                                                                selectedBankIndex =
-                                                                    idx;
-                                                                isAddingNewBank =
-                                                                    false;
-                                                              });
-                                                              setStateDialog(
-                                                                () {},
-                                                              );
-                                                              Navigator.of(
-                                                                context,
-                                                              ).pop();
-                                                            },
-                                                          );
-                                                        }).toList(),
-                                                        Divider(
-                                                          height: 32,
-                                                          color: Colors.black,
-                                                        ),
-                                                        ListTile(
-                                                          title: Text(
-                                                            '새 계좌로 결제',
-                                                            style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              color:
-                                                                  Colors.black,
-                                                            ),
-                                                          ),
-                                                          tileColor:
-                                                              selectedBankIndex ==
-                                                                      -1
-                                                                  ? Colors
-                                                                      .black12
-                                                                  : Colors
-                                                                      .white,
-                                                          shape: RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  8,
-                                                                ),
-                                                          ),
-                                                          onTap: () {
-                                                            setState(() {
-                                                              selectedBankIndex =
-                                                                  -1;
-                                                              isAddingNewBank =
-                                                                  true;
-                                                            });
-                                                            setStateDialog(
-                                                              () {},
-                                                            );
-                                                            Navigator.of(
-                                                              context,
-                                                            ).pop();
-                                                          },
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            );
-                                          },
-                                        );
-                                        setState(() {});
-                                      },
-                              style: TextButton.styleFrom(
-                                fixedSize: Size(48, 30),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                side: BorderSide(
-                                  color: Colors.grey.shade300,
-                                  width: 1.0,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4.0),
-                                ),
-                              ),
-                              child: Text(
-                                '변경',
-                                style: TextStyle(
-                                  color: ColorsManager.primaryblack,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      StatefulBuilder(
-                        builder: (context, setStateRadio) {
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Radio(
-                                    value: 1,
-                                    groupValue: selectedOption,
-                                    onChanged: (value) {
-                                      setStateRadio(() {
-                                        selectedOption = value!;
-                                        print("Button value: $value");
-                                      });
-                                    },
-                                  ),
-                                  Text(
-                                    '현금 영수증',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontFamily: 'NotoSans',
-                                      fontWeight: FontWeight.w400,
-                                      color: ColorsManager.primaryblack,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  Radio(
-                                    value: 2,
-                                    groupValue: selectedOption,
-                                    onChanged: (value) {
-                                      setStateRadio(() {
-                                        selectedOption = value!;
-                                        print("Button value: $value");
-                                      });
-                                    },
-                                  ),
-                                  Text(
-                                    '세금 계산서',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontFamily: 'NotoSans',
-                                      fontWeight: FontWeight.w400,
-                                      color: ColorsManager.primaryblack,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                      UnderlineTextField(
-                        controller: nameController,
-                        hintText: '이름',
-                        obscureText: false,
-                        keyboardType: TextInputType.text,
-                        validator: (val) {
-                          if (val!.isEmpty) {
-                            return '이름을 입력하세요';
-                          } else if (val.length > 30) {
-                            return '이름이 너무 깁니다';
-                          }
-                          return null;
-                        },
-                        onChanged: (val) {
-                          _saveCachedUserValues();
-                        },
-                      ),
-                      SizedBox(height: 10),
-                      UnderlineTextField(
-                        controller: emailController,
-                        hintText: '이메일',
-                        obscureText: false,
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (val) {
-                          if (val!.isEmpty) {
-                            return '이메일을 입력하세요';
-                          }
-                          return null;
-                        },
-                        onChanged: (val) {
-                          _saveCachedUserValues();
-                        },
-                      ),
-                      SizedBox(height: 10),
-                      UnderlineTextField(
-                        controller: phoneController,
-                        hintText: '전화번호',
-                        obscureText: false,
-                        keyboardType: TextInputType.phone,
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return '전화번호를 입력해주세요';
-                          }
-                          final koreanReg = RegExp(
-                            r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
-                          );
-                          if (!koreanReg.hasMatch(val)) {
-                            return '유효한 한국 전화번호를 입력하세요';
-                          }
-                          return null;
-                        },
-                        onChanged: (val) {
-                          _saveCachedUserValues();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              verticalSpace(10),
-              // --- Single product summary for Buy Now ---
-              Container(
-                padding: EdgeInsets.only(left: 15, top: 15, bottom: 15),
-                decoration: ShapeDecoration(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    side: BorderSide(
-                      width: 0.27,
-                      color: const Color(0xFF747474),
-                    ),
+                    side: BorderSide(width: 1.5, color: Colors.black),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('구매목록', style: TextStyles.abeezee16px400wPblack),
-                    verticalSpace(10),
                     Text(
-                      '${widget.product.productName} / 수량 : ${widget.quantity}',
-                      style: TextStyle(
-                        color: const Color(0xFF747474),
-                        fontSize: 14,
-                        fontFamily: 'NotoSans',
-                        fontWeight: FontWeight.w400,
-                        height: 1.40,
+                      '구매목록',
+                      style: TextStyles.abeezee16px400wPblack.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      '${formatCurrency.format(widget.price)} 원',
-                      style: TextStyle(
-                        color: const Color(0xFF747474),
-                        fontSize: 14,
-                        fontFamily: 'NotoSans',
-                        fontWeight: FontWeight.w600,
-                        height: 1.40,
+                    verticalSpace(10),
+                    Row(
+                      children: [
+                        Image.network(
+                          widget.product.imgUrl ?? '',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                        ),
+                        horizontalSpace(10),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.product.productName,
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 16,
+                                fontFamily: 'NotoSans',
+                                fontWeight: FontWeight.w400,
+                                height: 1.40,
+                              ),
+                            ),
+                            verticalSpace(8),
+                            Text(
+                              '${widget.quantity.toString()} 개',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 16,
+                                fontFamily: 'NotoSans',
+                                fontWeight: FontWeight.w400,
+                                height: 1.40,
+                              ),
+                            ),
+
+                            SizedBox(height: 8),
+                            Text(
+                              '${formatCurrency.format(widget.price)} 원',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 16,
+                                fontFamily: 'NotoSans',
+                                fontWeight: FontWeight.w400,
+                                height: 1.40,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              verticalSpace(10),
+              Container(
+                padding: EdgeInsets.only(left: 15, top: 15, bottom: 15),
+                decoration: ShapeDecoration(
+                  color: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    side: BorderSide(width: 1.5, color: Colors.black),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child:
+                          address.name.isEmpty
+                              ? FutureBuilder(
+                                future:
+                                    FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(
+                                          FirebaseAuth
+                                              .instance
+                                              .currentUser!
+                                              .uid,
+                                        )
+                                        .get(),
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+
+                                  if (snapshot.hasError) {
+                                    return Center(
+                                      child: Text(
+                                        'Error loading user address: ${snapshot.error}',
+                                      ),
+                                    );
+                                  }
+
+                                  if (!snapshot.hasData ||
+                                      !snapshot.data!.exists) {
+                                    return Center(
+                                      child: Text('User data not found'),
+                                    );
+                                  }
+
+                                  final userData = snapshot.data?.data();
+                                  if (userData == null ||
+                                      userData['defaultAddressId'] == null ||
+                                      userData['defaultAddressId'] == '') {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '배송지 미설정',
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 15,
+                                            fontFamily: 'NotoSans',
+                                            fontWeight: FontWeight.w400,
+                                            height: 1.40,
+                                          ),
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          '배송지를 설정해주세요',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            color: Color(0xFF9E9E9E),
+                                            fontFamily: 'NotoSans',
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                  return FutureBuilder(
+                                    future:
+                                        FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(
+                                              FirebaseAuth
+                                                  .instance
+                                                  .currentUser!
+                                                  .uid,
+                                            )
+                                            .collection('addresses')
+                                            .doc(userData['defaultAddressId'])
+                                            .get(),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return Center(
+                                          child: CircularProgressIndicator(),
+                                        );
+                                      }
+
+                                      if (snapshot.hasError) {
+                                        return Center(
+                                          child: Text(
+                                            'Error loading user address: ${snapshot.error}',
+                                          ),
+                                        );
+                                      }
+
+                                      if (!snapshot.hasData ||
+                                          !snapshot.data!.exists) {
+                                        return Center(
+                                          child: Text('User data not found'),
+                                        );
+                                      }
+
+                                      final addressData = snapshot.data?.data();
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '배송지 정보 (기본 배송지)',
+                                            style: TextStyles
+                                                .abeezee16px400wPblack
+                                                .copyWith(
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                          ),
+                                          verticalSpace(5),
+                                          Text(
+                                            '${addressData!['name']}',
+                                            style: TextStyle(
+                                              color: Colors.grey[800],
+                                              fontSize: 15,
+                                              fontFamily: 'NotoSans',
+                                              fontWeight: FontWeight.w400,
+                                              height: 1.40,
+                                            ),
+                                          ),
+
+                                          Text(
+                                            addressData['phone'],
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              color: Colors.grey[800],
+                                              fontFamily: 'NotoSans',
+                                            ),
+                                          ),
+                                          Text(
+                                            addressData['address'],
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              color: Colors.grey[800],
+                                              fontFamily: 'NotoSans',
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                },
+                              )
+                              : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '배송지 정보 (기본 배송지)',
+                                    style: TextStyles.abeezee16px400wPblack
+                                        .copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  verticalSpace(5),
+                                  Text(
+                                    address.name,
+                                    style: TextStyle(
+                                      color: Colors.grey[800],
+                                      fontSize: 15,
+                                      fontFamily: 'NotoSans',
+                                      fontWeight: FontWeight.w400,
+                                      height: 1.40,
+                                    ),
+                                  ),
+
+                                  Text(
+                                    address.phone,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.grey[800],
+                                      fontFamily: 'NotoSans',
+                                    ),
+                                  ),
+                                  Text(
+                                    address.detailAddress,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.grey[800],
+                                      fontFamily: 'NotoSans',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                    ),
+                    IconButton(
+                      onPressed: _selectAddress,
+                      icon: Icon(
+                        Icons.arrow_forward_ios_sharp,
+                        size: 30,
+                        color: Colors.black,
                       ),
                     ),
                   ],
                 ),
               ),
               verticalSpace(10),
+              Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.fromLTRB(15, 15, 0, 15),
+                      decoration: ShapeDecoration(
+                        color: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                            width: 1.5,
+                            color: Colors.black,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: StatefulBuilder(
+                        builder: (context, setStateDropdown) {
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '배송 요청사항 문앞',
+                                      style: TextStyles.abeezee16px400wPblack
+                                          .copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                    verticalSpace(5),
+                                    Text(
+                                      selectedRequest,
+                                      style: TextStyle(
+                                        color: Colors.grey[800],
+                                        fontSize: 16,
+                                        fontFamily: 'NotoSans',
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                    if (selectedRequest == '직접입력') ...[
+                                      SizedBox(height: 12),
+                                      TextFormField(
+                                        initialValue: manualRequest,
+                                        onChanged:
+                                            (text) => setState(
+                                              () => manualRequest = text,
+                                            ),
+                                        decoration: InputDecoration(
+                                          labelText: '직접 입력',
+                                          hintText: '배송 요청을 입력하세요',
+                                          border: OutlineInputBorder(),
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 30,
+                                  color: Colors.black,
+                                ),
+                                onPressed: () {
+                                  showModalBottomSheet(
+                                    backgroundColor: Colors.white,
+                                    context: context,
+                                    builder: (context) {
+                                      return Padding(
+                                        padding: EdgeInsets.all(15),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children:
+                                              deliveryRequests
+                                                  .map(
+                                                    (request) => ListTile(
+                                                      title: Text(
+                                                        request,
+                                                        style: TextStyle(
+                                                          color: Colors.black,
+                                                          fontSize: 16,
+                                                          fontFamily:
+                                                              'NotoSans',
+                                                          fontWeight:
+                                                              FontWeight.w400,
+                                                        ),
+                                                      ),
+                                                      onTap: () {
+                                                        setStateDropdown(() {
+                                                          selectedRequest =
+                                                              request;
+                                                          if (selectedRequest !=
+                                                              '직접입력') {
+                                                            manualRequest =
+                                                                null;
+                                                          }
+                                                        });
+                                                        setState(() {});
+                                                        Navigator.pop(context);
+                                                      },
+                                                    ),
+                                                  )
+                                                  .toList(),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
 
-              // --- Total and payment button for Buy Now ---
+                    verticalSpace(10),
+                    if (bankAccounts.isNotEmpty) ...[
+                      Container(
+                        padding: EdgeInsets.fromLTRB(15, 15, 0, 15),
+                        decoration: ShapeDecoration(
+                          color: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            side: const BorderSide(
+                              width: 1.5,
+                              color: Colors.black,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '간편 계좌 결제',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 16,
+                                      fontFamily: 'NotoSans',
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.40,
+                                    ),
+                                  ),
+                                  verticalSpace(5),
+                                  Text(
+                                    (bankAccounts.isNotEmpty &&
+                                            selectedBankIndex >= 0 &&
+                                            selectedBankIndex <
+                                                bankAccounts.length)
+                                        ? '${bankAccounts[selectedBankIndex]['bankName']} / ${bankAccounts[selectedBankIndex]['bankNumber']}'
+                                        : '주문과 동시에 새 계좌 등록이 진행됩니다.',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.grey[800],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed:
+                                  isProcessing ? null : _showBankAccountDialog,
+                              icon: Icon(
+                                Icons.arrow_forward_ios,
+                                size: 30,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      verticalSpace(10),
+                    ],
+                    Container(
+                      padding: EdgeInsets.fromLTRB(15, 15, 0, 15),
+                      decoration: ShapeDecoration(
+                        color: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                            width: 1.5,
+                            color: Colors.black,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '현금영수증 · 세금계산서',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontFamily: 'NotoSans',
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.40,
+                                  ),
+                                ),
+                                verticalSpace(5),
+                                Text(
+                                  selectedOption == 1
+                                      ? '현금 영수증'
+                                      : selectedOption == 2
+                                      ? '세금 계산서'
+                                      : '필요 없음',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              showModalBottomSheet(
+                                context: context,
+                                backgroundColor: Colors.white,
+                                isScrollControlled: true,
+                                builder: (context) {
+                                  return StatefulBuilder(
+                                    builder: (context, setStateRadio) {
+                                      return Padding(
+                                        padding: EdgeInsets.only(
+                                          top: 20,
+                                          left: 20,
+                                          right: 20,
+                                          bottom:
+                                              MediaQuery.of(
+                                                context,
+                                              ).viewInsets.bottom +
+                                              20,
+                                        ),
+                                        child: SingleChildScrollView(
+                                          child: Form(
+                                            key: _bottomSheetFormKey,
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.center,
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceEvenly,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Transform.scale(
+                                                          scale: 20 / 15,
+                                                          child: Radio(
+                                                            value: 1,
+                                                            groupValue:
+                                                                selectedOption,
+                                                            materialTapTargetSize:
+                                                                MaterialTapTargetSize
+                                                                    .shrinkWrap,
+                                                            visualDensity:
+                                                                VisualDensity(
+                                                                  horizontal:
+                                                                      -2,
+                                                                  vertical: -2,
+                                                                ),
+                                                            onChanged: (value) {
+                                                              setStateRadio(() {
+                                                                selectedOption =
+                                                                    value!;
+                                                              });
+                                                              setState(() {});
+                                                            },
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          '현금 영수증',
+                                                          style: TextStyle(
+                                                            fontSize: 20,
+                                                            fontFamily:
+                                                                'NotoSans',
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                            color:
+                                                                ColorsManager
+                                                                    .primaryblack,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+
+                                                    Row(
+                                                      children: [
+                                                        Transform.scale(
+                                                          scale: 20 / 15,
+                                                          child: Radio(
+                                                            value: 2,
+                                                            groupValue:
+                                                                selectedOption,
+                                                            materialTapTargetSize:
+                                                                MaterialTapTargetSize
+                                                                    .shrinkWrap,
+                                                            visualDensity:
+                                                                VisualDensity(
+                                                                  horizontal:
+                                                                      -2,
+                                                                  vertical: -2,
+                                                                ),
+                                                            onChanged: (value) {
+                                                              setStateRadio(() {
+                                                                selectedOption =
+                                                                    value!;
+                                                              });
+                                                              setState(() {});
+                                                            },
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          '세금 계산서',
+                                                          style: TextStyle(
+                                                            fontSize: 20,
+                                                            fontFamily:
+                                                                'NotoSans',
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                            color:
+                                                                ColorsManager
+                                                                    .primaryblack,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+
+                                                if (selectedOption == 1) ...[
+                                                  UnderlineTextField(
+                                                    controller: nameController,
+                                                    hintText: '이름',
+                                                    obscureText: false,
+                                                    keyboardType:
+                                                        TextInputType.text,
+                                                    validator: (val) {
+                                                      if (val == null ||
+                                                          val.trim().isEmpty) {
+                                                        return '이름을 입력해주세요';
+                                                      }
+                                                      return null;
+                                                    },
+                                                    onChanged: (val) {
+                                                      // Saving handled by Save button
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  SizedBox(height: 10),
+                                                  UnderlineTextField(
+                                                    controller: emailController,
+                                                    hintText: '이메일',
+                                                    obscureText: false,
+                                                    keyboardType:
+                                                        TextInputType
+                                                            .emailAddress,
+                                                    validator: (val) {
+                                                      if (val == null ||
+                                                          val.trim().isEmpty) {
+                                                        return '이메일을 입력해주세요';
+                                                      }
+                                                      if (!RegExp(
+                                                        r'^.+@.+\..+$',
+                                                      ).hasMatch(val.trim())) {
+                                                        return '유효한 이메일을 입력해주세요';
+                                                      }
+                                                      return null;
+                                                    },
+                                                    onChanged: (val) {
+                                                      return null;
+
+                                                      // Saving handled by Save button
+                                                    },
+                                                  ),
+                                                  SizedBox(height: 10),
+                                                  UnderlineTextField(
+                                                    controller: phoneController,
+                                                    hintText: '전화번호 ',
+                                                    obscureText: false,
+                                                    keyboardType:
+                                                        TextInputType.phone,
+                                                    validator: (val) {
+                                                      if (val == null ||
+                                                          val.trim().isEmpty) {
+                                                        return '전화번호를 입력해주세요';
+                                                      }
+                                                      final koreanReg = RegExp(
+                                                        r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
+                                                      );
+                                                      if (!koreanReg.hasMatch(
+                                                        val,
+                                                      )) {
+                                                        return '유효한 한국 전화번호를 입력하세요';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                ] else ...[
+                                                  DropdownButtonFormField<
+                                                    String
+                                                  >(
+                                                    dropdownColor: Colors.white,
+                                                    value: invoiceeType,
+                                                    items:
+                                                        ['사업자', '개인', '외국인']
+                                                            .map(
+                                                              (t) =>
+                                                                  DropdownMenuItem(
+                                                                    value: t,
+                                                                    child: Text(
+                                                                      t,
+                                                                    ),
+                                                                  ),
+                                                            )
+                                                            .toList(),
+                                                    onChanged: (val) {
+                                                      setStateRadio(
+                                                        () =>
+                                                            invoiceeType =
+                                                                val ?? '사업자',
+                                                      );
+                                                      // Saving handled by Save button
+                                                    },
+                                                    decoration: const InputDecoration(
+                                                      border:
+                                                          UnderlineInputBorder(),
+                                                      isDense: true,
+                                                      contentPadding:
+                                                          EdgeInsets.symmetric(
+                                                            horizontal: 0,
+                                                            vertical: 8,
+                                                          ),
+                                                    ),
+                                                    icon: Icon(
+                                                      Icons.keyboard_arrow_down,
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: 10),
+                                                  UnderlineTextField(
+                                                    obscureText: false,
+                                                    controller:
+                                                        invoiceeCorpNumController,
+                                                    hintText: '공급받는자 사업자번호',
+                                                    keyboardType:
+                                                        TextInputType.number,
+                                                    validator: (val) {
+                                                      // First: Check if required when invoiceeType == '사업자'
+
+                                                      if (val == null ||
+                                                          val.trim().isEmpty) {
+                                                        return '사업자번호를 입력해주세요';
+                                                      }
+                                                      // Second: If field has any content, validate format
+                                                      // ignore: unnecessary_null_comparison
+                                                      if (val != null &&
+                                                          val
+                                                              .trim()
+                                                              .isNotEmpty) {
+                                                        String cleaned = val
+                                                            .trim()
+                                                            .replaceAll(
+                                                              '-',
+                                                              '',
+                                                            );
+                                                        // Check if contains only digits
+                                                        if (!RegExp(
+                                                          r'^[0-9]+$',
+                                                        ).hasMatch(cleaned)) {
+                                                          return '사업자번호는 숫자만 입력 가능합니다';
+                                                        }
+                                                        // Check if exactly 10 digits
+                                                        if (cleaned.length !=
+                                                            10) {
+                                                          return '사업자번호는 숫자 10자리여야 합니다 (예: 123-45-67890)';
+                                                        }
+                                                      }
+                                                      return null;
+                                                    },
+                                                    onChanged: (val) {
+                                                      // Saving handled by Save button
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  SizedBox(height: 10),
+                                                  UnderlineTextField(
+                                                    obscureText: false,
+                                                    controller:
+                                                        invoiceeCorpNameController,
+                                                    hintText: ' 공급받는자 상호',
+                                                    keyboardType:
+                                                        TextInputType.text,
+                                                    validator: (val) {
+                                                      if (val == null ||
+                                                          val.trim().isEmpty) {
+                                                        return '이름을 입력해주세요';
+                                                      }
+                                                      if (val.trim().length >
+                                                          200) {
+                                                        return '입력은 최대 200자까지 가능합니다';
+                                                      }
+                                                      return null;
+                                                    },
+                                                    onChanged: (val) {
+                                                      // Saving handled by Save button
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  SizedBox(height: 10),
+                                                  UnderlineTextField(
+                                                    obscureText: false,
+                                                    controller:
+                                                        invoiceeCEONameController,
+                                                    hintText: '공급받는자 대표자 성명',
+                                                    keyboardType:
+                                                        TextInputType.text,
+                                                    validator: (val) {
+                                                      if (val == null ||
+                                                          val.trim().isEmpty) {
+                                                        return '대표자 성명을 입력해주세요';
+                                                      }
+                                                      if (val.trim().length >
+                                                          200) {
+                                                        return '입력은 최대 200자까지 가능합니다';
+                                                      }
+                                                      return null;
+                                                    },
+                                                    onChanged: (val) {
+                                                      // Saving handled by Save button
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  SizedBox(height: 10),
+                                                  UnderlineTextField(
+                                                    controller: emailController,
+                                                    hintText: '이메일',
+                                                    obscureText: false,
+                                                    keyboardType:
+                                                        TextInputType
+                                                            .emailAddress,
+                                                    validator: (val) {
+                                                      if (val == null ||
+                                                          val.trim().isEmpty) {
+                                                        return '이메일을 입력해주세요';
+                                                      }
+                                                      if (!RegExp(
+                                                        r'^.+@.+\..+$',
+                                                      ).hasMatch(val.trim())) {
+                                                        return '유효한 이메일을 입력해주세요';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  SizedBox(height: 10),
+                                                  UnderlineTextField(
+                                                    controller: phoneController,
+                                                    hintText: '전화번호 ',
+                                                    obscureText: false,
+                                                    keyboardType:
+                                                        TextInputType.phone,
+                                                    validator: (val) {
+                                                      if (val == null ||
+                                                          val.trim().isEmpty) {
+                                                        return '전화번호를 입력해주세요';
+                                                      }
+                                                      final koreanReg = RegExp(
+                                                        r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
+                                                      );
+                                                      if (!koreanReg.hasMatch(
+                                                        val,
+                                                      )) {
+                                                        return '유효한 한국 전화번호를 입력하세요';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                ],
+                                                verticalSpace(10),
+                                                WideTextButton(
+                                                  txt: '저장',
+                                                  func: () async {
+                                                    // Validate all fields first
+                                                    if (!_bottomSheetFormKey
+                                                        .currentState!
+                                                        .validate()) {
+                                                      return;
+                                                    }
+                                                    final success =
+                                                        await _saveCachedUserValues();
+                                                    if (success) {
+                                                      Navigator.pop(context);
+                                                    }
+                                                  },
+                                                  color: Colors.black,
+                                                  txtColor: Colors.white,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                            icon: Icon(
+                              Icons.arrow_forward_ios,
+                              size: 30,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    verticalSpace(10),
+                  ],
+                ),
+              ),
+
+              verticalSpace(15),
             ],
           ),
         ),
@@ -1208,8 +1540,22 @@ class _BuyNowState extends State<BuyNow> {
                   ),
                 ],
               ),
-              SizedBox(height: 8),
+              verticalSpace(8),
               _buildPaymentButton(widget.price, uid),
+              if (!bankAccounts.isNotEmpty) ...[
+                verticalSpace(8),
+                Text(
+                  '* 간편결제 계좌 등록 후 결제가 진행됩니다',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontFamily: 'NotoSans',
+                    fontWeight: FontWeight.w800,
+                    height: 1.40,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1269,35 +1615,16 @@ class _BuyNowState extends State<BuyNow> {
     }
   }
 
-  void _launchCardRpaymentPage(
-    String amount,
-    String userId,
-    String phoneNo,
-    String paymentId,
-    String payerId,
-    String userName,
-    String email,
-  ) async {
-    final url = Uri.parse(
-      'https://pay.pang2chocolate.com/r-p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&userName=$userName&email=$email',
-    );
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
-
   void _launchBankPaymentPage(
     String amount,
     String userId,
     String phoneNo,
     String paymentId,
-    String userName,
-    String email,
+    String option,
+    String dm,
   ) async {
     final url = Uri.parse(
-      'https://pay.pang2chocolate.com/b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&userName=$userName&email=$email',
+      'https://pay.pang2chocolate.com/b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&option=$option&dm=$dm',
     );
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
@@ -1312,11 +1639,11 @@ class _BuyNowState extends State<BuyNow> {
     String phoneNo,
     String paymentId,
     String payerId,
-    String userName,
-    String email,
+    String option,
+    String dm,
   ) async {
     final url = Uri.parse(
-      'https://pay.pang2chocolate.com/r-b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&userName=$userName&email=$email',
+      'https://pay.pang2chocolate.com/r-b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&option=$option&dm=$dm',
     );
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
@@ -1325,18 +1652,42 @@ class _BuyNowState extends State<BuyNow> {
     }
   }
 
-  Future<void> _saveCachedUserValues() async {
+  Future<bool> _saveCachedUserValues() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    await FirebaseFirestore.instance
-        .collection('usercached_values')
-        .doc(uid)
-        .set({
-          'userId': uid,
-          'name': nameController.text.trim(),
-          'email': emailController.text.trim(),
-          'phone': phoneController.text.trim(),
-        }, SetOptions(merge: true));
+    if (uid == null) return false;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('usercached_values')
+          .doc(uid)
+          .set({
+            'userId': uid,
+            'name': nameController.text.trim(),
+            'email': emailController.text.trim(),
+            'phone': phoneController.text.trim(),
+            'invoiceeType': invoiceeType,
+            'invoiceeCorpNum': invoiceeCorpNumController.text.trim(),
+            'invoiceeCorpName': invoiceeCorpNameController.text.trim(),
+            'invoiceeCEOName': invoiceeCEONameController.text.trim(),
+            'selectedOption': selectedOption,
+          }, SetOptions(merge: true));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('정보가 저장되었습니다'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      return true;
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('저장 실패: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
   }
 
   Future<bool> isPaymentCompleted(String orderId, String uid) async {
