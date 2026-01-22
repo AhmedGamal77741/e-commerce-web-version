@@ -114,9 +114,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     passwordController.text,
                   );
 
-                  if (result == null) {
+                  if (result is String) {
                     setState(() {
-                      error = '잘못된 이메일 또는 비밀번호';
+                      error = result;
                     });
                   }
                 }
