@@ -145,6 +145,12 @@ class _ItemDetailsState extends State<ItemDetails> {
                 ],
               ),
             ),
+            Container(
+              width: double.infinity,
+              height: 500,
+              color: Colors.black,
+              child: Center(child: _ShiningPremiumBanner()),
+            ),
             Padding(
               padding: EdgeInsets.fromLTRB(20, 14, 20, 14),
               child: Row(
@@ -243,27 +249,72 @@ class _ItemDetailsState extends State<ItemDetails> {
                     ...widget.product.pricePoints.asMap().entries.map((entry) {
                       int index = entry.key;
                       PricePoint pricePoint = entry.value;
-                      double perUnit =
+                      double perUnit = pricePoint.price / pricePoint.quantity;
+                      double perunitn =
                           (pricePoint.price / 0.8) / pricePoint.quantity;
-                      // Show non-premium price (no discount)
+
                       return Column(
                         children: [
                           RadioListTile<String>(
                             title: Row(
                               children: [
                                 Text(
-                                  '${pricePoint.quantity}개 ${formatCurrency.format((pricePoint.price / 0.8).round())}원',
+                                  '${pricePoint.quantity}개 ',
                                   style: TextStyle(
                                     fontFamily: 'NotoSans',
                                     fontWeight: FontWeight.w400,
-                                    fontSize: 16,
+                                    fontSize: 18,
                                     height: 1.4,
                                   ),
                                 ),
                                 SizedBox(width: 5),
-                                Text(
-                                  '(1개 ${formatCurrency.format(perUnit.round())}원)',
-                                  style: TextStyles.abeezee14px400wP600,
+
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '일반가 ${formatCurrency.format((pricePoint.price / 0.8).round())} 원',
+                                          style: TextStyle(
+                                            fontFamily: 'NotoSans',
+                                            fontWeight: FontWeight.w400,
+                                            fontSize: 16,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                        SizedBox(width: 5),
+                                        Text(
+                                          '(1개 ${formatCurrency.format(perunitn.round())}원)',
+                                          style: TextStyles.abeezee14px400wP600,
+                                        ),
+                                      ],
+                                    ),
+                                    Container(
+                                      color: Colors.black,
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            '멤버십 ${formatCurrency.format(pricePoint.price)} 원',
+                                            style: TextStyle(
+                                              fontFamily: 'NotoSans',
+                                              fontWeight: FontWeight.w400,
+                                              fontSize: 16,
+                                              height: 1.4,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          SizedBox(width: 5),
+                                          Text(
+                                            '(1개 ${formatCurrency.format(perUnit.round())}원)',
+                                            style: TextStyles
+                                                .abeezee14px400wP600
+                                                .copyWith(color: Colors.white),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
