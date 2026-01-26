@@ -5,7 +5,7 @@ class MessageModel {
   final String senderId;
   final String senderName;
   final String content;
-  final String? imageUrl; // <-- add this
+  final String? imageUrl;
   final DateTime timestamp;
   final List<String> readBy;
   final String? replyToMessageId;

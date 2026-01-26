@@ -62,16 +62,74 @@ class ChatService {
         'chatRooms': FieldValue.arrayUnion([chatRoomId]),
       });
       await batch.commit();
-    } else {
+    } /* else {
       final data = chatRoomDoc.data();
       if (data != null && !data.containsKey('lastMessageTime')) {
         await chatRoomRef.update({
           'lastMessageTime': DateTime.now().millisecondsSinceEpoch,
         });
       }
-    }
+    } */
 
     return chatRoomId; // Non-nullable
+  }
+
+  Future<List<String>> createDirectChatRoomWithSeller(
+    String otherUserId,
+  ) async {
+    final participants = [currentUserId, otherUserId]..sort();
+    final chatRoomId = participants.join('_');
+
+    final chatRoomRef = _firestore.collection('chatRooms').doc(chatRoomId);
+    final chatRoomDoc = await chatRoomRef.get();
+    String otherUserName = "";
+    if (!chatRoomDoc.exists) {
+      // Get other user's data
+      final otherUserDoc =
+          await _firestore
+              .collection('deliveryManagers')
+              .doc(otherUserId)
+              .get();
+      if (!otherUserDoc.exists) {
+        throw Exception('Other user not found');
+      }
+
+      final otherUser = otherUserDoc.data()!;
+      final now = DateTime.now();
+      otherUserName = otherUser['name'];
+      final chatRoom = ChatRoomModel(
+        id: chatRoomId,
+        name: otherUserName,
+        type: 'seller',
+        participants: participants,
+        lastMessageTime: now,
+        createdAt: now,
+        unreadCount: {currentUserId: 0, otherUserId: 0},
+      );
+
+      // Use batch for atomic writes
+      final batch = _firestore.batch();
+      batch.set(chatRoomRef, chatRoom.toMap());
+      batch.update(_firestore.collection('users').doc(currentUserId), {
+        'chatRooms': FieldValue.arrayUnion([chatRoomId]),
+      });
+      batch.update(_firestore.collection('deliveryManagers').doc(otherUserId), {
+        'chatRooms': FieldValue.arrayUnion([chatRoomId]),
+      });
+      await batch.commit();
+    } else {
+      otherUserName = chatRoomDoc.data()!['name'];
+    }
+    /* else {
+      final data = chatRoomDoc.data();
+      if (data != null && !data.containsKey('lastMessageTime')) {
+        await chatRoomRef.update({
+          'lastMessageTime': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+    } */
+
+    return [chatRoomId, otherUserName]; // Non-nullable
   }
 
   Future<bool> toggleLoveReaction({

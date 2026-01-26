@@ -120,6 +120,36 @@ class MyUser {
     );
   }
 
+  static MyUser fromSellerDocument(Map<String, dynamic> doc) {
+    return MyUser(
+      userId: (doc['userId'] ?? '') as String,
+      email: (doc['email'] ?? '') as String,
+      name: (doc['name'] ?? '삭제된 사용자') as String,
+      url: (doc['url'] ?? 'https://i.ibb.co/mrVrHy7z/avatar.png') as String,
+      blocked:
+          (doc['blocked'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      isSub: doc['isSub'] ?? false,
+      defaultAddressId: (doc['defaultAddressId'] ?? '') as String?,
+      payerId: (doc['payerId'] ?? '') as String?,
+      isOnline: doc['isOnline'] ?? false,
+      lastSeen: DateTime.fromMillisecondsSinceEpoch(doc['lastSeen'] ?? 0),
+      chatRooms: List<String>.from(doc['chatRooms'] ?? []),
+      friends: List<String>.from(doc['friends'] ?? []),
+      friendRequestsSent: List<String>.from(doc['friendRequestsSent'] ?? []),
+      friendRequestsReceived: List<String>.from(
+        doc['friendRequestsReceived'] ?? [],
+      ),
+      followerCount: doc['followerCount'] ?? 0,
+      followingCount: doc['followingCount'] ?? 0,
+      bio: (doc['bio'] ?? '') as String?,
+      phoneNumber: (doc['phoneNumber'] ?? '') as String?,
+      type: (doc['type'] ?? 'user') as String,
+    );
+  }
+
   // Keep these methods for backward compatibility if needed elsewhere
   MyUser toEntity() {
     return this; // Returns itself since it's now the same class

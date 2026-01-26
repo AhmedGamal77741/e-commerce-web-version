@@ -28,10 +28,25 @@ class _DirectChatsScreenState extends State<DirectChatsScreen> {
 
   Future<MyUser?> getOtherUser(ChatRoomModel chat) async {
     final otherId = chat.participants.firstWhere((id) => id != currentUserId);
-    final doc =
-        await FirebaseFirestore.instance.collection('users').doc(otherId).get();
-    if (!doc.exists) return null;
-    return MyUser.fromDocument(doc.data()!);
+    if (chat.type == 'direct') {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(otherId)
+              .get();
+      if (!doc.exists) return null;
+      return MyUser.fromDocument(doc.data()!);
+    } else if (chat.type == 'seller') {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('deliveryManagers')
+              .doc(otherId)
+              .get();
+      if (!doc.exists) return null;
+      return MyUser.fromSellerDocument(doc.data()!);
+    } else {
+      return null;
+    }
   }
 
   void toggleSearchMode() {
@@ -196,6 +211,7 @@ class _DirectChatsScreenState extends State<DirectChatsScreen> {
                   .where(
                     (chat) =>
                         chat.type == 'direct' ||
+                        chat.type == 'seller' ||
                         chat.type == '' ||
                         chat.type == null,
                   )

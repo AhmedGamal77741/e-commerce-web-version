@@ -5,6 +5,8 @@ import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
+import 'package:ecommerece_app/features/chat/services/chat_service.dart';
+import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
 import 'package:ecommerece_app/features/shop/cart_func.dart';
 import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -36,6 +38,7 @@ class ItemDetails extends StatefulWidget {
 
 class _ItemDetailsState extends State<ItemDetails> {
   // late List<PricePoint> _options = widget.product.pricePoints; // Not used, can be removed
+  final ChatService _chatService = ChatService();
 
   late bool liked = false;
   @override
@@ -427,401 +430,459 @@ class _ItemDetailsState extends State<ItemDetails> {
           }
         }
         return Scaffold(
-          body: ListView(
+          body: Stack(
             children: [
-              SizedBox(
-                height: 428,
-                child: Stack(
-                  children: [
-                    if (imageUrls.isNotEmpty)
-                      PageView.builder(
-                        scrollBehavior: DragScrollBehavior(),
-                        controller: _pageController,
-                        itemCount: imageUrls.length,
-                        physics: const BouncingScrollPhysics(),
-                        onPageChanged:
-                            (index) => setState(
-                              () {},
-                            ), // _currentPage = index (if _currentPage is needed)
-                        itemBuilder:
-                            (context, index) => Image.network(
-                              imageUrls[index],
-                              fit: BoxFit.cover,
-                              errorBuilder:
-                                  (_, __, ___) =>
-                                      const Placeholder(), // Fallback
-                            ),
-                      )
-                    else
-                      const Center(
-                        child: Text("No images available"),
-                      ), // Handle empty image list
-                    // Indicator with gradient background
-                    if (imageUrls
-                        .isNotEmpty) // Show indicator only if there are images
-                      Positioned.fill(
-                        bottom: 0,
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Container(
-                            height: 60,
-                            // decoration: BoxDecoration(), // Empty decoration, can be removed
-                            child: Center(
-                              child: SmoothPageIndicator(
-                                controller: _pageController,
-                                count: imageUrls.length,
-                                effect: ScrollingDotsEffect(
-                                  activeDotColor: Colors.black,
-                                  dotColor: Colors.grey,
-                                  dotHeight: 10,
-                                  dotWidth: 10,
+              ListView(
+                children: [
+                  SizedBox(
+                    height: 428,
+                    child: Stack(
+                      children: [
+                        if (imageUrls.isNotEmpty)
+                          PageView.builder(
+                            scrollBehavior: DragScrollBehavior(),
+                            controller: _pageController,
+                            itemCount: imageUrls.length,
+                            physics: const BouncingScrollPhysics(),
+                            onPageChanged:
+                                (index) => setState(
+                                  () {},
+                                ), // _currentPage = index (if _currentPage is needed)
+                            itemBuilder:
+                                (context, index) => Image.network(
+                                  imageUrls[index],
+                                  fit: BoxFit.cover,
+                                  errorBuilder:
+                                      (_, __, ___) =>
+                                          const Placeholder(), // Fallback
                                 ),
-                                onDotClicked: (index) {
-                                  _pageController.animateToPage(
-                                    index,
-                                    duration: const Duration(milliseconds: 400),
-                                    curve: Curves.easeInOut,
-                                  );
-                                },
+                          )
+                        else
+                          const Center(
+                            child: Text("No images available"),
+                          ), // Handle empty image list
+                        // Indicator with gradient background
+                        if (imageUrls
+                            .isNotEmpty) // Show indicator only if there are images
+                          Positioned.fill(
+                            bottom: 0,
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Container(
+                                height: 60,
+                                // decoration: BoxDecoration(), // Empty decoration, can be removed
+                                child: Center(
+                                  child: SmoothPageIndicator(
+                                    controller: _pageController,
+                                    count: imageUrls.length,
+                                    effect: ScrollingDotsEffect(
+                                      activeDotColor: Colors.black,
+                                      dotColor: Colors.grey,
+                                      dotHeight: 10,
+                                      dotWidth: 10,
+                                    ),
+                                    onDotClicked: (index) {
+                                      _pageController.animateToPage(
+                                        index,
+                                        duration: const Duration(
+                                          milliseconds: 400,
+                                        ),
+                                        curve: Curves.easeInOut,
+                                      );
+                                    },
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                    Positioned(
-                      top: 5, // adjust as needed for your design
-                      left: 5,
-                      child: IconButton(
-                        icon: Icon(Icons.arrow_back), // white, semi-transparent
-                        // no background
-                        onPressed: () {
-                          if (GoRouter.of(context).canPop()) {
-                            GoRouter.of(context).pop();
-                          } else {
-                            GoRouter.of(context).goNamed(Routes.navBar);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (!isSub)
-                Container(
-                  width: double.infinity,
-                  height: 500,
-                  color: Colors.black,
-                  child: Center(child: _ShiningPremiumBanner()),
-                ),
-
-              Padding(
-                padding: EdgeInsets.fromLTRB(20, 14, 20, 14),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Flexible(
-                      flex: 5,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        // spacing: 10, // Column doesn't have a spacing property directly. Use SizedBox.
-                        children: [
-                          Text(
-                            widget.product.sellerName,
-                            style: TextStyle(
-                              color: const Color(0xFF121212),
-                              fontSize: 14,
-                              fontFamily: 'NotoSans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.40, // Removed  as height is a factor
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            widget.product.productName,
-                            style: TextStyle(
-                              color: const Color(0xFF121212),
-                              fontSize: 16,
-                              fontFamily: 'NotoSans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.40, // Removed
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            widget.product.stock == 0
-                                ? '품절'
-                                : widget.product.arrivalDate ?? '',
-                            style: TextStyle(
-                              color: const Color(0xFF747474),
-                              fontSize: 14,
-                              fontFamily: 'NotoSans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.40, // Removed
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(), // Spacer is fine here
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: () async {
-                            final productId = widget.product.product_id;
-                            final base = Uri.base.origin;
-                            final url = '$base/product/$productId';
-                            await Clipboard.setData(ClipboardData(text: url));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('상품 링크가 복사되었습니다!')),
-                            );
-                          },
-                          icon: ImageIcon(
-                            const AssetImage('assets/grey_006m.png'),
-                            size: 32,
-                            color: liked ? Colors.black : Colors.grey,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () async {
-                            final currentUser =
-                                FirebaseAuth.instance.currentUser;
-                            if (currentUser == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("내 페이지 탭에서 회원가입 후 이용가능합니다"),
-                                ),
-                              );
-                              return;
-                            }
-                            if (liked) {
-                              await removeProductFromFavorites(
-                                userId: currentUser.uid,
-                                productId: widget.product.product_id,
-                              );
-                            } else {
-                              await addProductToFavorites(
-                                userId: currentUser.uid,
-                                productId: widget.product.product_id,
-                              );
-                            }
-                            setState(() {
-                              liked = !liked;
-                            });
-                          },
-                          icon: ImageIcon(
-                            const AssetImage(
-                              'assets/grey_007m.png',
-                            ), // Favorite icon
-                            size: 32,
-                            color: liked ? Colors.black : Colors.grey,
+                        Positioned(
+                          top: 5, // adjust as needed for your design
+                          left: 5,
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.arrow_back,
+                            ), // white, semi-transparent
+                            // no background
+                            onPressed: () {
+                              if (GoRouter.of(context).canPop()) {
+                                GoRouter.of(context).pop();
+                              } else {
+                                GoRouter.of(context).goNamed(Routes.navBar);
+                              }
+                            },
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Container(
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      side: const BorderSide(
-                        width: 0.27,
-                        color: Color(0xFF747474),
-                      ),
-                      borderRadius: BorderRadius.circular(12),
+                  ),
+                  if (!isSub)
+                    Container(
+                      width: double.infinity,
+                      height: 500,
+                      color: Colors.black,
+                      child: Center(child: _ShiningPremiumBanner()),
+                    ),
+
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(20, 14, 20, 14),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Flexible(
+                          flex: 5,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            // spacing: 10, // Column doesn't have a spacing property directly. Use SizedBox.
+                            children: [
+                              Text(
+                                widget.product.sellerName,
+                                style: TextStyle(
+                                  color: const Color(0xFF121212),
+                                  fontSize: 14,
+                                  fontFamily: 'NotoSans',
+                                  fontWeight: FontWeight.w400,
+                                  height:
+                                      1.40, // Removed  as height is a factor
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              Text(
+                                widget.product.productName,
+                                style: TextStyle(
+                                  color: const Color(0xFF121212),
+                                  fontSize: 16,
+                                  fontFamily: 'NotoSans',
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.40, // Removed
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              Text(
+                                widget.product.stock == 0
+                                    ? '품절'
+                                    : widget.product.arrivalDate ?? '',
+                                style: TextStyle(
+                                  color: const Color(0xFF747474),
+                                  fontSize: 14,
+                                  fontFamily: 'NotoSans',
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.40, // Removed
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(), // Spacer is fine here
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () async {
+                                final productId = widget.product.product_id;
+                                final base = Uri.base.origin;
+                                final url = '$base/product/$productId';
+                                await Clipboard.setData(
+                                  ClipboardData(text: url),
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('상품 링크가 복사되었습니다!')),
+                                );
+                              },
+                              icon: ImageIcon(
+                                const AssetImage('assets/grey_006m.png'),
+                                size: 32,
+                                color: liked ? Colors.black : Colors.grey,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () async {
+                                final currentUser =
+                                    FirebaseAuth.instance.currentUser;
+                                if (currentUser == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text("내 페이지 탭에서 회원가입 후 이용가능합니다"),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                if (liked) {
+                                  await removeProductFromFavorites(
+                                    userId: currentUser.uid,
+                                    productId: widget.product.product_id,
+                                  );
+                                } else {
+                                  await addProductToFavorites(
+                                    userId: currentUser.uid,
+                                    productId: widget.product.product_id,
+                                  );
+                                }
+                                setState(() {
+                                  liked = !liked;
+                                });
+                              },
+                              icon: ImageIcon(
+                                const AssetImage(
+                                  'assets/grey_007m.png',
+                                ), // Favorite icon
+                                size: 32,
+                                color: liked ? Colors.black : Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      ...widget.product.pricePoints.asMap().entries.map((
-                        entry,
-                      ) {
-                        int index = entry.key;
-                        PricePoint pricePoint = entry.value;
-                        double perUnit = pricePoint.price / pricePoint.quantity;
-                        double perunitn =
-                            (pricePoint.price / 0.8) / pricePoint.quantity;
-                        return Column(
-                          children: [
-                            RadioListTile<String>(
-                              title:
-                                  isSub
-                                      ? Row(
-                                        children: [
-                                          Text(
-                                            '${pricePoint.quantity}개 ${formatCurrency.format(pricePoint.price)}원',
-                                            style: TextStyle(
-                                              fontFamily: 'NotoSans',
-                                              fontWeight: FontWeight.w400,
-                                              fontSize: 16,
-                                              height: 1.4,
-                                            ),
-                                          ),
-                                          SizedBox(width: 5),
-                                          Text(
-                                            '(1개 ${formatCurrency.format(perUnit.round())}원)',
-                                            style:
-                                                TextStyles.abeezee14px400wP600,
-                                          ),
-                                        ],
-                                      )
-                                      : Row(
-                                        children: [
-                                          Text(
-                                            '${pricePoint.quantity}개 ',
-                                            style: TextStyle(
-                                              fontFamily: 'NotoSans',
-                                              fontWeight: FontWeight.w400,
-                                              fontSize: 18,
-                                              height: 1.4,
-                                            ),
-                                          ),
-                                          SizedBox(width: 5),
-
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Container(
+                      decoration: ShapeDecoration(
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                            width: 0.27,
+                            color: Color(0xFF747474),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          ...widget.product.pricePoints.asMap().entries.map((
+                            entry,
+                          ) {
+                            int index = entry.key;
+                            PricePoint pricePoint = entry.value;
+                            double perUnit =
+                                pricePoint.price / pricePoint.quantity;
+                            double perunitn =
+                                (pricePoint.price / 0.8) / pricePoint.quantity;
+                            return Column(
+                              children: [
+                                RadioListTile<String>(
+                                  title:
+                                      isSub
+                                          ? Row(
                                             children: [
-                                              Row(
+                                              Text(
+                                                '${pricePoint.quantity}개 ${formatCurrency.format(pricePoint.price)}원',
+                                                style: TextStyle(
+                                                  fontFamily: 'NotoSans',
+                                                  fontWeight: FontWeight.w400,
+                                                  fontSize: 16,
+                                                  height: 1.4,
+                                                ),
+                                              ),
+                                              SizedBox(width: 5),
+                                              Text(
+                                                '(1개 ${formatCurrency.format(perUnit.round())}원)',
+                                                style:
+                                                    TextStyles
+                                                        .abeezee14px400wP600,
+                                              ),
+                                            ],
+                                          )
+                                          : Row(
+                                            children: [
+                                              Text(
+                                                '${pricePoint.quantity}개 ',
+                                                style: TextStyle(
+                                                  fontFamily: 'NotoSans',
+                                                  fontWeight: FontWeight.w400,
+                                                  fontSize: 18,
+                                                  height: 1.4,
+                                                ),
+                                              ),
+                                              SizedBox(width: 5),
+
+                                              Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
-                                                  Text(
-                                                    '일반가 ${formatCurrency.format((pricePoint.price / 0.8).round())} 원',
-                                                    style: TextStyle(
-                                                      fontFamily: 'NotoSans',
-                                                      fontWeight:
-                                                          FontWeight.w400,
-                                                      fontSize: 16,
-                                                      height: 1.4,
-                                                    ),
+                                                  Row(
+                                                    children: [
+                                                      Text(
+                                                        '일반가 ${formatCurrency.format((pricePoint.price / 0.8).round())} 원',
+                                                        style: TextStyle(
+                                                          fontFamily:
+                                                              'NotoSans',
+                                                          fontWeight:
+                                                              FontWeight.w400,
+                                                          fontSize: 16,
+                                                          height: 1.4,
+                                                        ),
+                                                      ),
+                                                      SizedBox(width: 5),
+                                                      Text(
+                                                        '(1개 ${formatCurrency.format(perunitn.round())}원)',
+                                                        style:
+                                                            TextStyles
+                                                                .abeezee14px400wP600,
+                                                      ),
+                                                    ],
                                                   ),
-                                                  SizedBox(width: 5),
-                                                  Text(
-                                                    '(1개 ${formatCurrency.format(perunitn.round())}원)',
-                                                    style:
-                                                        TextStyles
-                                                            .abeezee14px400wP600,
+                                                  Container(
+                                                    color: Colors.black,
+                                                    child: Row(
+                                                      children: [
+                                                        Text(
+                                                          '멤버십 ${formatCurrency.format(pricePoint.price)} 원',
+                                                          style: TextStyle(
+                                                            fontFamily:
+                                                                'NotoSans',
+                                                            fontWeight:
+                                                                FontWeight.w400,
+                                                            fontSize: 16,
+                                                            height: 1.4,
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                        SizedBox(width: 5),
+                                                        Text(
+                                                          '(1개 ${formatCurrency.format(perUnit.round())}원)',
+                                                          style: TextStyles
+                                                              .abeezee14px400wP600
+                                                              .copyWith(
+                                                                color:
+                                                                    Colors
+                                                                        .white,
+                                                              ),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
                                                 ],
                                               ),
-                                              Container(
-                                                color: Colors.black,
-                                                child: Row(
-                                                  children: [
-                                                    Text(
-                                                      '멤버십 ${formatCurrency.format(pricePoint.price)} 원',
-                                                      style: TextStyle(
-                                                        fontFamily: 'NotoSans',
-                                                        fontWeight:
-                                                            FontWeight.w400,
-                                                        fontSize: 16,
-                                                        height: 1.4,
-                                                        color: Colors.white,
-                                                      ),
-                                                    ),
-                                                    SizedBox(width: 5),
-                                                    Text(
-                                                      '(1개 ${formatCurrency.format(perUnit.round())}원)',
-                                                      style: TextStyles
-                                                          .abeezee14px400wP600
-                                                          .copyWith(
-                                                            color: Colors.white,
-                                                          ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
                                             ],
                                           ),
-                                        ],
-                                      ),
-                              value: index.toString(),
-                              groupValue: _selectedOption,
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedOption = value;
-                                });
-                              },
-                              activeColor:
-                                  ColorsManager
-                                      .primaryblack, // Example active color
-                            ),
-                            if (index < widget.product.pricePoints.length - 1)
-                              const Divider(
-                                height: 1,
-                                thickness: 0.40,
-                                color: Color(0xFF747474),
-                              ),
-                          ],
-                        );
-                      }).toList(),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-                child: Container(
-                  padding: EdgeInsets.only(
-                    left: 15,
-                    top: 15,
-                    bottom: 15,
-                    right: 15,
-                  ), // Added right padding
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      side: const BorderSide(
-                        width: 0.27,
-                        color: Color(0xFF747474),
+                                  value: index.toString(),
+                                  groupValue: _selectedOption,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedOption = value;
+                                    });
+                                  },
+                                  activeColor:
+                                      ColorsManager
+                                          .primaryblack, // Example active color
+                                ),
+                                if (index <
+                                    widget.product.pricePoints.length - 1)
+                                  const Divider(
+                                    height: 1,
+                                    thickness: 0.40,
+                                    color: Color(0xFF747474),
+                                  ),
+                              ],
+                            );
+                          }).toList(),
+                        ],
                       ),
-                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    // spacing: 10, // Column doesn't have a spacing property. Use SizedBox between children.
-                    children: [
-                      _buildInfoRow('배송', widget.product.arrivalDate ?? ''),
-                      SizedBox(height: 10),
-                      const Divider(
-                        height: 1,
-                        thickness: 0.40,
-                        color: Color(0xFF747474),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+                    child: Container(
+                      padding: EdgeInsets.only(
+                        left: 15,
+                        top: 15,
+                        bottom: 15,
+                        right: 15,
+                      ), // Added right padding
+                      decoration: ShapeDecoration(
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                            width: 0.27,
+                            color: Color(0xFF747474),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      SizedBox(height: 10),
-                      _buildInfoRow('보관법 및 소비기한', widget.product.instructions),
-                      SizedBox(height: 10),
-                      const Divider(
-                        height: 1,
-                        thickness: 0.40,
-                        color: Color(0xFF747474),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        // spacing: 10, // Column doesn't have a spacing property. Use SizedBox between children.
+                        children: [
+                          _buildInfoRow('배송', widget.product.arrivalDate ?? ''),
+                          SizedBox(height: 10),
+                          const Divider(
+                            height: 1,
+                            thickness: 0.40,
+                            color: Color(0xFF747474),
+                          ),
+                          SizedBox(height: 10),
+                          _buildInfoRow(
+                            '보관법 및 소비기한',
+                            widget.product.instructions,
+                          ),
+                          SizedBox(height: 10),
+                          const Divider(
+                            height: 1,
+                            thickness: 0.40,
+                            color: Color(0xFF747474),
+                          ),
+                          SizedBox(height: 10),
+                          _buildInfoRow(
+                            '남은 수량',
+                            '${widget.product.stock.toString()} 개',
+                          ),
+                          SizedBox(height: 10),
+                          const Divider(
+                            height: 1,
+                            thickness: 0.40,
+                            color: Color(0xFF747474),
+                          ),
+                          SizedBox(height: 10),
+                          _buildInfoRow(
+                            '제품안내',
+                            widget.product.description ?? '',
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 10),
-                      _buildInfoRow(
-                        '남은 수량',
-                        '${widget.product.stock.toString()} 개',
-                      ),
-                      SizedBox(height: 10),
-                      const Divider(
-                        height: 1,
-                        thickness: 0.40,
-                        color: Color(0xFF747474),
-                      ),
-                      SizedBox(height: 10),
-                      _buildInfoRow('제품안내', widget.product.description ?? ''),
-                    ],
+                    ),
                   ),
+                  // Padding(padding: EdgeInsets.symmetric(horizontal: 20.w)), // This empty padding does nothing
+                ],
+              ),
+              Positioned(
+                right: 0,
+                bottom: -10,
+                child: IconButton(
+                  onPressed: () async {
+                    try {
+                      final returnList = await _chatService
+                          .createDirectChatRoomWithSeller(
+                            widget.product.deliveryManagerId.toString(),
+                          );
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => ChatScreen(
+                                chatRoomId: returnList[0],
+                                chatRoomName: returnList[1],
+                              ),
+                        ),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    }
+                  },
+                  icon: Image.asset(
+                    'assets/chat_with_seller.png',
+                    width: 50,
+                    height: 50,
+                  ), // Or Image.asset(...)
                 ),
               ),
-              // Padding(padding: EdgeInsets.symmetric(horizontal: 20.w)), // This empty padding does nothing
             ],
           ),
+
           bottomNavigationBar: Padding(
             padding: EdgeInsets.all(16),
             child: Row(
