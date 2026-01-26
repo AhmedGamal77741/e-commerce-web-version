@@ -19,6 +19,7 @@ class NavBar extends StatefulWidget {
 }
 
 class _NavBarState extends State<NavBar> {
+  final shopKey = GlobalKey<ShopState>();
   int _selectedIndex = 0;
 
   // Use a non-static controller and re-create HomeScreen on tab switch to ensure controller is always attached
@@ -32,7 +33,7 @@ class _NavBarState extends State<NavBar> {
       _buildMainWidget(
         () => HomeScreen(scrollController: homeScrollController),
       ),
-      _buildMainWidget(() => Shop()),
+      _buildMainWidget(() => Shop(key: shopKey)),
       _buildMainWidget(() => Cart()),
       _buildMainWidget(() => ReviewScreen()),
       _buildMainWidget(() => LandingScreen()),
@@ -94,6 +95,13 @@ class _NavBarState extends State<NavBar> {
   }
 
   Future<void> _onItemTapped(int index) async {
+    if (_selectedIndex == index && index == 1) {
+      // Reset Shop tab to first category
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        shopKey.currentState?.resetToFirstCategory();
+      });
+      return;
+    }
     if (_selectedIndex == index && index == 0) {
       if (homeScrollController.hasClients) {
         homeScrollController.animateTo(

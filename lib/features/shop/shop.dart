@@ -22,17 +22,33 @@ class Shop extends StatefulWidget {
   const Shop({super.key});
 
   @override
-  State<Shop> createState() => _ShopState();
+  State<Shop> createState() => ShopState();
 }
 
-class _ShopState extends State<Shop> {
+class ShopState extends State<Shop> with TickerProviderStateMixin {
   List<Map<String, dynamic>> _categories = [];
   bool _isLoading = true;
+  TabController? _tabController;
+  final ScrollController categoryProductsScreenScrollController =
+      ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+  }
+
+  void resetToFirstCategory() {
+    if (_tabController != null) {
+      _tabController!.animateTo(0);
+    }
+    if (categoryProductsScreenScrollController.hasClients) {
+      categoryProductsScreenScrollController.animateTo(
+        0,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -77,7 +93,6 @@ class _ShopState extends State<Shop> {
         body: Center(child: Text('No categories available')),
       );
     }
-    int initialIndex = 0;
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
@@ -137,132 +152,140 @@ class _ShopState extends State<Shop> {
     return DefaultTabController(
       length: _categories.length,
       initialIndex: initialIndex,
-      child: Scaffold(
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            context.go(Routes.shopSearchScreen);
-          },
-          elevation: 0,
-          backgroundColor: Colors.black,
-          shape: const CircleBorder(),
-          child: ImageIcon(
-            AssetImage('assets/010no.png'),
-            color: Colors.white,
-            size: 60,
-          ),
-        ),
-        appBar: AppBar(
-          toolbarHeight: 42,
-          title: Text(''),
-          centerTitle: false,
-          bottom: PreferredSize(
-            preferredSize: Size.fromHeight(48),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(left: 8, bottom: 4, top: 4),
-                  child: FutureBuilder<DocumentSnapshot<Object?>>(
-                    future:
-                        (userData != null &&
-                                userData['defaultAddressId'] != null &&
-                                userData['defaultAddressId'] != '')
-                            ? FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(userData['userId'])
-                                .collection('addresses')
-                                .doc(userData['defaultAddressId'])
-                                .get()
-                            : null,
-                    builder: (context, snapshot) {
-                      String displayName = '배송지 선택';
-                      final addressSnap = snapshot.data;
-                      if (addressSnap != null && addressSnap.exists) {
-                        final addressData =
-                            addressSnap.data() as Map<String, dynamic>?;
-                        displayName = addressData?['address'] ?? '배송지 선택';
-                      }
-                      return TextButton(
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 2,
-                            vertical: 0,
-                          ),
-                          minimumSize: Size(0, 32),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        onPressed: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => AddressListScreen(),
+      child: Builder(
+        builder: (context) {
+          _tabController = DefaultTabController.of(context);
+
+          return Scaffold(
+            floatingActionButton: FloatingActionButton(
+              onPressed: () {
+                context.go(Routes.shopSearchScreen);
+              },
+              elevation: 0,
+              backgroundColor: Colors.black,
+              shape: const CircleBorder(),
+              child: ImageIcon(
+                AssetImage('assets/010no.png'),
+                color: Colors.white,
+                size: 60,
+              ),
+            ),
+            appBar: AppBar(
+              toolbarHeight: 42,
+              title: Text(''),
+              centerTitle: false,
+              bottom: PreferredSize(
+                preferredSize: Size.fromHeight(48),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(left: 8, bottom: 4, top: 4),
+                      child: FutureBuilder<DocumentSnapshot<Object?>>(
+                        future:
+                            (userData != null &&
+                                    userData['defaultAddressId'] != null &&
+                                    userData['defaultAddressId'] != '')
+                                ? FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(userData['userId'])
+                                    .collection('addresses')
+                                    .doc(userData['defaultAddressId'])
+                                    .get()
+                                : null,
+                        builder: (context, snapshot) {
+                          String displayName = '배송지 선택';
+                          final addressSnap = snapshot.data;
+                          if (addressSnap != null && addressSnap.exists) {
+                            final addressData =
+                                addressSnap.data() as Map<String, dynamic>?;
+                            displayName = addressData?['address'] ?? '배송지 선택';
+                          }
+                          return TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 0,
+                              ),
+                              minimumSize: Size(0, 32),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => AddressListScreen(),
+                                ),
+                              );
+                              setState(() {});
+                            },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  displayName,
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                SizedBox(width: 6),
+                                Icon(
+                                  Icons.arrow_drop_down,
+                                  color: Colors.black,
+                                  size: 18,
+                                ),
+                              ],
                             ),
                           );
-                          setState(() {});
                         },
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              displayName,
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(width: 6),
-                            Icon(
-                              Icons.arrow_drop_down,
-                              color: Colors.black,
-                              size: 18,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                TabBar(
-                  tabAlignment: TabAlignment.start,
-                  padding: EdgeInsets.zero,
-                  labelStyle: TextStyle(
-                    fontSize: 16,
-                    decoration: TextDecoration.none,
-                    fontFamily: 'NotoSans',
-                    fontStyle: FontStyle.normal,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0,
-                    color: ColorsManager.primaryblack,
-                  ),
-                  unselectedLabelColor: ColorsManager.primary600,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  indicatorColor: ColorsManager.primaryblack,
-                  isScrollable: _categories.length > 4,
-                  tabs:
-                      _categories
-                          .map((category) => Tab(text: category['name']))
-                          .toList(),
-                ),
-              ],
-            ),
-          ),
-        ),
-        body: Padding(
-          padding: EdgeInsets.only(right: 8, top: 15, bottom: 4),
-          child: TabBarView(
-            children:
-                _categories
-                    .map(
-                      (category) => CategoryProductsScreen(
-                        categoryId: category['id'],
-                        categoryName: category['name'],
-                        userData: userData,
-                        isSub: isSub,
                       ),
-                    )
-                    .toList(),
-          ),
-        ),
+                    ),
+                    TabBar(
+                      tabAlignment: TabAlignment.start,
+                      padding: EdgeInsets.zero,
+                      labelStyle: TextStyle(
+                        fontSize: 16,
+                        decoration: TextDecoration.none,
+                        fontFamily: 'NotoSans',
+                        fontStyle: FontStyle.normal,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0,
+                        color: ColorsManager.primaryblack,
+                      ),
+                      unselectedLabelColor: ColorsManager.primary600,
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      indicatorColor: ColorsManager.primaryblack,
+                      isScrollable: _categories.length > 4,
+                      tabs:
+                          _categories
+                              .map((category) => Tab(text: category['name']))
+                              .toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            body: Padding(
+              padding: EdgeInsets.only(right: 8, top: 15, bottom: 4),
+              child: TabBarView(
+                children:
+                    _categories
+                        .map(
+                          (category) => CategoryProductsScreen(
+                            categoryId: category['id'],
+                            categoryName: category['name'],
+                            userData: userData,
+                            isSub: isSub,
+                            scrollController:
+                                categoryProductsScreenScrollController,
+                          ),
+                        )
+                        .toList(),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -273,12 +296,14 @@ class CategoryProductsScreen extends StatefulWidget {
   final String categoryName;
   final bool isSub;
   final Map<String, dynamic>? userData;
+  final ScrollController? scrollController;
 
   CategoryProductsScreen({
     Key? key,
     required this.categoryId,
     required this.categoryName,
     required this.userData,
+    required this.scrollController,
 
     this.isSub = false,
   }) : super(key: key);
@@ -287,14 +312,18 @@ class CategoryProductsScreen extends StatefulWidget {
   _CategoryProductsScreenState createState() => _CategoryProductsScreenState();
 }
 
-class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
+class _CategoryProductsScreenState extends State<CategoryProductsScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   Map<String, dynamic>? userAddressMap;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Get user address from ancestor widget if passed, or fetch from Firestore if needed
-    final shopState = context.findAncestorStateOfType<_ShopState>();
+    final shopState = context.findAncestorStateOfType<ShopState>();
     if (shopState != null && widget.userData != null) {
       final userData = widget.userData!;
       if (userData['defaultAddressId'] != null &&
@@ -400,6 +429,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               return 1;
             }); */
             return ListView.separated(
+              controller: widget.scrollController,
               separatorBuilder: (context, index) {
                 if (index == sortedProducts.length - 1) {
                   return SizedBox.shrink();
