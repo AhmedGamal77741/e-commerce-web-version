@@ -132,6 +132,47 @@ class ChatService {
     return [chatRoomId, otherUserName]; // Non-nullable
   }
 
+  Future<String> createDirectChatRoomWithAdmin() async {
+    final participants = [currentUserId, "Admin"]..sort();
+    final chatRoomId = participants.join('_');
+
+    final chatRoomRef = _firestore.collection('chatRooms').doc(chatRoomId);
+    final chatRoomDoc = await chatRoomRef.get();
+    if (!chatRoomDoc.exists) {
+      final now = DateTime.now();
+      final chatRoom = ChatRoomModel(
+        id: chatRoomId,
+        name: "Admin",
+        type: 'admin',
+        participants: participants,
+        lastMessageTime: now,
+        createdAt: now,
+        unreadCount: {currentUserId: 0, "Admin": 0},
+      );
+
+      // Use batch for atomic writes
+      final batch = _firestore.batch();
+      batch.set(chatRoomRef, chatRoom.toMap());
+      batch.update(_firestore.collection('users').doc(currentUserId), {
+        'chatRooms': FieldValue.arrayUnion([chatRoomId]),
+      });
+      batch.update(_firestore.collection('users').doc("Admin"), {
+        'chatRooms': FieldValue.arrayUnion([chatRoomId]),
+      });
+      await batch.commit();
+    }
+    /* else {
+      final data = chatRoomDoc.data();
+      if (data != null && !data.containsKey('lastMessageTime')) {
+        await chatRoomRef.update({
+          'lastMessageTime': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+    } */
+
+    return chatRoomId; // Non-nullable
+  }
+
   Future<bool> toggleLoveReaction({
     required String messageId,
     required String chatRoomId,

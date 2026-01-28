@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
+import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/chat/services/friends_service.dart';
 import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
@@ -18,6 +19,7 @@ class _DirectChatsScreenState extends State<DirectChatsScreen> {
   final ChatService chatService = ChatService();
   String get currentUserId => FirebaseAuth.instance.currentUser!.uid;
   final FriendsService _friendsService = FriendsService();
+  final ChatService _chatService = ChatService();
 
   bool editMode = false;
   bool searchMode = false;
@@ -40,6 +42,14 @@ class _DirectChatsScreenState extends State<DirectChatsScreen> {
       final doc =
           await FirebaseFirestore.instance
               .collection('deliveryManagers')
+              .doc(otherId)
+              .get();
+      if (!doc.exists) return null;
+      return MyUser.fromSellerDocument(doc.data()!);
+    } else if (chat.type == 'admin') {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('users')
               .doc(otherId)
               .get();
       if (!doc.exists) return null;
@@ -183,6 +193,32 @@ class _DirectChatsScreenState extends State<DirectChatsScreen> {
                   ), */
                 ]
                 : [
+                  TextButton(
+                    onPressed: () async {
+                      try {
+                        final chatRoomId =
+                            await _chatService.createDirectChatRoomWithAdmin();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => ChatScreen(
+                                  chatRoomId: chatRoomId,
+                                  chatRoomName: "Admin",
+                                ),
+                          ),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                      }
+                    },
+                    child: Text(
+                      "Message Admin",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
                   InkWell(
                     onTap: toggleEditMode,
                     child: Image.asset(
@@ -212,6 +248,7 @@ class _DirectChatsScreenState extends State<DirectChatsScreen> {
                     (chat) =>
                         chat.type == 'direct' ||
                         chat.type == 'seller' ||
+                        chat.type == 'admin' ||
                         chat.type == '' ||
                         chat.type == null,
                   )

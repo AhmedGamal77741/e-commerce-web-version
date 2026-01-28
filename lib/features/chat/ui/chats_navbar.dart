@@ -25,7 +25,7 @@ class _ChatsNavbarState extends State<ChatsNavbar> {
       return [DirectChatsScreen()];
     }
     // Normal users: all tabs
-    return [FriendsScreen(), DirectChatsScreen(), GroupChatsScreen()];
+    return [DirectChatsScreen(), FriendsScreen(), GroupChatsScreen()];
   }
 
   void _onItemTapped(int index) {
@@ -62,17 +62,7 @@ class _ChatsNavbarState extends State<ChatsNavbar> {
         items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Image.asset(
-              height: 35,
-              width: 35,
               _selectedIndex == 0
-                  ? 'assets/contacts (1).png'
-                  : 'assets/contacts inactive (1).png',
-            ),
-            label: '친구톡톡',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset(
-              _selectedIndex == 1
                   ? 'assets/direct (1).png'
                   : 'assets/direct inactive (1).png',
               height: 35,
@@ -80,6 +70,17 @@ class _ChatsNavbarState extends State<ChatsNavbar> {
             ),
             label: '1:1 채팅',
           ),
+          BottomNavigationBarItem(
+            icon: Image.asset(
+              height: 35,
+              width: 35,
+              _selectedIndex == 1
+                  ? 'assets/contacts (1).png'
+                  : 'assets/contacts inactive (1).png',
+            ),
+            label: '친구톡톡',
+          ),
+
           BottomNavigationBarItem(
             icon: Image.asset(
               _selectedIndex == 2
