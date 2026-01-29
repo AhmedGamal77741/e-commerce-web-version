@@ -5,10 +5,8 @@ import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
-import 'package:ecommerece_app/features/chat/services/chat_service.dart';
-import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
-import 'package:ecommerece_app/features/shop/cart_func.dart';
-import 'package:ecommerece_app/features/shop/fav_fnc.dart';
+import 'package:ecommerece_app/features/cart/services/cart_service.dart';
+import 'package:ecommerece_app/features/cart/services/favorites_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -1008,11 +1006,10 @@ class _ItemDetailsState extends State<ItemDetails> {
                         await addProductAsNewEntryToCart(
                           userId: currentUser.uid,
                           productId: widget.product.product_id,
-                          quantity: pricePoint.quantity,
-                          price:
-                              isSub
+                          pricePointIndex: int.parse(_selectedOption!),
+                          /* isSub
                                   ? pricePoint.price
-                                  : (pricePoint.price / 0.8).round(),
+                                  : (pricePoint.price / 0.8).round() */
                           deliveryManagerId:
                               widget.product.deliveryManagerId ?? '',
                           productName: widget.product.productName,

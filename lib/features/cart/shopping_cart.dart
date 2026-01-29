@@ -4,9 +4,8 @@ import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
-import 'package:ecommerece_app/features/cart/delete_func.dart';
-import 'package:ecommerece_app/features/shop/cart_func.dart';
-import 'package:ecommerece_app/features/shop/fav_fnc.dart';
+import 'package:ecommerece_app/features/cart/services/cart_service.dart';
+import 'package:ecommerece_app/features/cart/services/favorites_service.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,6 +13,7 @@ import 'package:flutter/material.dart';
 
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:rxdart/rxdart.dart';
 
 class ShoppingCart extends StatefulWidget {
   const ShoppingCart({super.key});
@@ -24,20 +24,111 @@ class ShoppingCart extends StatefulWidget {
 
 class _ShoppingCartState extends State<ShoppingCart> {
   final formatCurrency = NumberFormat('#,###');
-  // Function to calculate total cart price
-  Future<int> calculateCartTotal(List<QueryDocumentSnapshot> cartDocs) async {
-    int total = 0;
+  // Function to calculate total cart price - now returns Stream to listen to price updates
+  Stream<int> calculateCartTotal(List<QueryDocumentSnapshot> cartDocs) {
+    if (cartDocs.isEmpty) return Stream.value(0);
 
+    List<String> productIds = [];
+
+    // Collect unique product IDs
     for (final cartDoc in cartDocs) {
       final cartData = cartDoc.data() as Map<String, dynamic>;
-      final price = cartData['price'];
-
-      try {
-        total += (price as int);
-      } catch (e) {}
+      final productId = cartData['product_id'] as String?;
+      if (productId != null) productIds.add(productId);
     }
 
-    return total;
+    if (productIds.isEmpty) return Stream.value(0);
+
+    // Create streams for each product and combine them
+    final productStreams = <Stream<Map<String, dynamic>>>[];
+
+    for (final productId in productIds) {
+      productStreams.add(
+        FirebaseFirestore.instance
+            .collection('products')
+            .doc(productId)
+            .snapshots()
+            .map((doc) {
+              if (!doc.exists) return {};
+              return doc.data() ?? {};
+            }),
+      );
+    }
+
+    // Combine all streams and calculate total whenever any product changes
+    return Rx.combineLatestList(productStreams).map((productDataList) {
+      int total = 0;
+
+      for (final cartDoc in cartDocs) {
+        final cartData = cartDoc.data() as Map<String, dynamic>;
+        final productId = cartData['product_id'] as String?;
+        final pricePointIndex = (cartData['pricePointIndex'] as int?) ?? 0;
+
+        if (productId != null) {
+          final productIndex = productIds.indexOf(productId);
+          if (productIndex >= 0 && productIndex < productDataList.length) {
+            final prodData = productDataList[productIndex];
+            if (prodData.isNotEmpty) {
+              final prod = Product.fromMap(prodData);
+              if (pricePointIndex < prod.pricePoints.length) {
+                final pricePoint = prod.pricePoints[pricePointIndex];
+                total += (pricePoint.price).round();
+              }
+            }
+          }
+        }
+      }
+
+      return total;
+    });
+  }
+
+  // Add this helper at file level or inside class
+  List<List<String>> _chunkIds(List<String> ids, int chunkSize) {
+    List<List<String>> chunks = [];
+    for (int i = 0; i < ids.length; i += chunkSize) {
+      chunks.add(
+        ids.sublist(
+          i,
+          (i + chunkSize > ids.length) ? ids.length : i + chunkSize,
+        ),
+      );
+    }
+    return chunks;
+  }
+
+  Stream<int> _getProductQuantityStream(String? productId, int index) {
+    if (productId == null) {
+      return Stream.value(0);
+    }
+
+    return FirebaseFirestore.instance
+        .collection('products')
+        .doc(productId)
+        .snapshots()
+        .map((doc) {
+          final data = doc.data();
+          if (data == null) return 0;
+          final prod = Product.fromMap(data);
+          return prod.pricePoints[index].quantity;
+        });
+  }
+
+  Stream<double> _getProductPriceStream(String? productId, int index) {
+    if (productId == null) {
+      return Stream.value(0.0);
+    }
+
+    return FirebaseFirestore.instance
+        .collection('products')
+        .doc(productId)
+        .snapshots()
+        .map((doc) {
+          final data = doc.data();
+          if (data == null) return 0.0;
+          final prod = Product.fromMap(data);
+          return (prod.pricePoints[index].price as num).toDouble();
+        });
   }
 
   @override
@@ -179,18 +270,50 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                             overflow: TextOverflow.visible,
                                           ),
 
-                                          Text(
+                                          StreamBuilder<int>(
+                                            stream: _getProductQuantityStream(
+                                              cartData['product_id'],
+                                              cartData['pricePointIndex'],
+                                            ),
+                                            builder: (context, snapshot) {
+                                              final quan = snapshot.data ?? 0;
+                                              return Text(
+                                                '수량 : ${quan.toString()}  ',
+                                                style:
+                                                    TextStyles
+                                                        .abeezee16px400wPblack,
+                                              );
+                                            },
+                                          ),
+
+                                          /*                                    Text(
                                             '수량 : ${cartData['quantity'].toString()}  ',
                                             style:
                                                 TextStyles.abeezee14px400wP600,
+                                          ), */
+                                          StreamBuilder<double>(
+                                            stream: _getProductPriceStream(
+                                              cartData['product_id'],
+                                              cartData['pricePointIndex'],
+                                            ),
+                                            builder: (context, snapshot) {
+                                              final price =
+                                                  snapshot.data ?? 0.0;
+                                              return Text(
+                                                '${formatCurrency.format(price)} 원',
+                                                style:
+                                                    TextStyles
+                                                        .abeezee16px400wPblack,
+                                              );
+                                            },
                                           ),
 
-                                          Text(
+                                          /*                                           Text(
                                             '${formatCurrency.format(cartData['price'] ?? 0)} 원',
                                             style:
                                                 TextStyles
                                                     .abeezee16px400wPblack,
-                                          ),
+                                          ), */
                                         ],
                                       ),
                                     ),
@@ -227,8 +350,8 @@ class _ShoppingCartState extends State<ShoppingCart> {
                 if (!cartSnapshot.hasData || cartSnapshot.data!.docs.isEmpty) {
                   return const SizedBox.shrink();
                 }
-                return FutureBuilder<int>(
-                  future: calculateCartTotal(cartSnapshot.data!.docs),
+                return StreamBuilder<int>(
+                  stream: calculateCartTotal(cartSnapshot.data!.docs),
                   builder: (context, totalSnapshot) {
                     return SizedBox(
                       width: 428,
@@ -278,7 +401,21 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                   final cartData =
                                       cartDoc.data() as Map<String, dynamic>;
                                   final productId = cartData['product_id'];
-                                  final quantity = cartData['quantity'] ?? 0;
+                                  int quantity = 0;
+                                  final productStream =
+                                      await FirebaseFirestore.instance
+                                          .collection('products')
+                                          .doc(productId)
+                                          .get();
+                                  final productData = productStream.data();
+                                  if (productData != null) {
+                                    final prod = Product.fromMap(productData);
+                                    quantity =
+                                        prod
+                                            .pricePoints[cartData['pricePointIndex']]
+                                            .quantity;
+                                  }
+
                                   final productRef = FirebaseFirestore.instance
                                       .collection('products')
                                       .doc(productId);

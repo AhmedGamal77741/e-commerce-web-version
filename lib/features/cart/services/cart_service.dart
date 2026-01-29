@@ -4,9 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 Future<void> addProductAsNewEntryToCart({
   required String userId,
   required String productId,
-  required int quantity,
   required String deliveryManagerId,
-  required int price,
+  required int pricePointIndex,
   required String productName,
 }) async {
   final cartRef = FirebaseFirestore.instance
@@ -17,8 +16,7 @@ Future<void> addProductAsNewEntryToCart({
   await cartRef.add({
     'cart_id': cartRef.doc().id, // optional if you want to use the doc ID
     'product_id': productId,
-    'quantity': quantity,
-    'price': price,
+    'pricePointIndex': pricePointIndex,
     'added_at': FieldValue.serverTimestamp(),
     'deliveryManagerId': deliveryManagerId,
     'productName': productName,
@@ -38,4 +36,30 @@ Future<bool> isUserSubscribed() async {
   if (data == null || data['issub'] == null) return false;
 
   return data['issub'] == true;
+}
+
+Future<void> deleteCartItem(String cartId) async {
+  final userId = FirebaseAuth.instance.currentUser?.uid;
+
+  if (userId != null && cartId.isNotEmpty) {
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('cart')
+        .doc(cartId)
+        .delete();
+  }
+}
+
+Future<void> deleteFavItem(String favId) async {
+  final userId = FirebaseAuth.instance.currentUser?.uid;
+
+  if (userId != null && favId.isNotEmpty) {
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('favorites')
+        .doc(favId)
+        .delete();
+  }
 }

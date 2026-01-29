@@ -6,9 +6,6 @@ import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
-import 'package:ecommerece_app/features/shop/cart_func.dart';
-
-import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 
 import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:firebase_auth/firebase_auth.dart';
