@@ -304,7 +304,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
             .collection('users')
             .doc(userData['userId'])
             .collection('addresses')
-            .doc(userData['defaultAddressId'])
+            .doc(userData['defaultAddressId'] as String)
             .get()
             .then((doc) {
               if (doc.exists) {
