@@ -947,11 +947,10 @@ class _ItemDetailsState extends State<ItemDetails> {
                         await addProductAsNewEntryToCart(
                           userId: currentUser.uid,
                           productId: widget.product.product_id,
-                          quantity: pricePoint.quantity,
-                          price:
-                              isSub
+                          pricePointIndex: int.parse(_selectedOption!),
+                          /* isSub
                                   ? pricePoint.price
-                                  : (pricePoint.price / 0.8).round(),
+                                  : (pricePoint.price / 0.8).round() */
                           deliveryManagerId:
                               widget.product.deliveryManagerId ?? '',
                           productName: widget.product.productName,

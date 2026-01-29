@@ -12,8 +12,6 @@ import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:ecommerece_app/features/home/widgets/following_users_list.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_item.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
-import 'package:ecommerece_app/features/shop/cart_func.dart';
-import 'package:ecommerece_app/features/shop/fav_fnc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
