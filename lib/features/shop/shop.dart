@@ -5,6 +5,7 @@ import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
+import 'package:ecommerece_app/features/cart/cart.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 
 import 'package:ecommerece_app/features/shop/item_details.dart';
@@ -156,19 +157,21 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
           return Scaffold(
             floatingActionButton: FloatingActionButton(
               onPressed: () {
-                context.go(Routes.shopSearchScreen);
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => Cart()));
               },
               elevation: 0,
               backgroundColor: Colors.black,
               shape: const CircleBorder(),
               child: ImageIcon(
-                AssetImage('assets/010no.png'),
+                AssetImage('assets/003m.png'),
                 color: Colors.white,
-                size: 60,
+                size: 40,
               ),
             ),
             appBar: AppBar(
-              toolbarHeight: 42,
+              toolbarHeight: 65,
               title: Text(''),
               centerTitle: false,
               bottom: PreferredSize(
@@ -176,67 +179,84 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Padding(
-                      padding: EdgeInsets.only(left: 8, bottom: 4, top: 4),
-                      child: FutureBuilder<DocumentSnapshot<Object?>>(
-                        future:
-                            (userData != null &&
-                                    userData['defaultAddressId'] != null &&
-                                    userData['defaultAddressId'] != '')
-                                ? FirebaseFirestore.instance
-                                    .collection('users')
-                                    .doc(userData['userId'])
-                                    .collection('addresses')
-                                    .doc(userData['defaultAddressId'])
-                                    .get()
-                                : null,
-                        builder: (context, snapshot) {
-                          String displayName = '배송지 선택';
-                          final addressSnap = snapshot.data;
-                          if (addressSnap != null && addressSnap.exists) {
-                            final addressData =
-                                addressSnap.data() as Map<String, dynamic>?;
-                            displayName = addressData?['address'] ?? '배송지 선택';
-                          }
-                          return TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 2,
-                                vertical: 0,
-                              ),
-                              minimumSize: Size(0, 32),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            onPressed: () async {
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => AddressListScreen(),
+                    Row(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.only(left: 8, bottom: 4, top: 4),
+                          child: FutureBuilder<DocumentSnapshot<Object?>>(
+                            future:
+                                (userData != null &&
+                                        userData['defaultAddressId'] != null &&
+                                        userData['defaultAddressId'] != '')
+                                    ? FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(userData['userId'])
+                                        .collection('addresses')
+                                        .doc(userData['defaultAddressId'])
+                                        .get()
+                                    : null,
+                            builder: (context, snapshot) {
+                              String displayName = '배송지 선택';
+                              final addressSnap = snapshot.data;
+                              if (addressSnap != null && addressSnap.exists) {
+                                final addressData =
+                                    addressSnap.data() as Map<String, dynamic>?;
+                                displayName =
+                                    addressData?['address'] ?? '배송지 선택';
+                              }
+                              return TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                    vertical: 0,
+                                  ),
+                                  minimumSize: Size(0, 32),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () async {
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => AddressListScreen(),
+                                    ),
+                                  );
+                                  setState(() {});
+                                },
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      displayName,
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    SizedBox(width: 6),
+                                    Icon(
+                                      Icons.arrow_drop_down,
+                                      color: Colors.black,
+                                      size: 18,
+                                    ),
+                                  ],
                                 ),
                               );
-                              setState(() {});
                             },
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  displayName,
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                Icon(
-                                  Icons.arrow_drop_down,
-                                  color: Colors.black,
-                                  size: 18,
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+                          ),
+                        ),
+                        Spacer(),
+                        IconButton(
+                          onPressed: () {
+                            context.go(Routes.shopSearchScreen);
+                          },
+                          icon: ImageIcon(
+                            color: Colors.grey,
+                            AssetImage('assets/010no.png'),
+                            size: 40,
+                          ),
+                        ),
+                      ],
                     ),
                     TabBar(
                       tabAlignment: TabAlignment.start,

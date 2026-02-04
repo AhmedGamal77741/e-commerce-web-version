@@ -294,21 +294,6 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                   ? Padding(
                                     padding: EdgeInsets.only(right: 10),
                                     child: Text(
-                                      '총 금액: ',
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 18,
-                                        fontFamily: 'NotoSans',
-                                        fontWeight: FontWeight.w400,
-                                        height: 1.40,
-                                      ),
-                                    ),
-                                  )
-                                  : Spacer(),
-                              totalSnapshot.hasData
-                                  ? Padding(
-                                    padding: EdgeInsets.only(right: 10),
-                                    child: Text(
                                       '${formatCurrency.format(totalSnapshot.data ?? 0)} 원',
                                       style: TextStyle(
                                         color: Colors.black,

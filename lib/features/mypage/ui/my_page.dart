@@ -44,9 +44,10 @@ class MyPage extends StatelessWidget {
                     ? Text('프리미엄 회원', style: TextStyles.abeezee17px800wPblack)
                     : Text('일반 회원', style: TextStyles.abeezee17px800wPblack),
                 verticalSpace(20),
-                UserInfoContainer(),
-                verticalSpace(30),
                 UserOptionsContainer(isSub: isSub),
+
+                verticalSpace(30),
+                UserInfoContainer(),
                 verticalSpace(20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,

@@ -12,6 +12,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ecommerece_app/features/chat/services/chat_service.dart';
 import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
+import 'package:ecommerece_app/core/helpers/spacing.dart';
+import 'package:ecommerece_app/features/review/ui/review_screen.dart';
+import 'package:ecommerece_app/features/review/ui/order_history.dart';
 
 // app router (root-level GoRouter)
 import 'package:ecommerece_app/core/routing/app_router.dart';
@@ -216,158 +219,297 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
           ),
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: isSupport ? Colors.grey[200] : null,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: InkWell(
-                    onTap:
-                        (isSupport || _isLoading)
-                            ? null
-                            : () => openSupportChat(context),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8.0,
-                        horizontal: 4.0,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ReviewScreen()),
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '주문내역',
+                        style: TextStyles.abeezee17px800wPblack.copyWith(
+                          color: isSupport ? Colors.grey : null,
+                        ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '고객센터 연결',
-                                style: TextStyles.abeezee17px800wPblack
-                                    .copyWith(
-                                      color: isSupport ? Colors.grey : null,
-                                    ),
+                      verticalSpace(5),
+                      // Horizontal, scrollable gallery of the user's recent order images
+                      StreamBuilder<QuerySnapshot>(
+                        stream:
+                            FirebaseFirestore.instance
+                                .collection('orders')
+                                .where('userId', isEqualTo: user!.uid)
+                                .limit(10)
+                                .snapshots(),
+                        builder: (context, orderSnap) {
+                          if (orderSnap.connectionState ==
+                              ConnectionState.waiting) {
+                            return SizedBox(
+                              height: 40,
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+
+                          if (!orderSnap.hasData ||
+                              orderSnap.data!.docs.isEmpty) {
+                            return Text(
+                              '주문이 없습니다.',
+                              style: TextStyles.abeezee11px400wP600.copyWith(
+                                color: isSupport ? Colors.grey : null,
                               ),
-                              Text(
-                                '고객센터 운영시간 : 09:00시 ~ 16:30시',
-                                style: TextStyles.abeezee11px400wP600.copyWith(
-                                  color: isSupport ? Colors.grey : null,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (_isLoading)
-                            const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Divider(color: ColorsManager.primary100),
-                if (isSub == true && subStatus == 'active')
-                  InkWell(
-                    child: Text(
-                      '프리미엄 멤버십 해지',
-                      style: TextStyles.abeezee17px800wPblack,
-                    ),
-                    onTap: () async {
-                      await context.push(Routes.cancelSubscription);
-                    },
-                  )
-                else if (isSub == true &&
-                    subStatus == 'canceled' &&
-                    (nextBillingDate?.isAfter(DateTime.now()) ?? false))
-                  InkWell(
-                    child: Text('재구독', style: TextStyles.abeezee17px800wPblack),
-                    onTap:
-                        nextBillingDate == null
-                            ? null
-                            : () => resubscribeDialog(nextBillingDate!),
-                  )
-                else
-                  InkWell(
-                    child: Text(
-                      '프리미엄 멤버십 가입',
-                      style: TextStyles.abeezee17px800wPblack,
-                    ),
-                    onTap: () async {
-                      _launchPaymentPage('10000', user!.uid);
-                    },
-                  ),
-                if (isSub == true && nextBillingDate != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
-                    child: Text(
-                      '다음 결제일: ${nextBillingDate.year}-${nextBillingDate.month.toString().padLeft(2, '0')}-${nextBillingDate.day.toString().padLeft(2, '0')}',
-                      style: TextStyles.abeezee11px400wP600,
-                    ),
-                  ),
-                Text(
-                  '월 회비 : 10,000원 혜택 : 전 제품 20% 할인',
-                  style: TextStyles.abeezee11px400wP600,
-                ),
-                Divider(color: ColorsManager.primary100),
-                InkWell(
-                  child: Text('회원탈퇴', style: TextStyles.abeezee17px800wPblack),
-                  onTap: () async {
-                    if (isSub == true) {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder:
-                            (ctx) => AlertDialog(
-                              backgroundColor: Colors.white,
-                              title: Text(
-                                '회원탈퇴 안내',
-                                style: TextStyles.abeezee17px800wPblack,
-                              ),
-                              content: Text(
-                                '프리미엄 멤버십이 영구적으로 삭제됩니다.\n정말로 회원탈퇴를 진행하시겠습니까?',
-                                style: TextStyles.abeezee16px400wPblack,
-                              ),
-                              actions: [
-                                TextButton(
-                                  child: Text(
-                                    '취소',
-                                    style: TextStyle(color: Colors.black),
+                            );
+                          }
+
+                          final orders = orderSnap.data!.docs;
+
+                          return SizedBox(
+                            height: 80,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: orders.length,
+                              itemBuilder: (context, i) {
+                                final data =
+                                    orders[i].data() as Map<String, dynamic>;
+                                final productId = data['productId'] as String?;
+                                if (productId == null) return SizedBox.shrink();
+
+                                return Padding(
+                                  padding: EdgeInsets.only(right: 8),
+                                  child: FutureBuilder<DocumentSnapshot>(
+                                    future:
+                                        FirebaseFirestore.instance
+                                            .collection('products')
+                                            .doc(productId)
+                                            .get(),
+                                    builder: (context, prodSnap) {
+                                      if (prodSnap.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return Container(
+                                          width: 80,
+                                          height: 80,
+                                          color: Colors.grey[200],
+                                        );
+                                      }
+
+                                      if (!prodSnap.hasData ||
+                                          !prodSnap.data!.exists) {
+                                        return Container(
+                                          width: 80,
+                                          height: 80,
+                                          color: Colors.grey[200],
+                                          child: Icon(
+                                            Icons.image_not_supported,
+                                            color: Colors.grey[400],
+                                          ),
+                                        );
+                                      }
+
+                                      final prod =
+                                          prodSnap.data!.data()
+                                              as Map<String, dynamic>;
+                                      final imgUrl =
+                                          (prod['imgUrl'] as String?) ?? '';
+
+                                      return ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child:
+                                            imgUrl.isNotEmpty
+                                                ? Image.network(
+                                                  imgUrl,
+                                                  width: 80,
+                                                  height: 80,
+                                                  fit: BoxFit.cover,
+                                                )
+                                                : Container(
+                                                  width: 80,
+                                                  height: 80,
+                                                  color: Colors.grey[200],
+                                                  child: Icon(
+                                                    Icons.image_not_supported,
+                                                    color: Colors.grey[400],
+                                                  ),
+                                                ),
+                                      );
+                                    },
                                   ),
-                                  onPressed: () => Navigator.of(ctx).pop(false),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  Divider(color: ColorsManager.primary100),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isSupport ? Colors.grey[200] : null,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: InkWell(
+                      onTap:
+                          (isSupport || _isLoading)
+                              ? null
+                              : () => openSupportChat(context),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8.0,
+                          horizontal: 4.0,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '고객센터 연결',
+                                  style: TextStyles.abeezee17px800wPblack
+                                      .copyWith(
+                                        color: isSupport ? Colors.grey : null,
+                                      ),
                                 ),
-                                BlackTextButton(
-                                  txt: '탈퇴',
-                                  func: () => Navigator.of(ctx).pop(true),
-                                  style: TextStyles.abeezee16px400wW,
+                                Text(
+                                  '고객센터 운영시간 : 09:00시 ~ 16:30시',
+                                  style: TextStyles.abeezee11px400wP600
+                                      .copyWith(
+                                        color: isSupport ? Colors.grey : null,
+                                      ),
                                 ),
                               ],
                             ),
-                      );
-                      if (confirmed == true) {
+                            if (_isLoading)
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Divider(color: ColorsManager.primary100),
+                  if (isSub == true && subStatus == 'active')
+                    InkWell(
+                      child: Text(
+                        '프리미엄 멤버십 해지',
+                        style: TextStyles.abeezee17px800wPblack,
+                      ),
+                      onTap: () async {
+                        await context.push(Routes.cancelSubscription);
+                      },
+                    )
+                  else if (isSub == true &&
+                      subStatus == 'canceled' &&
+                      (nextBillingDate?.isAfter(DateTime.now()) ?? false))
+                    InkWell(
+                      onTap:
+                          nextBillingDate == null
+                              ? null
+                              : () => resubscribeDialog(nextBillingDate!),
+                      child: Text(
+                        '재구독',
+                        style: TextStyles.abeezee17px800wPblack,
+                      ),
+                    )
+                  else
+                    InkWell(
+                      child: Text(
+                        '프리미엄 멤버십 가입',
+                        style: TextStyles.abeezee17px800wPblack,
+                      ),
+                      onTap: () async {
+                        _launchPaymentPage('10000', user!.uid);
+                      },
+                    ),
+                  if (isSub == true && nextBillingDate != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
+                      child: Text(
+                        '다음 결제일: ${nextBillingDate.year}-${nextBillingDate.month.toString().padLeft(2, '0')}-${nextBillingDate.day.toString().padLeft(2, '0')}',
+                        style: TextStyles.abeezee11px400wP600,
+                      ),
+                    ),
+                  Text(
+                    '월 회비 : 10,000원 혜택 : 전 제품 20% 할인',
+                    style: TextStyles.abeezee11px400wP600,
+                  ),
+                  Divider(color: ColorsManager.primary100),
+                  InkWell(
+                    child: Text(
+                      '회원탈퇴',
+                      style: TextStyles.abeezee17px800wPblack,
+                    ),
+                    onTap: () async {
+                      if (isSub == true) {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder:
+                              (ctx) => AlertDialog(
+                                backgroundColor: Colors.white,
+                                title: Text(
+                                  '회원탈퇴 안내',
+                                  style: TextStyles.abeezee17px800wPblack,
+                                ),
+                                content: Text(
+                                  '프리미엄 멤버십이 영구적으로 삭제됩니다.\n정말로 회원탈퇴를 진행하시겠습니까?',
+                                  style: TextStyles.abeezee16px400wPblack,
+                                ),
+                                actions: [
+                                  TextButton(
+                                    child: Text(
+                                      '취소',
+                                      style: TextStyle(color: Colors.black),
+                                    ),
+                                    onPressed:
+                                        () => Navigator.of(ctx).pop(false),
+                                  ),
+                                  BlackTextButton(
+                                    txt: '탈퇴',
+                                    func: () => Navigator.of(ctx).pop(true),
+                                    style: TextStyles.abeezee16px400wW,
+                                  ),
+                                ],
+                              ),
+                        );
+                        if (confirmed == true) {
+                          context.go(Routes.deleteAccount);
+                        }
+                      } else {
                         context.go(Routes.deleteAccount);
                       }
-                    } else {
-                      context.go(Routes.deleteAccount);
-                    }
-                  },
-                ),
-                Text(
-                  '멤버십 해지 후 탈퇴 가능합니다.',
-                  style: TextStyles.abeezee11px400wP600,
-                ),
-                Divider(color: ColorsManager.primary100),
-                InkWell(
-                  child: Text('입점신청', style: TextStyles.abeezee17px800wPblack),
-                  onTap: () {
-                    _launchPartnerPage();
-                  },
-                ),
-                Text(
-                  '‘좋은 제품 좋은 가격’ 이라면 누구나 입점 가능합니다.',
-                  style: TextStyles.abeezee11px400wP600,
-                ),
-              ],
+                    },
+                  ),
+                  Text(
+                    '멤버십 해지 후 탈퇴 가능합니다.',
+                    style: TextStyles.abeezee11px400wP600,
+                  ),
+                  Divider(color: ColorsManager.primary100),
+                  InkWell(
+                    child: Text(
+                      '입점신청',
+                      style: TextStyles.abeezee17px800wPblack,
+                    ),
+                    onTap: () {
+                      _launchPartnerPage();
+                    },
+                  ),
+                  Text(
+                    '‘좋은 제품 좋은 가격’ 이라면 누구나 입점 가능합니다.',
+                    style: TextStyles.abeezee11px400wP600,
+                  ),
+                ],
+              ),
             ),
           ),
         );
