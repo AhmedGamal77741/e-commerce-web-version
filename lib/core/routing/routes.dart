@@ -17,4 +17,5 @@ class Routes {
   static const String deleteAccount = '/delete-account';
   static const String buyNowScreen = '/buy-now';
   static const String chatScreen = 'chatScreen';
+  static const String alertsScreen = '/alerts';
 }

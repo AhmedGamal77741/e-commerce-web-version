@@ -10,6 +10,7 @@ import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:image_picker/image_picker.dart';
@@ -33,6 +34,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   bool obscurePassword = true;
   bool signUpRequired = false;
+  bool isPrivate = false;
   String imgUrl = '';
   String error = '';
   final fireBaseRepo = FirebaseUserRepo();
@@ -221,6 +223,43 @@ class _SignupScreenState extends State<SignupScreen> {
                               return null;
                             },
                           ),
+
+                          verticalSpace(20),
+                          Row(
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '비공개 프로필',
+                                    style: TextStyles.abeezee16px400wPblack,
+                                  ),
+                                  verticalSpace(5),
+                                  Text(
+                                    '비공개로 전환하면, 친구로 수락한\n사람만 회원님을 구독하고 게시물\n을 볼 수 있어요.',
+                                    style: TextStyles.abeezee13px400wP600,
+                                  ),
+                                ],
+                              ),
+                              Spacer(),
+                              Padding(
+                                padding: EdgeInsets.only(right: 15),
+                                child: Transform.scale(
+                                  scale: 1.3,
+                                  child: CupertinoSwitch(
+                                    value: isPrivate,
+                                    onChanged: (s) {
+                                      setState(() {
+                                        isPrivate = s;
+                                      });
+                                    },
+                                    activeTrackColor: Colors.black,
+                                    inactiveTrackColor: Colors.grey[300],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -363,6 +402,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       MyUser myUser = MyUser.empty;
                       myUser.email = emailController.text;
                       myUser.name = nameController.text;
+                      myUser.isPrivate = isPrivate;
                       imgUrl.isEmpty
                           ? myUser.url = "https://i.ibb.co/mrVrHy7z/avatar.png"
                           : myUser.url = imgUrl;

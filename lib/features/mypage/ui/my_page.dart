@@ -7,6 +7,7 @@ import 'package:ecommerece_app/features/mypage/ui/widgets/user_info_container.da
 import 'package:ecommerece_app/features/mypage/ui/widgets/user_options_container.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:ecommerece_app/features/mypage/ui/widgets/profile_type.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -45,8 +46,11 @@ class MyPage extends StatelessWidget {
                     : Text('일반 회원', style: TextStyles.abeezee17px800wPblack),
                 verticalSpace(20),
                 UserOptionsContainer(isSub: isSub),
-
-                verticalSpace(30),
+                verticalSpace(20),
+                ProfileType(isPrivate: myuser.isPrivate, userId: userId),
+                verticalSpace(20),
+                Text('개인정보', style: TextStyles.abeezee17px800wPblack),
+                verticalSpace(20),
                 UserInfoContainer(),
                 verticalSpace(20),
                 Row(

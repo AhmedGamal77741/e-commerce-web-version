@@ -5,6 +5,7 @@ import 'package:ecommerece_app/features/cart/buy_now.dart';
 import 'package:ecommerece_app/features/home/add_post.dart';
 import 'package:ecommerece_app/features/home/comments.dart';
 import 'package:ecommerece_app/features/home/notifications.dart';
+import 'package:ecommerece_app/features/home/widgets/alerts.dart';
 import 'package:ecommerece_app/features/mypage/ui/cancel_subscription.dart';
 import 'package:ecommerece_app/features/mypage/ui/delete_account_screen.dart';
 import 'package:ecommerece_app/features/navBar/nav_bar.dart';
@@ -103,6 +104,11 @@ class AppRouter {
             name: Routes.notificationsScreen,
             path: Routes.notificationsScreen, // '/notifications'
             builder: (context, state) => const Notifications(),
+          ),
+          GoRoute(
+            name: Routes.alertsScreen,
+            path: Routes.alertsScreen, // '/notifications'
+            builder: (context, state) => const Alerts(),
           ),
           GoRoute(
             name: Routes.addPostScreen,

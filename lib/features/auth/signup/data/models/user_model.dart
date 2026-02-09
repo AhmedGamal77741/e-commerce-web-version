@@ -19,6 +19,7 @@ class MyUser {
 
   String? bio;
   String type;
+  bool isPrivate;
   MyUser({
     required this.userId,
     required this.email,
@@ -40,6 +41,7 @@ class MyUser {
     this.bio,
     this.phoneNumber,
     this.type = 'user',
+    this.isPrivate = false,
   });
 
   static final empty = MyUser(
@@ -63,6 +65,7 @@ class MyUser {
     bio: '',
     phoneNumber: '',
     type: 'user',
+    isPrivate: false,
   );
 
   // Database serialization methods (from MyUserEntity)
@@ -87,6 +90,7 @@ class MyUser {
       'bio': bio,
       'phoneNumber': phoneNumber,
       'type': type,
+      'isPrivate': isPrivate,
     };
   }
 
@@ -117,6 +121,7 @@ class MyUser {
       bio: (doc['bio'] ?? '') as String?,
       phoneNumber: (doc['phoneNumber'] ?? '') as String?,
       type: (doc['type'] ?? 'user') as String,
+      isPrivate: doc['isPrivate'] ?? false,
     );
   }
 
@@ -147,6 +152,7 @@ class MyUser {
       bio: (doc['bio'] ?? '') as String?,
       phoneNumber: (doc['phoneNumber'] ?? '') as String?,
       type: (doc['type'] ?? 'user') as String,
+      isPrivate: doc['isPrivate'] ?? false,
     );
   }
 

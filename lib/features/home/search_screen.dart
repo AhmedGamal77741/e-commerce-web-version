@@ -1,21 +1,14 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:ecommerece_app/core/helpers/basetime.dart';
-import 'package:ecommerece_app/core/helpers/extensions.dart';
-import 'package:ecommerece_app/core/helpers/spacing.dart';
-import 'package:ecommerece_app/core/models/product_model.dart';
-import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
-import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/home/data/follow_service.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
-import 'package:ecommerece_app/features/home/widgets/following_users_list.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_item.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class HomeSearch extends StatefulWidget {
@@ -27,7 +20,7 @@ class HomeSearch extends StatefulWidget {
 }
 
 class _HomeSearchState extends State<HomeSearch> {
-  TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   String searchQuery = '';
 
   @override
@@ -61,7 +54,7 @@ class _HomeSearchState extends State<HomeSearch> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.arrow_back_ios),
+                    icon: const Icon(Icons.arrow_back_ios),
                   ),
                   SizedBox(
                     width: 270,
@@ -73,15 +66,15 @@ class _HomeSearchState extends State<HomeSearch> {
                           horizontal: 12,
                           vertical: 5,
                         ),
-                        border: OutlineInputBorder(
+                        border: const OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.grey),
                           borderRadius: BorderRadius.zero,
                         ),
-                        focusedBorder: OutlineInputBorder(
+                        focusedBorder: const OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.grey),
                           borderRadius: BorderRadius.zero,
                         ),
-                        enabledBorder: OutlineInputBorder(
+                        enabledBorder: const OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.grey),
                           borderRadius: BorderRadius.zero,
                         ),
@@ -89,12 +82,11 @@ class _HomeSearchState extends State<HomeSearch> {
                     ),
                   ),
                   IconButton(
-                    icon: ImageIcon(AssetImage('assets/Frame 4.png')),
+                    icon: const ImageIcon(AssetImage('assets/Frame 4.png')),
                     onPressed: () {},
                   ),
                 ],
               ),
-
               TabBar(
                 labelStyle: TextStyle(
                   fontSize: 16,
@@ -108,7 +100,7 @@ class _HomeSearchState extends State<HomeSearch> {
                 unselectedLabelColor: ColorsManager.primary600,
                 indicatorSize: TabBarIndicatorSize.tab,
                 indicatorColor: ColorsManager.primaryblack,
-                tabs: [Tab(text: '추천'), Tab(text: '구독')],
+                tabs: const [Tab(text: '추천'), Tab(text: '구독')],
               ),
             ],
           ),
@@ -132,7 +124,6 @@ class _HomeFeedSearchTab extends StatefulWidget {
   final bool useGuestPostItem;
 
   const _HomeFeedSearchTab({
-    super.key,
     required this.searchQuery,
     this.useGuestPostItem = false,
   });
@@ -145,8 +136,6 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
     with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
 
-  _HomeFeedSearchTabState();
-
   @override
   bool get wantKeepAlive => true;
 
@@ -156,6 +145,106 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
     super.dispose();
   }
 
+  // Helper: Stream author data in real-time with efficient multi-document listening
+  Stream<Map<String, Map<String, dynamic>>> _streamAuthorDataRealtime(
+    List<String> authorIds,
+  ) {
+    if (authorIds.isEmpty) {
+      return Stream.value({});
+    }
+
+    // Chunk authorIds into groups of 10 (Firestore whereIn limit)
+    final chunks = <List<String>>[];
+    for (var i = 0; i < authorIds.length; i += 10) {
+      chunks.add(
+        authorIds.sublist(
+          i,
+          i + 10 > authorIds.length ? authorIds.length : i + 10,
+        ),
+      );
+    }
+
+    // Create streams for each chunk
+    final streams =
+        chunks.map((chunk) {
+          return FirebaseFirestore.instance
+              .collection('users')
+              .where(FieldPath.documentId, whereIn: chunk)
+              .snapshots()
+              .map((snapshot) {
+                final map = <String, Map<String, dynamic>>{};
+                for (var doc in snapshot.docs) {
+                  map[doc.id] = doc.data();
+                }
+                return map;
+              });
+        }).toList();
+
+    // If only one chunk, return directly
+    if (streams.length == 1) {
+      return streams[0];
+    }
+
+    // For multiple chunks, merge them using StreamController
+    return Stream.multi((controller) async {
+      final dataMaps = List<Map<String, Map<String, dynamic>>>.filled(
+        streams.length,
+        {},
+      );
+
+      final subscriptions =
+          <StreamSubscription<Map<String, Map<String, dynamic>>>>[];
+
+      try {
+        for (var i = 0; i < streams.length; i++) {
+          subscriptions.add(
+            streams[i].listen(
+              (data) {
+                dataMaps[i] = data;
+                // Combine all maps from all chunks
+                final combined = <String, Map<String, dynamic>>{};
+                for (var map in dataMaps) {
+                  combined.addAll(map);
+                }
+                // Add the combined map to controller
+                controller.add(combined);
+              },
+              onError: (e) => controller.addError(e),
+              onDone: () => controller.close(),
+            ),
+          );
+        }
+      } catch (e) {
+        controller.addError(e);
+        controller.close();
+      }
+    });
+  }
+
+  // Helper: Check if post should be visible based on privacy rules
+  bool _shouldShowPost({
+    required String postAuthorId,
+    required String currentUserId,
+    required Map<String, dynamic> authorData,
+    required Set<String> followingSet,
+  }) {
+    // Always show user's own posts
+    if (postAuthorId == currentUserId) {
+      return true;
+    }
+
+    // Get author's privacy setting (default to false if not set)
+    final bool isPrivate = authorData['isPrivate'] ?? false;
+
+    // Show public posts to everyone
+    if (!isPrivate) {
+      return true;
+    }
+
+    // Show private posts only if user follows them
+    return followingSet.contains(postAuthorId);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -163,7 +252,9 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
         if (authSnapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator(color: Colors.black));
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.black),
+          );
         }
 
         final firebaseUser = authSnapshot.data;
@@ -181,7 +272,12 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
         });
 
         final currentUser = FirebaseAuth.instance.currentUser;
-        // --- Premium user: full interaction ---
+
+        // FIX: Check if currentUser is null before proceeding
+        if (currentUser == null) {
+          return const Center(child: Text('Please sign in to continue'));
+        }
+
         return Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
@@ -190,11 +286,11 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                 stream:
                     FirebaseFirestore.instance
                         .collection('users')
-                        .doc(currentUser!.uid)
+                        .doc(currentUser.uid)
                         .snapshots(),
                 builder: (context, userSnapshot) {
                   if (userSnapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
+                    return const Center(
                       child: CircularProgressIndicator(color: Colors.black),
                     );
                   }
@@ -208,73 +304,248 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                   }
 
                   if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
-                    return Center(child: Text('User profile not found'));
+                    return const Center(child: Text('User profile not found'));
                   }
 
                   List<String> blockedUsers = List<String>.from(
                     userSnapshot.data!.get('blocked') ?? [],
                   );
 
+                  // Determine user type
+                  final userData =
+                      userSnapshot.data!.data() as Map<String, dynamic>?;
+                  final isPremium =
+                      userData != null && (userData['isSub'] == true);
+
+                  // For non-premium users: show only public posts
+                  if (!isPremium) {
+                    return StreamBuilder<QuerySnapshot>(
+                      stream:
+                          FirebaseFirestore.instance
+                              .collection('posts')
+                              .orderBy('createdAt', descending: true)
+                              .snapshots(),
+                      builder: (context, postsSnapshot) {
+                        if (postsSnapshot.hasError) {
+                          return Text('Error: ${postsSnapshot.error}');
+                        }
+                        if (postsSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const CircularProgressIndicator(
+                            color: Colors.black,
+                          );
+                        }
+
+                        final posts = postsSnapshot.data?.docs ?? [];
+
+                        // Extract author IDs for batch fetch
+                        final authorIds = <String>{};
+                        for (var post in posts) {
+                          final data = post.data() as Map<String, dynamic>;
+                          authorIds.add(data['userId'] as String);
+                        }
+
+                        // Stream author data for privacy checking
+                        return StreamBuilder<Map<String, Map<String, dynamic>>>(
+                          stream: _streamAuthorDataRealtime(authorIds.toList()),
+                          builder: (context, authorsSnapshot) {
+                            if (!authorsSnapshot.hasData) {
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.black,
+                                ),
+                              );
+                            }
+
+                            final authorsMap = authorsSnapshot.data ?? {};
+
+                            // Filter posts with search query and privacy
+                            final filteredPosts =
+                                posts.where((doc) {
+                                  final data =
+                                      doc.data() as Map<String, dynamic>;
+                                  final authorData =
+                                      authorsMap[data['userId'] as String] ??
+                                      {};
+
+                                  // Check if post is from a blocked user
+                                  if (blockedUsers.contains(data['userId'])) {
+                                    return false;
+                                  }
+
+                                  // FIX: Safe string comparison for search query
+                                  if (widget.searchQuery.isNotEmpty) {
+                                    final postText =
+                                        data['text']
+                                            ?.toString()
+                                            .toLowerCase() ??
+                                        '';
+                                    if (!postText.contains(
+                                      widget.searchQuery,
+                                    )) {
+                                      return false;
+                                    }
+                                  }
+
+                                  // Check if user marked post as not interested
+                                  final notInterestedBy = List<dynamic>.from(
+                                    data['notInterestedBy'] ?? [],
+                                  );
+                                  if (notInterestedBy.contains(
+                                    currentUser.uid,
+                                  )) {
+                                    return false;
+                                  }
+
+                                  // Only show if author's profile is public
+                                  return (authorData['isPrivate'] ?? false) ==
+                                      false;
+                                }).toList();
+
+                            return ListView.builder(
+                              controller: _scrollController,
+                              itemCount: filteredPosts.length,
+                              itemBuilder: (context, index) {
+                                final post =
+                                    filteredPosts[index].data()
+                                        as Map<String, dynamic>;
+                                return GuestPostItem(post: post);
+                              },
+                            );
+                          },
+                        );
+                      },
+                    );
+                  }
+
+                  // For premium users: full privacy filtering with following
                   return StreamBuilder<QuerySnapshot>(
                     stream:
                         FirebaseFirestore.instance
-                            .collection('posts')
-                            .orderBy('createdAt', descending: true)
+                            .collection('users')
+                            .doc(currentUser.uid)
+                            .collection('following')
                             .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return Text('Error: ${snapshot.error}');
-                      }
-
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return CircularProgressIndicator(color: Colors.black);
-                      }
-
-                      // Filter posts
-                      final List<DocumentSnapshot> filteredPosts =
-                          snapshot.data!.docs.where((doc) {
-                            Map<String, dynamic> data =
-                                doc.data() as Map<String, dynamic>;
-
-                            // Check if post is from a blocked user
-                            if (blockedUsers.contains(data['userId'])) {
-                              return false;
-                            }
-                            if (widget.searchQuery.isNotEmpty &&
-                                !data['text'].contains(widget.searchQuery)) {
-                              return false;
-                            }
-                            // Check if user marked post as not interested
-                            List<dynamic> notInterestedBy = List<dynamic>.from(
-                              data['notInterestedBy'] ?? [],
-                            );
-                            if (notInterestedBy.contains(currentUser.uid)) {
-                              return false;
-                            }
-
-                            return true;
-                          }).toList();
-
-                      // Determine user type
-                      final userData =
-                          userSnapshot.data!.data() as Map<String, dynamic>?;
-                      final isPremium =
-                          userData != null && (userData['isSub'] == true);
-                      return ListView.builder(
-                        controller: _scrollController,
-                        itemCount: filteredPosts.length,
-                        itemBuilder: (context, index) {
-                          final post =
-                              filteredPosts[index].data()
-                                  as Map<String, dynamic>;
-                          if (isPremium) {
-                            return PostItem(
-                              postId: post['postId'],
-                              fromComments: false,
-                            );
-                          } else {
-                            return GuestPostItem(post: post);
+                    builder: (context, followingSnapshot) {
+                      // Build the following set
+                      final followingSet = <String>{};
+                      if (followingSnapshot.hasData) {
+                        for (var doc in followingSnapshot.data!.docs) {
+                          final userId = doc.get('userId') as String?;
+                          if (userId != null) {
+                            followingSet.add(userId);
                           }
+                        }
+                      }
+
+                      return StreamBuilder<QuerySnapshot>(
+                        stream:
+                            FirebaseFirestore.instance
+                                .collection('posts')
+                                .orderBy('createdAt', descending: true)
+                                .snapshots(),
+                        builder: (context, postsSnapshot) {
+                          if (postsSnapshot.hasError) {
+                            return Text('Error: ${postsSnapshot.error}');
+                          }
+
+                          if (postsSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const CircularProgressIndicator(
+                              color: Colors.black,
+                            );
+                          }
+
+                          final posts = postsSnapshot.data?.docs ?? [];
+
+                          // Extract author IDs for batch fetch
+                          final authorIds = <String>{};
+                          for (var post in posts) {
+                            final data = post.data() as Map<String, dynamic>;
+                            authorIds.add(data['userId'] as String);
+                          }
+
+                          // Stream author data for privacy and follower checking
+                          return StreamBuilder<
+                            Map<String, Map<String, dynamic>>
+                          >(
+                            stream: _streamAuthorDataRealtime(
+                              authorIds.toList(),
+                            ),
+                            builder: (context, authorsSnapshot) {
+                              if (!authorsSnapshot.hasData) {
+                                return const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.black,
+                                  ),
+                                );
+                              }
+
+                              final authorsMap = authorsSnapshot.data ?? {};
+
+                              // Filter posts with search query and privacy
+                              final filteredPosts =
+                                  posts.where((doc) {
+                                    final data =
+                                        doc.data() as Map<String, dynamic>;
+                                    final postAuthorId =
+                                        data['userId'] as String;
+                                    final authorData =
+                                        authorsMap[postAuthorId] ?? {};
+
+                                    // Check if post is from a blocked user
+                                    if (blockedUsers.contains(postAuthorId)) {
+                                      return false;
+                                    }
+
+                                    // FIX: Safe string comparison for search query
+                                    if (widget.searchQuery.isNotEmpty) {
+                                      final postText =
+                                          data['text']
+                                              ?.toString()
+                                              .toLowerCase() ??
+                                          '';
+                                      if (!postText.contains(
+                                        widget.searchQuery,
+                                      )) {
+                                        return false;
+                                      }
+                                    }
+
+                                    // Check if user marked post as not interested
+                                    final notInterestedBy = List<dynamic>.from(
+                                      data['notInterestedBy'] ?? [],
+                                    );
+                                    if (notInterestedBy.contains(
+                                      currentUser.uid,
+                                    )) {
+                                      return false;
+                                    }
+
+                                    // Check privacy rules
+                                    return _shouldShowPost(
+                                      postAuthorId: postAuthorId,
+                                      currentUserId: currentUser.uid,
+                                      authorData: authorData,
+                                      followingSet: followingSet,
+                                    );
+                                  }).toList();
+
+                              return ListView.builder(
+                                controller: _scrollController,
+                                itemCount: filteredPosts.length,
+                                itemBuilder: (context, index) {
+                                  final post =
+                                      filteredPosts[index].data()
+                                          as Map<String, dynamic>;
+                                  return PostItem(
+                                    postId: post['postId'],
+                                    fromComments: false,
+                                  );
+                                },
+                              );
+                            },
+                          );
                         },
                       );
                     },
@@ -291,7 +562,8 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
 
 class FollowingSearchTab extends StatefulWidget {
   const FollowingSearchTab({super.key, this.searchQuery});
-  final searchQuery;
+  final String? searchQuery; // FIX: Added proper type annotation
+
   @override
   State<FollowingSearchTab> createState() => _FollowingSearchTabState();
 }
@@ -312,15 +584,24 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
           itemBuilder: (context, index) {
             final doc = docs[index].data() as Map<String, dynamic>;
             final user = MyUser.fromDocument(doc);
+
+            // FIX: Safe search query comparison
+            final searchQuery = widget.searchQuery ?? '';
             if (user.userId == FirebaseAuth.instance.currentUser!.uid ||
-                (widget.searchQuery.isNotEmpty &&
-                    !user.name.contains(widget.searchQuery))) {
-              return SizedBox.shrink();
+                (searchQuery.isNotEmpty &&
+                    !user.name.toLowerCase().contains(
+                      searchQuery.toLowerCase(),
+                    ))) {
+              return const SizedBox.shrink();
             }
+
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     CircleAvatar(
@@ -361,17 +642,133 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
                               .collection('following')
                               .doc(user.userId)
                               .snapshots(),
-                      builder: (context, snapshot) {
+                      builder: (context, followingSnapshot) {
                         final isFollowing =
-                            snapshot.hasData && snapshot.data!.exists;
+                            followingSnapshot.hasData &&
+                            followingSnapshot.data!.exists;
+
+                        // Check if user is private
+                        final isPrivate = user.isPrivate ?? false;
+
+                        if (isFollowing) {
+                          // Already following
+                          return ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[300],
+                              foregroundColor: Colors.black,
+                              minimumSize: Size(47, 33),
+                              textStyle: TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'NotoSans',
+                                fontWeight: FontWeight.w500,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                            onPressed: () async {
+                              FollowService().toggleFollow(user.userId);
+                            },
+                            child: Text(
+                              '구독 취소',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'NotoSans',
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        }
+
+                        // Not following - check if private
+                        if (isPrivate) {
+                          // Check for pending follow request
+                          return StreamBuilder<DocumentSnapshot>(
+                            stream:
+                                FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(user.userId)
+                                    .collection('followRequests')
+                                    .doc(FirebaseAuth.instance.currentUser?.uid)
+                                    .snapshots(),
+                            builder: (context, requestSnapshot) {
+                              final hasRequest =
+                                  requestSnapshot.hasData &&
+                                  requestSnapshot.data!.exists;
+
+                              return ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      hasRequest
+                                          ? Colors.grey[300]
+                                          : ColorsManager.primary600,
+                                  foregroundColor:
+                                      hasRequest ? Colors.black : Colors.white,
+                                  minimumSize: Size(47, 33),
+                                  textStyle: TextStyle(
+                                    fontSize: 12,
+                                    fontFamily: 'NotoSans',
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                onPressed: () async {
+                                  if (hasRequest) {
+                                    // Cancel request
+                                    await FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(user.userId)
+                                        .collection('followRequests')
+                                        .doc(
+                                          FirebaseAuth
+                                              .instance
+                                              .currentUser
+                                              ?.uid,
+                                        )
+                                        .delete();
+                                  } else {
+                                    // Send request
+                                    await FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(user.userId)
+                                        .collection('followRequests')
+                                        .doc(
+                                          FirebaseAuth
+                                              .instance
+                                              .currentUser
+                                              ?.uid,
+                                        )
+                                        .set({
+                                          'userId':
+                                              FirebaseAuth
+                                                  .instance
+                                                  .currentUser
+                                                  ?.uid,
+                                          'createdAt':
+                                              FieldValue.serverTimestamp(),
+                                        });
+                                  }
+                                },
+                                child: Text(
+                                  hasRequest ? '요청 취소' : '요청',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontFamily: 'NotoSans',
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        }
+
+                        // Public profile - show follow button
                         return ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                isFollowing
-                                    ? Colors.grey[300]
-                                    : ColorsManager.primary600,
-                            foregroundColor:
-                                isFollowing ? Colors.black : Colors.white,
+                            backgroundColor: ColorsManager.primary600,
+                            foregroundColor: Colors.white,
                             minimumSize: Size(47, 33),
                             textStyle: TextStyle(
                               fontSize: 12,
@@ -386,7 +783,7 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
                             FollowService().toggleFollow(user.userId);
                           },
                           child: Text(
-                            isFollowing ? '구독 취소' : '구독',
+                            '구독',
                             style: TextStyle(
                               fontSize: 12,
                               fontFamily: 'NotoSans',

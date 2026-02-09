@@ -231,13 +231,7 @@ class _ExpandableFABState extends State<ExpandableFAB>
                                           ),
                                           subtitle:
                                               user['userId'] != null
-                                                  ? Text(
-                                                    user['userId']!,
-                                                    style: TextStyle(
-                                                      color: Colors.black54,
-                                                      fontSize: 12,
-                                                    ),
-                                                  )
+                                                  ? null
                                                   : null,
                                           trailing: TextButton(
                                             onPressed: () async {
