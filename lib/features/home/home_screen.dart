@@ -18,7 +18,9 @@ import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   final ScrollController? scrollController;
-  const HomeScreen({super.key, this.scrollController});
+  final TabController? tabController;
+  const HomeScreen({super.key, this.scrollController, this.tabController});
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -35,60 +37,71 @@ class _HomeScreenState extends State<HomeScreen>
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
         final firebaseUser = authSnapshot.data;
-        return DefaultTabController(
-          length: 2,
-          child: Scaffold(
-            appBar: AppBar(
-              toolbarHeight: 130,
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  InkWell(
-                    onTap: () {
-                      if (firebaseUser == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("검색은 회원가입 후 이용가능합니다")),
-                        );
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => HomeSearch()),
-                      );
-                    },
-                    child: ImageIcon(
-                      AssetImage('assets/search.png'),
-                      color: Colors.black,
-                      size: 25,
-                    ),
-                  ),
-                  TabBar(
-                    labelStyle: TextStyle(
-                      fontSize: 16,
-                      decoration: TextDecoration.none,
-                      fontFamily: 'NotoSans',
-                      fontStyle: FontStyle.normal,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0,
-                      color: ColorsManager.primaryblack,
-                    ),
-                    unselectedLabelColor: ColorsManager.primary600,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    indicatorColor: ColorsManager.primaryblack,
-                    tabs: [Tab(text: '추천'), Tab(text: '구독')],
-                  ),
-                ],
+        // If tabController is provided from parent, use it; otherwise create a new one
+        if (widget.tabController != null) {
+          return _buildScaffold(firebaseUser, widget.tabController!);
+        } else {
+          return DefaultTabController(
+            length: 2,
+            child: _buildScaffold(firebaseUser, null),
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildScaffold(User? firebaseUser, TabController? tabController) {
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 130,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            InkWell(
+              onTap: () {
+                if (firebaseUser == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("검색은 회원가입 후 이용가능합니다")),
+                  );
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeSearch()),
+                );
+              },
+              child: ImageIcon(
+                AssetImage('assets/search.png'),
+                color: Colors.black,
+                size: 25,
               ),
             ),
-            body: TabBarView(
-              children: [
-                _HomeFeedTab(scrollController: widget.scrollController),
-                FollowingTab(),
-              ],
+            TabBar(
+              controller: tabController,
+              labelStyle: TextStyle(
+                fontSize: 16,
+                decoration: TextDecoration.none,
+                fontFamily: 'NotoSans',
+                fontStyle: FontStyle.normal,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 0,
+                color: ColorsManager.primaryblack,
+              ),
+              unselectedLabelColor: ColorsManager.primary600,
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicatorColor: ColorsManager.primaryblack,
+              tabs: [Tab(text: '추천'), Tab(text: '구독')],
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: tabController,
+        children: [
+          _HomeFeedTab(scrollController: widget.scrollController),
+          FollowingTab(),
+        ],
+      ),
     );
   }
 }

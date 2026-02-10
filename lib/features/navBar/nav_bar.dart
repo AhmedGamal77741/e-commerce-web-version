@@ -20,26 +20,38 @@ class NavBar extends StatefulWidget {
   State<NavBar> createState() => _NavBarState();
 }
 
-class _NavBarState extends State<NavBar> {
+class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
   final shopKey = GlobalKey<ShopState>();
   int _selectedIndex = 0;
 
   // Use a non-static controller and re-create HomeScreen on tab switch to ensure controller is always attached
   final ScrollController homeScrollController = ScrollController();
+  late TabController homeTabController;
   List<Widget> widgetOptions = [];
 
   @override
   void initState() {
     super.initState();
+    homeTabController = TabController(length: 2, vsync: this);
     widgetOptions = [
       _buildMainWidget(() => Center(child: Text('home'))),
       _buildMainWidget(() => Shop(key: shopKey)),
       _buildMainWidget(
-        () => HomeScreen(scrollController: homeScrollController),
+        () => HomeScreen(
+          scrollController: homeScrollController,
+          tabController: homeTabController,
+        ),
       ),
       _buildMainWidget(() => ReviewScreen()),
       _buildMainWidget(() => LandingScreen()),
     ];
+  }
+
+  @override
+  void dispose() {
+    homeTabController.dispose();
+    homeScrollController.dispose();
+    super.dispose();
   }
 
   Widget _buildMainWidget(Widget Function() builder) {
@@ -105,6 +117,8 @@ class _NavBarState extends State<NavBar> {
       return;
     }
     if (_selectedIndex == index && index == 2) {
+      // Reset to first tab (추천) and scroll to top
+      homeTabController.animateTo(0);
       if (homeScrollController.hasClients) {
         homeScrollController.animateTo(
           0,

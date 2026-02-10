@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/home/data/follow_service.dart';
+import 'package:ecommerece_app/features/chat/services/contacts_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -17,7 +18,7 @@ class _RequestsState extends State<Requests> {
   String searchQuery = '';
   late Future<Map<String, Map<String, dynamic>>> _recommendationsFuture;
   bool _recommendationsInitialized = false;
-
+  final ContactService _contactService = ContactService();
   @override
   void initState() {
     super.initState();
@@ -45,8 +46,8 @@ class _RequestsState extends State<Requests> {
 
       final followingIds = followingSnapshot.docs.map((doc) => doc.id).toList();
 
-      // Compute recommendations ONCE and cache the Future
-      _recommendationsFuture = _buildFriendRecommendations(
+      // Compute recommendations ONCE and cache the Future (includes both recommendations and contacts)
+      _recommendationsFuture = _buildFriendRecommendationsWithContacts(
         currentUser.uid,
         followingIds,
       );
@@ -142,7 +143,7 @@ class _RequestsState extends State<Requests> {
                     // Requests list - adapts to content, max 5 items with internal scroll
                     if (isCurrentUserPrivate)
                       ConstrainedBox(
-                        constraints: BoxConstraints(maxHeight: 200),
+                        constraints: BoxConstraints(maxHeight: 220),
                         child: StreamBuilder<QuerySnapshot>(
                           stream:
                               FirebaseFirestore.instance
@@ -407,7 +408,7 @@ class _RequestsState extends State<Requests> {
                     ),
                     // Friend recommendations - adapts to content, max 5 items with internal scroll
                     ConstrainedBox(
-                      constraints: BoxConstraints(maxHeight: 200),
+                      constraints: BoxConstraints(maxHeight: 220),
                       child:
                           _recommendationsInitialized
                               ? FutureBuilder<
@@ -473,7 +474,8 @@ class _RequestsState extends State<Requests> {
                                           filteredRecommendations[userId]!;
                                       final user = data['user'] as MyUser;
                                       final mutualCount = data['count'] as int;
-
+                                      final isContact =
+                                          data['isContact'] as bool? ?? false;
                                       return Padding(
                                         padding: EdgeInsets.symmetric(
                                           horizontal: 16,
@@ -512,7 +514,9 @@ class _RequestsState extends State<Requests> {
                                                           TextOverflow.ellipsis,
                                                     ),
                                                     Text(
-                                                      '$mutualCount명의 친구를 팔로우 중',
+                                                      isContact
+                                                          ? '연락처에서'
+                                                          : '$mutualCount명의 친구를 팔로우 중',
                                                       style: TextStyle(
                                                         fontSize: 12,
                                                         color: Colors.grey[600],
@@ -710,7 +714,7 @@ class _RequestsState extends State<Requests> {
                     ),
                     // Blocked friends list
                     ConstrainedBox(
-                      constraints: BoxConstraints(maxHeight: 200),
+                      constraints: BoxConstraints(maxHeight: 220),
                       child: StreamBuilder<DocumentSnapshot>(
                         stream:
                             FirebaseFirestore.instance
@@ -1121,6 +1125,82 @@ class _RequestsState extends State<Requests> {
           context,
         ).showSnackBar(SnackBar(content: Text('오류: $e')));
       }
+    }
+  }
+
+  Future<Map<String, Map<String, dynamic>>>
+  _buildFriendRecommendationsWithContacts(
+    String currentUserId,
+    List<String> followingIds,
+  ) async {
+    try {
+      // Get friend recommendations first
+      final recommendations = await _buildFriendRecommendations(
+        currentUserId,
+        followingIds,
+      );
+
+      // Get contact matches
+      final contactMatches = await _getContactMatches(
+        currentUserId,
+        followingIds,
+      );
+
+      // Merge contacts with recommendations (contacts won't override recommendations)
+      for (final entry in contactMatches.entries) {
+        if (!recommendations.containsKey(entry.key)) {
+          recommendations[entry.key] = entry.value;
+        }
+      }
+
+      return recommendations;
+    } catch (e) {
+      print('Error building recommendations with contacts: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, Map<String, dynamic>>> _getContactMatches(
+    String currentUserId,
+    List<String> followingIds,
+  ) async {
+    try {
+      // Get phone contacts
+      final contacts = await _contactService.getPhoneContacts();
+      final phoneNumbers = _contactService.extractPhoneNumbers(contacts);
+
+      // Find users matching phone numbers
+      final matchingUsers = await _contactService.findUsersByPhoneNumbers(
+        phoneNumbers,
+      );
+
+      // Get current user's followers to exclude them
+      final currentFollowersSnapshot =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUserId)
+              .collection('followers')
+              .get();
+      final currentFollowers =
+          currentFollowersSnapshot.docs.map((doc) => doc.id).toSet();
+
+      // Filter and build result
+      final result = <String, Map<String, dynamic>>{};
+      for (final user in matchingUsers) {
+        // Skip self
+        if (user.userId == currentUserId) continue;
+        // Skip if already following
+        if (followingIds.contains(user.userId)) continue;
+        // Skip if already a follower
+        if (currentFollowers.contains(user.userId)) continue;
+
+        result[user.userId] = {'user': user, 'count': 0, 'isContact': true};
+      }
+
+      return result;
+    } catch (e) {
+      print('Error getting contact matches: $e');
+      return {};
     }
   }
 }
