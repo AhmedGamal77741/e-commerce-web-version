@@ -146,7 +146,11 @@ Future<void> reportUser({
   }
 }
 
-Future<void> uploadPost({required String text, required String imgUrl}) async {
+Future<void> uploadPost({
+  required String text,
+  required String imgUrl,
+  String? categoryId,
+}) async {
   try {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) throw Exception("User not logged in");
@@ -161,6 +165,7 @@ Future<void> uploadPost({required String text, required String imgUrl}) async {
       'postId': newPostRef.id,
       'text': text,
       'imgUrl': imgUrl,
+      'categoryId': categoryId,
       'likes': 0,
       'comments': 0,
       'createdAt': FieldValue.serverTimestamp(),
