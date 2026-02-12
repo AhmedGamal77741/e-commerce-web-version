@@ -3,8 +3,6 @@ import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
-import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
-import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:ecommerece_app/features/home/models/comment_model.dart';
 import 'package:ecommerece_app/features/home/widgets/comment_item.dart';
@@ -114,7 +112,7 @@ class _CommentsState extends State<Comments> {
               child: ListView(
                 children: [
                   Padding(
-                    padding: EdgeInsets.only(right: 10),
+                    padding: EdgeInsets.only(right: 10, bottom: 10),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -136,60 +134,7 @@ class _CommentsState extends State<Comments> {
                       ],
                     ),
                   ),
-                  Divider(height: 50),
-                  Selector<PostsProvider, List<Comment>>(
-                    selector:
-                        (_, provider) => provider.getComments(widget.postId),
-                    builder: (context, comments, child) {
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.only(left: 20.0),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '댓글',
-                                  style: TextStyle(
-                                    color: const Color(0xFF121212),
-                                    fontSize: 16,
-                                    fontFamily: 'NotoSans',
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.40,
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  comments.length.toString(),
-                                  style: TextStyle(
-                                    color: const Color(0xFF5F5F5F),
-                                    fontSize: 16,
-                                    fontFamily: 'NotoSans',
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.40,
-                                    letterSpacing: -0.09,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(right: 20.0),
-                            child: InkWell(
-                              onTap: () {
-                                context.pop();
-                              },
-                              child: Icon(Icons.close),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+
                   verticalSpace(30),
                   Selector<PostsProvider, List<Comment>>(
                     selector:
@@ -227,9 +172,14 @@ class _CommentsState extends State<Comments> {
                         itemCount: comments.length,
                         itemBuilder: (context, index) {
                           final comment = comments[index];
-                          return CommentItem(
-                            comment: comment,
-                            postId: widget.postId,
+                          return Column(
+                            children: [
+                              CommentItem(
+                                comment: comment,
+                                postId: widget.postId,
+                              ),
+                              verticalSpace(10),
+                            ],
                           );
                         },
                       );

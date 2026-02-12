@@ -242,6 +242,7 @@ class PostsProvider extends ChangeNotifier {
   }
 
   // Add a comment to a post
+  // Add a comment to a post
   Future<void> addComment(String postId, String text) async {
     final currentUser = _auth.currentUser;
     if (currentUser == null) return;
@@ -254,7 +255,6 @@ class PostsProvider extends ChangeNotifier {
         userData = await loadUser(currentUser.uid);
       } catch (e) {
         print('Error loading user data: $e');
-        // Continue with basic user data from Firebase Auth
       }
     }
 
@@ -273,7 +273,7 @@ class PostsProvider extends ChangeNotifier {
       'likes': 0,
       'userImage': userData?.url ?? currentUser.photoURL,
       'userName': userData?.name ?? currentUser.displayName,
-      'likedBy': [], // Initialize empty likedBy array
+      'likedBy': [],
     });
 
     // Update post comment count
@@ -283,15 +283,7 @@ class PostsProvider extends ChangeNotifier {
     // Commit the batch
     try {
       await batch.commit();
-
-      // Optimistically update local state
-      if (_posts.containsKey(postId)) {
-        _posts[postId]!['comments'] = (_posts[postId]!['comments'] ?? 0) + 1;
-      }
-
-      // Do not optimistically update _comments; wait for Firestore listener to sync
-
-      notifyListeners();
+      // Let the Firestore listeners handle the UI updates automatically
     } catch (e) {
       print('Error adding comment: $e');
       throw e;

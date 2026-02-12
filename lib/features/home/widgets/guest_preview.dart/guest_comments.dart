@@ -1,7 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
-import 'package:ecommerece_app/core/theming/colors.dart';
-import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_comment_item.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_item.dart';
 import 'package:flutter/material.dart';
@@ -24,66 +22,7 @@ class GuestComments extends StatelessWidget {
                 children: [Expanded(child: GuestPostItem(post: post))],
               ),
             ),
-            Divider(height: 50),
-            // Comments count row
-            StreamBuilder<QuerySnapshot>(
-              stream:
-                  FirebaseFirestore.instance
-                      .collection('posts')
-                      .doc(post['postId'])
-                      .collection('comments')
-                      .snapshots(),
-              builder: (context, snapshot) {
-                final comments = snapshot.data?.docs ?? [];
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.only(left: 20.0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '댓글',
-                            style: TextStyle(
-                              color: const Color(0xFF121212),
-                              fontSize: 16,
-                              fontFamily: 'NotoSans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.40,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            comments.length.toString(),
-                            style: TextStyle(
-                              color: const Color(0xFF5F5F5F),
-                              fontSize: 16,
-                              fontFamily: 'NotoSans',
-                              fontWeight: FontWeight.w400,
-                              height: 1.40,
-                              letterSpacing: -0.09,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.only(right: 20.0),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.pop(context);
-                        },
-                        child: Icon(Icons.close),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+
             verticalSpace(30),
             // Comments list
             Expanded(

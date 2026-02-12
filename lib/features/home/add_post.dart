@@ -268,7 +268,12 @@ class _AddPostState extends State<AddPost> {
     return SafeArea(
       child: Scaffold(
         bottomNavigationBar: Padding(
-          padding: EdgeInsets.only(left: 16, right: 16, bottom: 16),
+          padding: EdgeInsets.only(
+            top: 20,
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -546,7 +551,11 @@ class _AddPostState extends State<AddPost> {
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.settings),
+                        icon: CircleAvatar(
+                          radius: 15,
+                          backgroundColor: Colors.transparent,
+                          backgroundImage: AssetImage('assets/settings.png'),
+                        ),
                         onPressed: _showCategoryMenu,
                       ),
                     ],

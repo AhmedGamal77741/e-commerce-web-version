@@ -12,7 +12,6 @@ import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_po
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -20,7 +19,6 @@ class HomeScreen extends StatefulWidget {
   final ScrollController? scrollController;
   final TabController? tabController;
   const HomeScreen({super.key, this.scrollController, this.tabController});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -37,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen>
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
         final firebaseUser = authSnapshot.data;
+
         // If tabController is provided from parent, use it; otherwise create a new one
         if (widget.tabController != null) {
           return _buildScaffold(firebaseUser, widget.tabController!);
@@ -300,7 +299,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                         return (authorData['isPrivate'] ?? false) == false;
                       }).toList();
 
-                  return ListView.builder(
+                  return ListView.separated(
                     controller: controller,
                     itemCount: filteredPosts.length + 1, // +1 for user info row
                     itemBuilder: (context, index) {
@@ -313,7 +312,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
-                                SizedBox(width: 10),
+                                horizontalSpace(3),
                                 Flexible(
                                   child: InkWell(
                                     onTap: () {
@@ -328,8 +327,8 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                       );
                                     },
                                     child: Container(
-                                      width: 56,
-                                      height: 55,
+                                      width: 65,
+                                      height: 65,
                                       decoration: ShapeDecoration(
                                         image: DecorationImage(
                                           image: AssetImage(
@@ -365,13 +364,16 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
+                                          verticalSpace(8),
                                           Text(
                                             '게스트 사용자',
-                                            style:
-                                                TextStyles
-                                                    .abeezee16px400wPblack,
+                                            style: TextStyles
+                                                .abeezee16px400wPblack
+                                                .copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                           ),
-                                          SizedBox(height: 10),
+                                          verticalSpace(8),
                                           FutureBuilder(
                                             future:
                                                 FirebaseFirestore.instance
@@ -428,9 +430,17 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                         return Column(
                           children: [
                             GuestPostItem(post: post),
-                            SizedBox(height: 16),
+                            verticalSpace(10),
                           ],
                         );
+                      }
+                    },
+                    separatorBuilder: (BuildContext context, int index) {
+                      if (index < posts.length - 1 && index > 0) {
+                        return Divider();
+                      } else {
+                        // For the very last item, return an empty widget
+                        return SizedBox.shrink(); // A zero-sized box
                       }
                     },
                   );
@@ -510,10 +520,11 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                             return (authorData['isPrivate'] ?? false) == false;
                           }).toList();
 
-                      return ListView.builder(
+                      return ListView.separated(
                         controller: controller,
                         itemCount:
                             filteredPosts.length + 1, // +1 for user info row
+
                         itemBuilder: (context, index) {
                           if (index == 0) {
                             // User info row for regular (non-premium) member
@@ -525,7 +536,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceAround,
                                   children: [
-                                    SizedBox(width: 10),
+                                    horizontalSpace(3),
                                     Flexible(
                                       child: InkWell(
                                         onTap: () {
@@ -540,8 +551,8 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                           );
                                         },
                                         child: Container(
-                                          width: 56,
-                                          height: 55,
+                                          width: 65,
+                                          height: 65,
                                           decoration: ShapeDecoration(
                                             image: DecorationImage(
                                               image: NetworkImage(
@@ -565,17 +576,17 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  currentUser.name,
-                                                  style:
-                                                      TextStyles
-                                                          .abeezee16px400wPblack,
-                                                ),
-                                              ],
+                                            verticalSpace(8),
+                                            Text(
+                                              currentUser.name,
+                                              style: TextStyles
+                                                  .abeezee16px400wPblack
+                                                  .copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                             ),
-                                            SizedBox(height: 10),
+
+                                            verticalSpace(8),
                                             FutureBuilder(
                                               future:
                                                   FirebaseFirestore.instance
@@ -633,6 +644,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                 ),
                                 verticalSpace(5),
                                 Divider(),
+                                verticalSpace(5),
                               ],
                             );
                           } else {
@@ -645,9 +657,17 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                             return Column(
                               children: [
                                 GuestPostItem(post: post),
-                                SizedBox(height: 16),
+                                verticalSpace(10),
                               ],
                             );
+                          }
+                        },
+                        separatorBuilder: (BuildContext context, int index) {
+                          if (index < posts.length - 1 && index > 0) {
+                            return Divider();
+                          } else {
+                            // For the very last item, return an empty widget
+                            return SizedBox.shrink(); // A zero-sized box
                           }
                         },
                       );
@@ -756,7 +776,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                 followingSet: followingSet,
                               );
                             }).toList();
-                        return ListView.builder(
+                        return ListView.separated(
                           controller: controller,
                           itemCount:
                               filteredPosts.length + 1, // +1 for user info row
@@ -772,7 +792,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceAround,
                                     children: [
-                                      SizedBox(width: 10),
+                                      horizontalSpace(3),
 
                                       Flexible(
                                         child: InkWell(
@@ -806,8 +826,8 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
 
                                                 children: [
                                                   Container(
-                                                    width: 56,
-                                                    height: 55,
+                                                    width: 65,
+                                                    height: 65,
                                                     decoration: ShapeDecoration(
                                                       image: DecorationImage(
                                                         image: NetworkImage(
@@ -850,18 +870,18 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                Row(
-                                                  children: [
-                                                    Text(
-                                                      currentUser.name
-                                                          .toString(),
-                                                      style:
-                                                          TextStyles
-                                                              .abeezee16px400wPblack,
-                                                    ),
-                                                  ],
+                                                verticalSpace(8),
+                                                Text(
+                                                  currentUser.name.toString(),
+                                                  style: TextStyles
+                                                      .abeezee16px400wPblack
+                                                      .copyWith(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
                                                 ),
-                                                SizedBox(height: 10),
+
+                                                verticalSpace(8),
 
                                                 FutureBuilder(
                                                   future:
@@ -923,9 +943,17 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                     postId: post['postId'],
                                     fromComments: false,
                                   ),
-                                  SizedBox(height: 16),
+                                  verticalSpace(16),
                                 ],
                               );
+                            }
+                          },
+                          separatorBuilder: (BuildContext context, int index) {
+                            if (index < posts.length - 1 && index > 0) {
+                              return Divider();
+                            } else {
+                              // For the very last item, return an empty widget
+                              return SizedBox.shrink(); // A zero-sized box
                             }
                           },
                         );
