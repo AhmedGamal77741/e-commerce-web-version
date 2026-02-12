@@ -1,7 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
-import 'dart:typed_data';
-import 'dart:html' as html;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
@@ -15,11 +12,10 @@ import 'package:ecommerece_app/features/cart/services/cart_service.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/rendering.dart';
-import 'package:web/web.dart' as web;
 
 class PlaceOrder extends StatefulWidget {
   const PlaceOrder({super.key});
@@ -29,7 +25,6 @@ class PlaceOrder extends StatefulWidget {
 }
 
 class _PlaceOrderState extends State<PlaceOrder> {
-  final GlobalKey _orderSummaryKey = GlobalKey();
   bool isCheckoutValid = true;
   String? checkoutErrorMessage;
   void _showBankAccountDialog() {
@@ -157,8 +152,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
     // Product existence and stock check
     for (var item in cartItems) {
       final productId = item['product_id'];
-      /*       final quantityOrdered = item['quantity'];
- */
+      /*       final quantityOrdered = item['quantity']; */
       int quantityOrdered = 0;
       final productStream =
           await FirebaseFirestore.instance
@@ -170,7 +164,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
         final prod = Product.fromMap(productData);
         quantityOrdered = prod.pricePoints[item['pricePointIndex']].quantity;
       }
-
       final productRef = FirebaseFirestore.instance
           .collection('products')
           .doc(productId);
@@ -227,6 +220,12 @@ class _PlaceOrderState extends State<PlaceOrder> {
     }
   }
 
+  // Tax Invoice fields
+  String invoiceeType = '사업자'; // 사업자 / 개인 / 외국인
+  final invoiceeCorpNumController = TextEditingController(); // 사업자번호
+  final invoiceeCorpNameController = TextEditingController(); // 상호명 or 개인 이름
+  final invoiceeCEONameController = TextEditingController(); // 대표자 성명
+
   List<Map<String, dynamic>> bankAccounts = [];
   int selectedBankIndex = -1;
   bool isAddingNewBank = false;
@@ -263,7 +262,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
   int paymentMethod = 0;
   Map<String, dynamic>? userBank;
   Map<String, dynamic>? userCard;
-  // Removed timer logic
 
   Future<void> _selectAddress() async {
     final result = await Navigator.push(
@@ -272,10 +270,11 @@ class _PlaceOrderState extends State<PlaceOrder> {
     );
     if (result != null) {
       deliveryAddressController.text = result.address;
-
       setState(() {
         address = result;
       });
+      // persist selected address to usercached_values for backend to read
+      await _saveCachedUserValues();
     }
   }
 
@@ -285,7 +284,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
     await refreshCartPrices(uid);
 
     if (!_formKey.currentState!.validate()) return;
-    // Save name/phone/email to cache before placing order
+
+    // Save all user values (contact, address, instructions) to cache before placing order
+    await _saveCachedUserValues();
 
     setState(() {
       isProcessing = true;
@@ -313,8 +314,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
           phoneController.text.trim(),
           paymentId,
           payerId,
-          nameController.text.trim(), // pass name
-          emailController.text.trim(), // pass email
+          selectedOption.toString(),
+          // pass email
         );
       } else {
         _launchBankPaymentPage(
@@ -322,8 +323,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
           uid,
           phoneController.text.trim(),
           paymentId,
-          nameController.text.trim(), // pass name
-          emailController.text.trim(), // pass email
+          selectedOption.toString(),
+          // pass name
+          // pass email
         );
       }
     } catch (e) {
@@ -368,7 +370,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
           );
         }
         if (status == 'failed') {
-          // Show failure message and delete pending order, then go back
           Future.microtask(() async {
             await pendingDoc.reference.delete();
             if (mounted) {
@@ -455,106 +456,18 @@ class _PlaceOrderState extends State<PlaceOrder> {
       isProcessing = true;
     });
     try {
-      final userData =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(FirebaseAuth.instance.currentUser!.uid)
-              .get();
-      final defaultAddressDoc =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .collection('addresses')
-              .doc(userData['defaultAddressId'])
-              .get();
-      final defaultAddress = defaultAddressDoc.data() as Map<String, dynamic>;
-      deliveryAddressController.text = defaultAddress['address'];
-      address = Address(
-        id: defaultAddress['id'],
-        name: defaultAddress['name'],
-        phone: defaultAddress['phone'],
-        address: defaultAddress['address'],
-        detailAddress: defaultAddress['detailAddress'],
-        isDefault: defaultAddress['isDefault'],
-        addressMap: defaultAddress['addressMap'],
-      );
-      final cartSnapshot =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .collection('cart')
-              .get();
-      final cartItems = cartSnapshot.docs.map((doc) => doc.data()).toList();
-      final productIds = cartItems.map((item) => item['product_id']).toList();
-      /*       final quantities = cartItems.map((item) => item['quantity']).toList();
- */
-      final prices = cartItems.map((item) => item['price']).toList();
-      final deliveryManagerIds =
-          cartItems.map((item) => item['deliveryManagerId']).toList();
-      if (pendingDocs.isEmpty) return;
-      final doc = pendingDocs.first;
+      // Backend has already handled:
+      // - Order creation from cart items
+      // - Stock updates
+      // - Settlement records
+      // - Receipt/Invoice issuance
+      // - Cart cleanup
 
-      for (int i = 0; i < productIds.length; i++) {
-        final productRef = FirebaseFirestore.instance
-            .collection('products')
-            .doc(productIds[i]);
-        final productSnapshot = await productRef.get();
-        final prod = Product.fromMap(productSnapshot.data()!);
-        final currentStock = productSnapshot.data()?['stock'] ?? 0;
-        final orderQty =
-            prod.pricePoints[cartItems[i]['pricePointIndex']].quantity;
-        if (currentStock < orderQty || orderQty <= 0) {
-          continue;
-        }
-        final orderRef = FirebaseFirestore.instance.collection('orders').doc();
-        final orderData = {
-          'orderId': orderRef.id,
-          'userId': uid,
-          'paymentId': currentPaymentId,
-          'deliveryAddressId': address.id,
-          'deliveryAddress': deliveryAddressController.text.trim(),
-          'deliveryAddressDetail': address.detailAddress,
-
-          'deliveryInstructions':
-              selectedRequest == '직접입력'
-                  ? manualRequest?.trim() ?? ''
-                  : selectedRequest.trim(),
-          'cashReceipt': cashReceiptController.text.trim(),
-          'paymentMethod': 'bank',
-          'orderDate': DateTime.now().toIso8601String(),
-          'totalPrice': prices[i],
-          'productId': productIds[i],
-          'quantity': orderQty,
-          'courier': '',
-          'trackingNumber': '',
-          'trackingEvents': {},
-          'orderStatus': 'orderComplete',
-          'isRequested': false,
-          'deliveryManagerId': deliveryManagerIds[i],
-          'carrierId': '',
-          'isSent': false,
-          'confirmed': false,
-          'phoneNo': phoneController.text.trim(),
-        };
-        await orderRef.set(orderData);
-        await productRef.update({'stock': FieldValue.increment(-orderQty)});
-
-        // Add to order_settlement collection for settlement automation
-        final settlementRef = FirebaseFirestore.instance
-            .collection('order_settlement')
-            .doc(orderRef.id);
-        await settlementRef.set({
-          'orderId': orderRef.id,
-          'price': prices[i],
-          'deliveryManagerId': deliveryManagerIds[i],
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+      // Just clean up pending order and navigate
+      if (pendingDocs.isNotEmpty) {
+        await pendingDocs.first.reference.delete();
       }
-      await doc.reference.delete();
 
-      for (var doc in cartSnapshot.docs) {
-        await doc.reference.delete();
-      }
       if (mounted) {
         setState(() {
           isProcessing = false;
@@ -572,16 +485,16 @@ class _PlaceOrderState extends State<PlaceOrder> {
     }
   }
 
-  // Removed timer and timeout logic
-
   @override
   void initState() {
     super.initState();
-    _fetchBankAccounts();
-    _fetchUserPaymentInfo();
-    _loadCachedUserValues();
+    _init();
+  }
 
-    // NEW: load cached name/phone
+  Future<void> _init() async {
+    await _fetchBankAccounts();
+    await _fetchUserPaymentInfo();
+    await _loadCachedUserValues();
   }
 
   Future<void> _loadCachedUserValues() async {
@@ -594,10 +507,30 @@ class _PlaceOrderState extends State<PlaceOrder> {
             .get();
     if (doc.exists) {
       final data = doc.data();
-      if (data != null) {
-        nameController.text = data['name'] ?? '';
-        emailController.text = data['email'] ?? '';
-        phoneController.text = data['phone'] ?? '';
+      if (data != null && mounted) {
+        setState(() {
+          nameController.text = data['name'] ?? '';
+          emailController.text = data['email'] ?? '';
+          phoneController.text = data['phone'] ?? '';
+          invoiceeType = data['invoiceeType'] ?? '';
+          invoiceeCorpNumController.text = data['invoiceeCorpNum'] ?? '';
+          invoiceeCorpNameController.text = data['invoiceeCorpName'] ?? '';
+          invoiceeCEONameController.text = data['invoiceeCEOName'] ?? '';
+          // Load address + delivery instructions from cache
+          if ((data['deliveryAddressId'] ?? '') != '') {
+            address = Address(
+              id: data['deliveryAddressId'] ?? '',
+              name: data['recipientName'] ?? '',
+              phone: data['recipientPhone'] ?? '',
+              address: data['deliveryAddress'] ?? '',
+              detailAddress: data['deliveryAddressDetail'] ?? '',
+              isDefault: false,
+              addressMap: {},
+            );
+            deliveryAddressController.text = data['deliveryAddress'] ?? '';
+          }
+          selectedRequest = data['deliveryInstructions'] ?? '문앞';
+        });
       }
     }
   }
@@ -613,6 +546,20 @@ class _PlaceOrderState extends State<PlaceOrder> {
           'name': nameController.text.trim(),
           'email': emailController.text.trim(),
           'phone': phoneController.text.trim(),
+          'invoiceeType': invoiceeType,
+          'invoiceeCorpNum': invoiceeCorpNumController.text.trim(),
+          'invoiceeCorpName': invoiceeCorpNameController.text.trim(),
+          'invoiceeCEOName': invoiceeCEONameController.text.trim(),
+          // Address + delivery instructions cached so backend can read them
+          'deliveryAddressId': address.id,
+          'deliveryAddress': address.address,
+          'deliveryAddressDetail': address.detailAddress,
+          'deliveryInstructions':
+              selectedRequest == '직접입력'
+                  ? (manualRequest?.trim() ?? '')
+                  : selectedRequest,
+          'recipientName': address.name,
+          'recipientPhone': address.phone,
         }, SetOptions(merge: true));
   }
 
@@ -629,33 +576,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
       print('userBank:');
       print(userBank);
     });
-  }
-
-  Future<void> _saveOrderSummaryAsImage() async {
-    try {
-      RenderRepaintBoundary boundary =
-          _orderSummaryKey.currentContext!.findRenderObject()
-              as RenderRepaintBoundary;
-      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      ByteData? byteData = await image.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
-      if (byteData != null) {
-        final pngBytes = byteData.buffer.asUint8List();
-        final blob = html.Blob([pngBytes]);
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor =
-            html.AnchorElement()
-              ..href = url
-              ..download = 'order_summary.png'
-              ..click();
-        html.Url.revokeObjectUrl(url);
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('이미지 저장에 실패했습니다. 다시 시도해주세요.')));
-    }
   }
 
   @override
@@ -781,7 +701,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                                         fontFamily: 'NotoSans',
                                                         fontWeight:
                                                             FontWeight.w400,
-                                                        height: 1.40,
+                                                        height: 1.4,
                                                       ),
                                                     ),
                                                     SizedBox(height: 8),
@@ -1001,6 +921,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                   });
                                   // also notify parent state if needed:
                                   setState(() {});
+                                  // persist delivery request to cache
+                                  _saveCachedUserValues();
                                 },
                                 icon: Icon(Icons.keyboard_arrow_down),
                               );
@@ -1011,9 +933,11 @@ class _PlaceOrderState extends State<PlaceOrder> {
                             SizedBox(height: 12),
                             TextFormField(
                               initialValue: manualRequest,
-                              onChanged:
-                                  (text) =>
-                                      setState(() => manualRequest = text),
+                              onChanged: (text) {
+                                setState(() => manualRequest = text);
+                                // persist manual delivery instruction to cache
+                                _saveCachedUserValues();
+                              },
                               decoration: InputDecoration(
                                 labelText: '직접 입력',
                                 hintText: '배송 요청을 입력하세요',
@@ -1113,8 +1037,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                         onChanged: (value) {
                                           setStateRadio(() {
                                             selectedOption = value!;
-                                            print("Button value: $value");
                                           });
+                                          // Also trigger parent rebuild:
+                                          setState(() {});
                                         },
                                       ),
                                       Text(
@@ -1136,8 +1061,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                         onChanged: (value) {
                                           setStateRadio(() {
                                             selectedOption = value!;
-                                            print("Button value: $value");
                                           });
+                                          // Also trigger parent rebuild:
+                                          setState(() {});
                                         },
                                       ),
                                       Text(
@@ -1155,65 +1081,218 @@ class _PlaceOrderState extends State<PlaceOrder> {
                               );
                             },
                           ),
-                          UnderlineTextField(
-                            controller: nameController,
-                            hintText: '이름',
-                            obscureText: false,
-                            keyboardType: TextInputType.text,
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return '이름을 입력해주세요';
-                              }
-                              return null;
-                            },
-                            onChanged: (val) {
-                              _saveCachedUserValues();
-                            },
-                          ),
-                          SizedBox(height: 10),
-                          UnderlineTextField(
-                            controller: emailController,
-                            hintText: '이메일',
-                            obscureText: false,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return '이메일을 입력해주세요';
-                              }
-                              // Simple email validation
-                              if (!RegExp(
-                                r'^.+@.+\..+$',
-                              ).hasMatch(val.trim())) {
-                                return '유효한 이메일을 입력해주세요';
-                              }
-                              return null;
-                            },
-                            onChanged: (val) {
-                              _saveCachedUserValues();
-                            },
-                          ),
-                          SizedBox(height: 10),
-                          UnderlineTextField(
-                            controller: phoneController,
-                            hintText: '전화번호 ',
-                            obscureText: false,
-                            keyboardType: TextInputType.phone,
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) {
-                                return '전화번호를 입력해주세요';
-                              }
-                              final koreanReg = RegExp(
-                                r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
-                              );
-                              if (!koreanReg.hasMatch(val)) {
-                                return '유효한 한국 전화번호를 입력하세요';
-                              }
-                              return null;
-                            },
-                            onChanged: (val) {
-                              _saveCachedUserValues();
-                            },
-                          ),
+                          // --- conditional: cash receipt (selectedOption == 1) OR tax invoice (selectedOption == 2) ---
+                          if (selectedOption == 1) ...[
+                            // Cash receipt — keep your existing fields (unchanged)
+                            UnderlineTextField(
+                              controller: nameController,
+                              hintText: '이름',
+                              obscureText: false,
+                              keyboardType: TextInputType.text,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return '이름을 입력해주세요';
+                                }
+                                return null;
+                              },
+                              onChanged: (val) {
+                                _saveCachedUserValues();
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: 10),
+                            UnderlineTextField(
+                              controller: emailController,
+                              hintText: '이메일',
+                              obscureText: false,
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return '이메일을 입력해주세요';
+                                }
+                                if (!RegExp(
+                                  r'^.+@.+\..+$',
+                                ).hasMatch(val.trim())) {
+                                  return '유효한 이메일을 입력해주세요';
+                                }
+                                return null;
+                              },
+                              onChanged: (val) {
+                                _saveCachedUserValues();
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: 10),
+                            UnderlineTextField(
+                              controller: phoneController,
+                              hintText: '전화번호 ',
+                              obscureText: false,
+                              keyboardType: TextInputType.phone,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return '전화번호를 입력해주세요';
+                                }
+                                final koreanReg = RegExp(
+                                  r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
+                                );
+                                if (!koreanReg.hasMatch(val)) {
+                                  return '유효한 한국 전화번호를 입력하세요';
+                                }
+                                return null;
+                              },
+                              onChanged: (val) {
+                                _saveCachedUserValues();
+                                return null;
+                              },
+                            ),
+                          ] else ...[
+                            // Tax invoice UI
+                            DropdownButtonFormField<String>(
+                              dropdownColor: Colors.white,
+                              value: invoiceeType,
+                              items:
+                                  ['사업자', '개인', '외국인']
+                                      .map(
+                                        (t) => DropdownMenuItem(
+                                          value: t,
+                                          child: Text(t),
+                                        ),
+                                      )
+                                      .toList(),
+                              onChanged: (val) {
+                                setState(() => invoiceeType = val ?? '사업자');
+                                _saveCachedUserValues();
+                              },
+
+                              decoration: const InputDecoration(
+                                border: UnderlineInputBorder(),
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 0,
+                                  vertical: 8,
+                                ),
+                              ),
+                              icon: Icon(Icons.keyboard_arrow_down),
+                            ),
+                            SizedBox(height: 10),
+
+                            // 사업자번호 only when 사업자
+                            UnderlineTextField(
+                              obscureText: false,
+                              controller: invoiceeCorpNumController,
+                              hintText: '공급받는자 사업자번호',
+                              keyboardType: TextInputType.number,
+                              validator: (val) {
+                                if (invoiceeType == '사업자') {
+                                  if (val == null || val.trim().isEmpty) {
+                                    return '사업자번호를 입력해주세요';
+                                  }
+                                  if (!RegExp(
+                                    r'^[0-9]{10}$',
+                                  ).hasMatch(val.trim())) {
+                                    return '사업자번호는 숫자 10자리여야 합니다';
+                                  }
+                                  // optional: add basic format check (remove non-digits)
+                                }
+                                return null;
+                              },
+                              onChanged: (val) {
+                                _saveCachedUserValues();
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: 10),
+
+                            UnderlineTextField(
+                              obscureText: false,
+                              controller: invoiceeCorpNameController,
+                              hintText: '공급받는자 상호',
+                              keyboardType: TextInputType.text,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return '이름을 입력해주세요';
+                                }
+                                if (val.trim().length > 200) {
+                                  return '입력은 최대 200자까지 가능합니다';
+                                }
+                                return null;
+                              },
+                              onChanged: (val) {
+                                _saveCachedUserValues();
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: 10),
+
+                            UnderlineTextField(
+                              obscureText: false,
+                              controller: invoiceeCEONameController,
+                              hintText: '공급받는자 대표자 성명',
+                              keyboardType: TextInputType.text,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return '대표자 성명을 입력해주세요';
+                                }
+                                if (val.trim().length > 200) {
+                                  return '입력은 최대 200자까지 가능합니다';
+                                }
+
+                                return null;
+                              },
+                              onChanged: (val) {
+                                _saveCachedUserValues();
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: 10),
+
+                            UnderlineTextField(
+                              controller: emailController,
+                              hintText: '이메일',
+                              obscureText: false,
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return '이메일을 입력해주세요';
+                                }
+                                if (!RegExp(
+                                  r'^.+@.+\..+$',
+                                ).hasMatch(val.trim())) {
+                                  return '유효한 이메일을 입력해주세요';
+                                }
+                                return null;
+                              },
+                              onChanged: (val) {
+                                _saveCachedUserValues();
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: 10),
+                            UnderlineTextField(
+                              controller: phoneController,
+                              hintText: '전화번호 ',
+                              obscureText: false,
+                              keyboardType: TextInputType.phone,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return '전화번호를 입력해주세요';
+                                }
+                                final koreanReg = RegExp(
+                                  r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
+                                );
+                                if (!koreanReg.hasMatch(val)) {
+                                  return '유효한 한국 전화번호를 입력하세요';
+                                }
+                                return null;
+                              },
+                              onChanged: (val) {
+                                _saveCachedUserValues();
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: 10),
+                          ],
+                          // --- end conditional ---
                         ],
                       ),
                     ),
@@ -1236,7 +1315,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                       children: [
                         Text('구매목록', style: TextStyles.abeezee16px400wPblack),
                         verticalSpace(10),
-
                         StreamBuilder(
                           stream:
                               FirebaseFirestore.instance
@@ -1281,7 +1359,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                     final productData =
                                         productSnapshot.data!.data()
                                             as Map<String, dynamic>;
-                                    final prod = Product.fromMap(productData);
+
                                     return Column(
                                       mainAxisSize: MainAxisSize.min,
                                       mainAxisAlignment:
@@ -1308,16 +1386,16 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                             );
                                           },
                                         ),
-                                        /*                                     Text(
-                                              '${productData['productName']} / 수량 : ${prod.pricePoints[cartData['pricePointIndex']].quantity.toString()}',
-                                              style: TextStyle(
-                                                color: const Color(0xFF747474),
-                                                fontSize: 14,
-                                                fontFamily: 'NotoSans',
-                                                fontWeight: FontWeight.w400,
-                                                height: 1.40,
-                                              ),
-                                            ), */
+                                        /*                                         Text(
+                                          '${productData['productName']} / 수량 : ${cartData['quantity'].toString()}',
+                                          style: TextStyle(
+                                            color: const Color(0xFF747474),
+                                            fontSize: 14.sp,
+                                            fontFamily: 'NotoSans',
+                                            fontWeight: FontWeight.w400,
+                                            height: 1.40.h,
+                                          ),
+                                        ), */
                                         SizedBox(height: 8),
                                         StreamBuilder<double>(
                                           stream: getProductPriceStream(
@@ -1339,16 +1417,16 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                             );
                                           },
                                         ),
-                                        /*                                     Text(
-                                              '${formatCurrency.format(cartData['price'] ?? 0)} 원',
-                                              style: TextStyle(
-                                                color: const Color(0xFF747474),
-                                                fontSize: 14,
-                                                fontFamily: 'NotoSans',
-                                                fontWeight: FontWeight.w600,
-                                                height: 1.40,
-                                              ),
-                                            ), */
+                                        /*                                         Text(
+                                          '${formatCurrency.format(cartData['price'] ?? 0)} 원',
+                                          style: TextStyle(
+                                            color: const Color(0xFF747474),
+                                            fontSize: 14.sp,
+                                            fontFamily: 'NotoSans',
+                                            fontWeight: FontWeight.w600,
+                                            height: 1.40.h,
+                                          ),
+                                        ), */
                                       ],
                                     );
                                   },
@@ -1432,7 +1510,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
     );
   }
 
-  /*   Future<int> calculateCartTotalPay() async {
+  /* Future<int> calculateCartTotalPay() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       throw StateError('No user logged in');
@@ -1452,9 +1530,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
       }
     }
     return total;
-  } */
+  }
 
-  /*   Future<int> calculateCartTotal(List<QueryDocumentSnapshot> cartDocs) async {
+  Future<int> calculateCartTotal(List<QueryDocumentSnapshot> cartDocs) async {
     int total = 0;
     for (final cartDoc in cartDocs) {
       final cartData = cartDoc.data() as Map<String, dynamic>;
@@ -1471,14 +1549,12 @@ class _PlaceOrderState extends State<PlaceOrder> {
     String userId,
     String phoneNo,
     String paymentId,
-    String userName,
-    String email,
+    String option,
   ) async {
     final url = Uri.parse(
-      'https://pay.pang2chocolate.com/b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&userName=$userName&email=$email',
+      'https://pay.pang2chocolate.com/b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&option=$option',
     );
     if (await canLaunchUrl(url)) {
-      print(userId + " " + paymentId);
       await launchUrl(url);
     } else {
       throw 'Could not launch $url';
@@ -1491,11 +1567,10 @@ class _PlaceOrderState extends State<PlaceOrder> {
     String phoneNo,
     String paymentId,
     String payerId,
-    String userName,
-    String email,
+    String option,
   ) async {
     final url = Uri.parse(
-      'https://pay.pang2chocolate.com/r-b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&userName=$userName&email=$email',
+      'https://pay.pang2chocolate.com/r-b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&option=$option',
     );
     if (await canLaunchUrl(url)) {
       await launchUrl(url);

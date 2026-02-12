@@ -1,5 +1,3 @@
-import 'package:flutter/rendering.dart';
-
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
@@ -8,9 +6,6 @@ import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/core/widgets/underline_text_filed.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
-import 'dart:ui' as ui;
-import 'dart:typed_data';
-import 'dart:html' as html;
 import 'package:ecommerece_app/features/cart/models/address.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,51 +13,20 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:ecommerece_app/core/models/product_model.dart';
-
-final GlobalKey _orderSummaryKey = GlobalKey();
-
-Future<void> _saveOrderSummaryAsImage(BuildContext context) async {
-  try {
-    RenderRepaintBoundary boundary =
-        _orderSummaryKey.currentContext!.findRenderObject()
-            as RenderRepaintBoundary;
-    ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (byteData != null) {
-      final pngBytes = byteData.buffer.asUint8List();
-      final blob = html.Blob([pngBytes]);
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor =
-          html.AnchorElement()
-            ..href = url
-            ..download = 'order_summary.png'
-            ..click();
-      html.Url.revokeObjectUrl(url);
-    }
-  } catch (e) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('이미지 저장에 실패했습니다. 다시 시도해주세요.')));
-  }
-}
 
 class BuyNow extends StatefulWidget {
-  final Product product;
-  final int quantity;
-  final int price;
-  const BuyNow({
-    Key? key,
-    required this.product,
-    required this.quantity,
-    required this.price,
-  }) : super(key: key);
+  final String? paymentId;
+  const BuyNow({Key? key, this.paymentId}) : super(key: key);
 
   @override
   State<BuyNow> createState() => _BuyNowState();
 }
 
 class _BuyNowState extends State<BuyNow> {
+  String invoiceeType = '사업자'; // 사업자 / 개인 / 외국인
+  final invoiceeCorpNumController = TextEditingController(); // 사업자번호
+  final invoiceeCorpNameController = TextEditingController(); // 상호명 or 개인 이름
+  final invoiceeCEONameController = TextEditingController(); //
   bool isAddingNewBank = false; // True if 'Add New' selected
   final deliveryAddressController = TextEditingController();
   final deliveryInstructionsController = TextEditingController();
@@ -82,6 +46,11 @@ class _BuyNowState extends State<BuyNow> {
     addressMap: {},
   );
   Map<String, dynamic>? userBank;
+
+  // Store pending_buynow data
+  Map<String, dynamic>? pendingBuynowData;
+  int pendingPrice = 0;
+  int pendingQuantity = 0;
   final List<String> deliveryRequests = [
     '문앞',
     '직접 받고 부재 시 문앞',
@@ -128,6 +97,8 @@ class _BuyNowState extends State<BuyNow> {
       setState(() {
         address = result;
       });
+      // persist selected address into usercached_values so backend and cart flow can reuse
+      await _saveCachedUserValues();
     }
   }
 
@@ -135,14 +106,18 @@ class _BuyNowState extends State<BuyNow> {
 
   Future<void> _handlePlaceOrder(int totalPrice, String uid) async {
     if (!_formKey.currentState!.validate()) return;
-    // Save name/phone/email to cache before placing order (for consistency with PlaceOrder)
+
+    // Save user values to cache before placing order
+    await _saveCachedUserValues();
 
     setState(() {
       isProcessing = true;
     });
     try {
-      final docRef = FirebaseFirestore.instance.collection('orders').doc();
-      final paymentId = docRef.id;
+      final paymentId = widget.paymentId;
+      if (paymentId == null || paymentId.isEmpty) {
+        throw Exception('Invalid payment ID');
+      }
       currentPaymentId = paymentId;
 
       String? payerId;
@@ -162,8 +137,8 @@ class _BuyNowState extends State<BuyNow> {
           phoneController.text.trim(),
           paymentId,
           payerId,
-          nameController.text.trim(),
-          emailController.text.trim(),
+          selectedOption.toString(),
+          pendingBuynowData?['deliveryManagerId']?.toString() ?? '',
         );
       } else {
         _launchBankPaymentPage(
@@ -171,8 +146,8 @@ class _BuyNowState extends State<BuyNow> {
           uid,
           phoneController.text.trim(),
           paymentId,
-          nameController.text.trim(),
-          emailController.text.trim(),
+          selectedOption.toString(),
+          pendingBuynowData?['deliveryManagerId']?.toString() ?? '',
         );
       }
     } catch (e) {
@@ -183,16 +158,6 @@ class _BuyNowState extends State<BuyNow> {
         isProcessing = false;
       });
     }
-  }
-
-  Stream<QuerySnapshot>? get _pendingOrdersStream {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (currentPaymentId == null || uid == null) return null;
-    return FirebaseFirestore.instance
-        .collection('pending_orders')
-        .where('userId', isEqualTo: uid)
-        .where('paymentId', isEqualTo: currentPaymentId)
-        .snapshots();
   }
 
   Widget _buildPaymentButton(int totalPrice, String uid) {
@@ -217,7 +182,6 @@ class _BuyNowState extends State<BuyNow> {
           );
         }
         if (status == 'failed') {
-          // Show failure message and delete pending order, then go back
           Future.microtask(() async {
             await pendingDoc.reference.delete();
             if (mounted) {
@@ -304,92 +268,18 @@ class _BuyNowState extends State<BuyNow> {
       isProcessing = true;
     });
     try {
-      final userData =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(FirebaseAuth.instance.currentUser!.uid)
-              .get();
-      final defaultAddressDoc =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .collection('addresses')
-              .doc(userData['defaultAddressId'])
-              .get();
-      final defaultAddress = defaultAddressDoc.data() as Map<String, dynamic>;
-      deliveryAddressController.text = defaultAddress['address'];
-      address = Address(
-        id: defaultAddress['id'],
-        name: defaultAddress['name'],
-        phone: defaultAddress['phone'],
-        address: defaultAddress['address'],
-        detailAddress: defaultAddress['detailAddress'],
-        isDefault: defaultAddress['isDefault'],
-        addressMap: defaultAddress['addressMap'],
-      );
-      if (pendingDocs.isEmpty) return;
-      final doc = pendingDocs.first;
+      // Backend has already handled:
+      // - Order creation
+      // - Stock updates
+      // - Settlement records
+      // - Receipt/Invoice issuance
+      // - pending_buynow cleanup
 
-      final productRef = FirebaseFirestore.instance
-          .collection('products')
-          .doc(widget.product.product_id);
-      // final productSnapshot = await productRef.get();
-
-      final orderQty = widget.quantity;
-
-      final orderRef = FirebaseFirestore.instance.collection('orders').doc();
-      final orderData = {
-        'orderId': orderRef.id,
-        'userId': uid,
-        'paymentId': currentPaymentId,
-        'deliveryAddressId': address.id,
-        'deliveryAddress': deliveryAddressController.text.trim(),
-        'deliveryAddressDetail': address.detailAddress,
-        'deliveryInstructions':
-            selectedRequest == '직접입력'
-                ? manualRequest?.trim() ?? ''
-                : selectedRequest.trim(),
-        'cashReceipt': cashReceiptController.text.trim(),
-        'paymentMethod': 'bank',
-        'orderDate': DateTime.now().toIso8601String(),
-        'totalPrice': widget.price,
-        'productId': widget.product.product_id,
-        'quantity': widget.quantity,
-        'courier': '',
-        'trackingNumber': '',
-        'trackingEvents': {},
-        'orderStatus': 'orderComplete',
-        'isRequested': false,
-        'deliveryManagerId': widget.product.deliveryManagerId,
-        'carrierId': '',
-        'isSent': false,
-        'confirmed': false,
-        'phoneNo': phoneController.text.trim(),
-      };
-      await orderRef.set(orderData);
-      await productRef.update({'stock': FieldValue.increment(-orderQty)});
-
-      // Add to order_settlement collection for settlement automation
-      final settlementRef = FirebaseFirestore.instance
-          .collection('order_settlement')
-          .doc(orderRef.id);
-      await settlementRef.set({
-        'orderId': orderRef.id,
-        'price': widget.price,
-        'deliveryManagerId': widget.product.deliveryManagerId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      await doc.reference.delete();
-      final cartSnapshot =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .collection('cart')
-              .get();
-      for (var doc in cartSnapshot.docs) {
-        await doc.reference.delete();
+      // Just clean up pending order and navigate
+      if (pendingDocs.isNotEmpty) {
+        await pendingDocs.first.reference.delete();
       }
+
       if (mounted) {
         setState(() {
           isProcessing = false;
@@ -410,11 +300,112 @@ class _BuyNowState extends State<BuyNow> {
   @override
   void initState() {
     super.initState();
-    _fetchBankAccounts();
-    _fetchUserPaymentInfo();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadCachedUserValues();
-    });
+    _init();
+  }
+
+  Future<void> _init() async {
+    await _fetchBankAccounts();
+    await _fetchUserPaymentInfo();
+    await _loadCachedUserValues();
+    await _loadPendingBuynowData();
+    await _ensureCachedAddressAndInstructions();
+  }
+
+  // Ensure usercached_values contains delivery address/instructions.
+  // If missing, populate from user's defaultAddressId so backend has values.
+  Future<void> _ensureCachedAddressAndInstructions() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final cacheRef = FirebaseFirestore.instance
+        .collection('usercached_values')
+        .doc(uid);
+    final cacheSnap = await cacheRef.get();
+    final cacheData =
+        cacheSnap.exists ? cacheSnap.data() as Map<String, dynamic> : {};
+
+    final hasAddress =
+        (cacheData['deliveryAddressId'] ?? '') != '' ||
+        (cacheData['deliveryAddress'] ?? '') != '';
+    final hasDeliveryInstr = (cacheData['deliveryInstructions'] ?? '') != '';
+
+    if (hasAddress && hasDeliveryInstr) return;
+
+    // Try to fetch user's default address
+    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    final userSnap = await userRef.get();
+    final userData =
+        userSnap.exists ? userSnap.data() as Map<String, dynamic> : {};
+    final defaultAddressId = userData['defaultAddressId'] as String?;
+
+    if (!hasAddress &&
+        defaultAddressId != null &&
+        defaultAddressId.isNotEmpty) {
+      final addrSnap =
+          await userRef.collection('addresses').doc(defaultAddressId).get();
+      if (addrSnap.exists) {
+        final addr = addrSnap.data() as Map<String, dynamic>;
+        // update local `address` used by UI
+        setState(() {
+          address = Address(
+            id: addr['id'] ?? defaultAddressId,
+            name: addr['name'] ?? '',
+            phone: addr['phone'] ?? '',
+            address: addr['address'] ?? '',
+            detailAddress: addr['detailAddress'] ?? '',
+            isDefault: addr['isDefault'] ?? false,
+            addressMap: addr['addressMap'] ?? {},
+          );
+        });
+
+        await cacheRef.set({
+          'deliveryAddressId': address.id,
+          'deliveryAddress': address.address,
+          'deliveryAddressDetail': address.detailAddress,
+          'recipientName': address.name,
+          'recipientPhone': address.phone,
+        }, SetOptions(merge: true));
+      }
+    }
+
+    if (!hasDeliveryInstr) {
+      // If there's a pending buynow doc with instructions prefer that
+      if (pendingBuynowData != null &&
+          (pendingBuynowData?['deliveryInstructions'] ?? '') != '') {
+        await cacheRef.set({
+          'deliveryInstructions':
+              pendingBuynowData?['deliveryInstructions'] ?? '',
+        }, SetOptions(merge: true));
+      } else {
+        // write empty string to ensure field exists
+        await cacheRef.set({
+          'deliveryInstructions': '',
+        }, SetOptions(merge: true));
+      }
+    }
+  }
+
+  Future<void> _loadPendingBuynowData() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || widget.paymentId == null) return;
+    try {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('pending_buynow')
+              .doc(widget.paymentId)
+              .get();
+      if (doc.exists) {
+        setState(() {
+          pendingBuynowData = doc.data();
+          pendingPrice = pendingBuynowData?['price'] ?? 0;
+          pendingQuantity = pendingBuynowData?['quantity'] ?? 0;
+        });
+      }
+    } catch (e) {
+      print('Error loading pending_buynow: $e');
+    }
   }
 
   Future<void> _loadCachedUserValues() async {
@@ -427,10 +418,16 @@ class _BuyNowState extends State<BuyNow> {
             .get();
     if (doc.exists) {
       final data = doc.data();
-      if (data != null) {
-        nameController.text = data['name'] ?? '';
-        emailController.text = data['email'] ?? '';
-        phoneController.text = data['phone'] ?? '';
+      if (data != null && mounted) {
+        setState(() {
+          nameController.text = data['name'] ?? '';
+          emailController.text = data['email'] ?? '';
+          phoneController.text = data['phone'] ?? '';
+          invoiceeType = data['invoiceeType'] ?? '사업자';
+          invoiceeCorpNumController.text = data['invoiceeCorpNum'] ?? '';
+          invoiceeCorpNameController.text = data['invoiceeCorpName'] ?? '';
+          invoiceeCEONameController.text = data['invoiceeCEOName'] ?? '';
+        });
       }
     }
   }
@@ -668,7 +665,7 @@ class _BuyNowState extends State<BuyNow> {
                                               fontSize: 15,
                                               fontFamily: 'NotoSans',
                                               fontWeight: FontWeight.w400,
-                                              height: 1.4,
+                                              height: 1.40,
                                             ),
                                           ),
                                           SizedBox(height: 8),
@@ -745,7 +742,7 @@ class _BuyNowState extends State<BuyNow> {
                                             fontSize: 16,
                                             fontFamily: 'NotoSans',
                                             fontWeight: FontWeight.w400,
-                                            height: 1.4,
+                                            height: 1.40,
                                           ),
                                         ),
                                       ),
@@ -768,6 +765,8 @@ class _BuyNowState extends State<BuyNow> {
                               });
                               // also notify parent state if needed:
                               setState(() {});
+                              // persist delivery request to user cache
+                              _saveCachedUserValues();
                             },
                             icon: Icon(Icons.keyboard_arrow_down),
                           );
@@ -778,8 +777,11 @@ class _BuyNowState extends State<BuyNow> {
                         SizedBox(height: 12),
                         TextFormField(
                           initialValue: manualRequest,
-                          onChanged:
-                              (text) => setState(() => manualRequest = text),
+                          onChanged: (text) {
+                            setState(() => manualRequest = text);
+                            // persist manual delivery instruction
+                            _saveCachedUserValues();
+                          },
                           decoration: InputDecoration(
                             labelText: '직접 입력',
                             hintText: '배송 요청을 입력하세요',
@@ -800,7 +802,7 @@ class _BuyNowState extends State<BuyNow> {
                           fontSize: 16,
                           fontFamily: 'NotoSans',
                           fontWeight: FontWeight.w400,
-                          height: 1.40,
+                          height: 1.4,
                         ),
                       ),
                       Container(
@@ -1026,8 +1028,9 @@ class _BuyNowState extends State<BuyNow> {
                                     onChanged: (value) {
                                       setStateRadio(() {
                                         selectedOption = value!;
-                                        print("Button value: $value");
                                       });
+                                      // Also trigger parent rebuild:
+                                      setState(() {});
                                     },
                                   ),
                                   Text(
@@ -1049,8 +1052,9 @@ class _BuyNowState extends State<BuyNow> {
                                     onChanged: (value) {
                                       setStateRadio(() {
                                         selectedOption = value!;
-                                        print("Button value: $value");
                                       });
+                                      // Also trigger parent rebuild:
+                                      setState(() {});
                                     },
                                   ),
                                   Text(
@@ -1068,110 +1072,262 @@ class _BuyNowState extends State<BuyNow> {
                           );
                         },
                       ),
-                      UnderlineTextField(
-                        controller: nameController,
-                        hintText: '이름',
-                        obscureText: false,
-                        keyboardType: TextInputType.text,
-                        validator: (val) {
-                          if (val!.isEmpty) {
-                            return '이름을 입력하세요';
-                          } else if (val.length > 30) {
-                            return '이름이 너무 깁니다';
-                          }
-                          return null;
-                        },
-                        onChanged: (val) {
-                          _saveCachedUserValues();
-                        },
-                      ),
-                      SizedBox(height: 10),
-                      UnderlineTextField(
-                        controller: emailController,
-                        hintText: '이메일',
-                        obscureText: false,
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (val) {
-                          if (val!.isEmpty) {
-                            return '이메일을 입력하세요';
-                          }
-                          return null;
-                        },
-                        onChanged: (val) {
-                          _saveCachedUserValues();
-                        },
-                      ),
-                      SizedBox(height: 10),
-                      UnderlineTextField(
-                        controller: phoneController,
-                        hintText: '전화번호',
-                        obscureText: false,
-                        keyboardType: TextInputType.phone,
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return '전화번호를 입력해주세요';
-                          }
-                          final koreanReg = RegExp(
-                            r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
-                          );
-                          if (!koreanReg.hasMatch(val)) {
-                            return '유효한 한국 전화번호를 입력하세요';
-                          }
-                          return null;
-                        },
-                        onChanged: (val) {
-                          _saveCachedUserValues();
-                        },
-                      ),
+                      // --- conditional: cash receipt (selectedOption == 1) OR tax invoice (selectedOption == 2) ---
+                      if (selectedOption == 1) ...[
+                        // Cash receipt — keep your existing fields (unchanged)
+                        UnderlineTextField(
+                          controller: nameController,
+                          hintText: '이름',
+                          obscureText: false,
+                          keyboardType: TextInputType.text,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return '이름을 입력해주세요';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) {
+                            _saveCachedUserValues();
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 10),
+                        UnderlineTextField(
+                          controller: emailController,
+                          hintText: '이메일',
+                          obscureText: false,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return '이메일을 입력해주세요';
+                            }
+                            if (!RegExp(r'^.+@.+\..+$').hasMatch(val.trim())) {
+                              return '유효한 이메일을 입력해주세요';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) {
+                            _saveCachedUserValues();
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 10),
+                        UnderlineTextField(
+                          controller: phoneController,
+                          hintText: '전화번호 ',
+                          obscureText: false,
+                          keyboardType: TextInputType.phone,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return '전화번호를 입력해주세요';
+                            }
+                            final koreanReg = RegExp(
+                              r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
+                            );
+                            if (!koreanReg.hasMatch(val)) {
+                              return '유효한 한국 전화번호를 입력하세요';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) {
+                            _saveCachedUserValues();
+                            return null;
+                          },
+                        ),
+                      ] else ...[
+                        // Tax invoice UI
+                        DropdownButtonFormField<String>(
+                          dropdownColor: Colors.white,
+                          value: invoiceeType,
+                          items:
+                              ['사업자', '개인', '외국인']
+                                  .map(
+                                    (t) => DropdownMenuItem(
+                                      value: t,
+                                      child: Text(t),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (val) {
+                            setState(() => invoiceeType = val ?? '사업자');
+                            _saveCachedUserValues();
+                          },
+
+                          decoration: const InputDecoration(
+                            border: UnderlineInputBorder(),
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 0,
+                              vertical: 8,
+                            ),
+                          ),
+                          icon: Icon(Icons.keyboard_arrow_down),
+                        ),
+                        SizedBox(height: 10),
+
+                        // 사업자번호 only when 사업자
+                        UnderlineTextField(
+                          obscureText: false,
+                          controller: invoiceeCorpNumController,
+                          hintText: '공급받는자 사업자번호',
+                          keyboardType: TextInputType.number,
+                          validator: (val) {
+                            if (invoiceeType == '사업자') {
+                              if (val == null || val.trim().isEmpty) {
+                                return '사업자번호를 입력해주세요';
+                              }
+                              if (!RegExp(
+                                r'^[0-9]{10}$',
+                              ).hasMatch(val.trim())) {
+                                return '사업자번호는 숫자 10자리여야 합니다';
+                              }
+                              // optional: add basic format check (remove non-digits)
+                            }
+                            return null;
+                          },
+                          onChanged: (val) {
+                            _saveCachedUserValues();
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 10),
+
+                        UnderlineTextField(
+                          obscureText: false,
+                          controller: invoiceeCorpNameController,
+                          hintText: '공급받는자 상호',
+                          keyboardType: TextInputType.text,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return '이름을 입력해주세요';
+                            }
+                            if (val.trim().length > 200) {
+                              return '입력은 최대 200자까지 가능합니다';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) {
+                            _saveCachedUserValues();
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 10),
+
+                        UnderlineTextField(
+                          obscureText: false,
+                          controller: invoiceeCEONameController,
+                          hintText: '공급받는자 대표자 성명',
+                          keyboardType: TextInputType.text,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return '대표자 성명을 입력해주세요';
+                            }
+                            if (val.trim().length > 200) {
+                              return '입력은 최대 200자까지 가능합니다';
+                            }
+
+                            return null;
+                          },
+                          onChanged: (val) {
+                            _saveCachedUserValues();
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 10),
+
+                        UnderlineTextField(
+                          controller: emailController,
+                          hintText: '이메일',
+                          obscureText: false,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return '이메일을 입력해주세요';
+                            }
+                            if (!RegExp(r'^.+@.+\..+$').hasMatch(val.trim())) {
+                              return '유효한 이메일을 입력해주세요';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) {
+                            _saveCachedUserValues();
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 10),
+                        UnderlineTextField(
+                          controller: phoneController,
+                          hintText: '전화번호 ',
+                          obscureText: false,
+                          keyboardType: TextInputType.phone,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return '전화번호를 입력해주세요';
+                            }
+                            final koreanReg = RegExp(
+                              r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
+                            );
+                            if (!koreanReg.hasMatch(val)) {
+                              return '유효한 한국 전화번호를 입력하세요';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) {
+                            _saveCachedUserValues();
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 10),
+                      ],
                     ],
                   ),
                 ),
               ),
-              verticalSpace(10),
+              verticalSpace(20),
               // --- Single product summary for Buy Now ---
-              Container(
-                padding: EdgeInsets.only(left: 15, top: 15, bottom: 15),
-                decoration: ShapeDecoration(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    side: BorderSide(
-                      width: 0.27,
-                      color: const Color(0xFF747474),
+              if (pendingBuynowData != null)
+                Container(
+                  padding: EdgeInsets.only(left: 15, top: 15, bottom: 15),
+                  decoration: ShapeDecoration(
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      side: BorderSide(
+                        width: 0.27,
+                        color: const Color(0xFF747474),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('구매목록', style: TextStyles.abeezee16px400wPblack),
+                      verticalSpace(10),
+                      Text(
+                        '${pendingBuynowData!['product_name']} / 수량 : $pendingQuantity',
+                        style: TextStyle(
+                          color: const Color(0xFF747474),
+                          fontSize: 14,
+                          fontFamily: 'NotoSans',
+                          fontWeight: FontWeight.w400,
+                          height: 1.40,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '${formatCurrency.format(pendingPrice)} 원',
+                        style: TextStyle(
+                          color: const Color(0xFF747474),
+                          fontSize: 14,
+                          fontFamily: 'NotoSans',
+                          fontWeight: FontWeight.w600,
+                          height: 1.40,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('구매목록', style: TextStyles.abeezee16px400wPblack),
-                    verticalSpace(10),
-                    Text(
-                      '${widget.product.productName} / 수량 : ${widget.quantity}',
-                      style: TextStyle(
-                        color: const Color(0xFF747474),
-                        fontSize: 14,
-                        fontFamily: 'NotoSans',
-                        fontWeight: FontWeight.w400,
-                        height: 1.40,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      '${formatCurrency.format(widget.price)} 원',
-                      style: TextStyle(
-                        color: const Color(0xFF747474),
-                        fontSize: 14,
-                        fontFamily: 'NotoSans',
-                        fontWeight: FontWeight.w600,
-                        height: 1.40,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               verticalSpace(10),
-
               // --- Total and payment button for Buy Now ---
             ],
           ),
@@ -1197,7 +1353,7 @@ class _BuyNowState extends State<BuyNow> {
                     ),
                   ),
                   Text(
-                    '${formatCurrency.format(widget.price)} 원',
+                    '${formatCurrency.format(pendingPrice)} 원',
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: 18,
@@ -1209,7 +1365,7 @@ class _BuyNowState extends State<BuyNow> {
                 ],
               ),
               SizedBox(height: 8),
-              _buildPaymentButton(widget.price, uid),
+              _buildPaymentButton(pendingPrice, uid),
             ],
           ),
         ),
@@ -1251,53 +1407,16 @@ class _BuyNowState extends State<BuyNow> {
     return total;
   }
 
-  void _launchCardPaymentPage(
-    String amount,
-    String userId,
-    String phoneNo,
-    String paymentId,
-    String userName,
-    String email,
-  ) async {
-    final url = Uri.parse(
-      'https://pay.pang2chocolate.com/p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&userName=$userName&email=$email',
-    );
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
-
-  void _launchCardRpaymentPage(
-    String amount,
-    String userId,
-    String phoneNo,
-    String paymentId,
-    String payerId,
-    String userName,
-    String email,
-  ) async {
-    final url = Uri.parse(
-      'https://pay.pang2chocolate.com/r-p-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&userName=$userName&email=$email',
-    );
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
-
   void _launchBankPaymentPage(
     String amount,
     String userId,
     String phoneNo,
     String paymentId,
-    String userName,
-    String email,
+    String option,
+    String dm,
   ) async {
     final url = Uri.parse(
-      'https://pay.pang2chocolate.com/b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&userName=$userName&email=$email',
+      'https://pay.pang2chocolate.com/b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&option=$option&dm=$dm',
     );
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
@@ -1312,11 +1431,11 @@ class _BuyNowState extends State<BuyNow> {
     String phoneNo,
     String paymentId,
     String payerId,
-    String userName,
-    String email,
+    String option,
+    String dm,
   ) async {
     final url = Uri.parse(
-      'https://pay.pang2chocolate.com/r-b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&userName=$userName&email=$email',
+      'https://pay.pang2chocolate.com/r-b-payment.html?paymentId=$paymentId&amount=$amount&userId=$userId&phoneNo=$phoneNo&payerId=$payerId&option=$option&dm=$dm',
     );
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
@@ -1328,15 +1447,26 @@ class _BuyNowState extends State<BuyNow> {
   Future<void> _saveCachedUserValues() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    await FirebaseFirestore.instance
-        .collection('usercached_values')
-        .doc(uid)
-        .set({
-          'userId': uid,
-          'name': nameController.text.trim(),
-          'email': emailController.text.trim(),
-          'phone': phoneController.text.trim(),
-        }, SetOptions(merge: true));
+    await FirebaseFirestore.instance.collection('usercached_values').doc(uid).set({
+      'userId': uid,
+      'name': nameController.text.trim(),
+      'email': emailController.text.trim(),
+      'phone': phoneController.text.trim(),
+      'invoiceeType': invoiceeType,
+      'invoiceeCorpNum': invoiceeCorpNumController.text.trim(),
+      'invoiceeCorpName': invoiceeCorpNameController.text.trim(),
+      'invoiceeCEOName': invoiceeCEONameController.text.trim(),
+      // Address + delivery instructions cached so both BuyNow and Cart flows can reuse
+      'deliveryAddressId': address.id,
+      'deliveryAddress': address.address,
+      'deliveryAddressDetail': address.detailAddress,
+      'deliveryInstructions':
+          selectedRequest == '직접입력'
+              ? (manualRequest?.trim() ?? '')
+              : selectedRequest,
+      'recipientName': address.name,
+      'recipientPhone': address.phone,
+    }, SetOptions(merge: true));
   }
 
   Future<bool> isPaymentCompleted(String orderId, String uid) async {
@@ -1367,9 +1497,5 @@ class _BuyNowState extends State<BuyNow> {
       print("Error fetching payerId: $e");
       return null;
     }
-  }
-
-  String? _getCurrentPendingStatus() {
-    return null;
   }
 }

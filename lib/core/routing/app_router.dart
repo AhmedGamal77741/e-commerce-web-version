@@ -239,22 +239,14 @@ class AppRouter {
             name: Routes.buyNowScreen,
             path: Routes.buyNowScreen,
             builder: (context, state) {
-              final extra = state.extra as Map<String, dynamic>?;
-              if (extra == null ||
-                  !extra.containsKey('product') ||
-                  !extra.containsKey('quantity') ||
-                  !extra.containsKey('price')) {
+              // Expect a paymentId query parameter created by the client
+              final paymentId = state.uri.queryParameters['paymentId'];
+              if (paymentId == null || paymentId.isEmpty) {
                 return Scaffold(
-                  body: Center(
-                    child: Text('잘못된 접근입니다. (Missing Buy Now arguments)'),
-                  ),
+                  body: Center(child: Text('잘못된 접근입니다. (Missing paymentId)')),
                 );
               }
-              return BuyNow(
-                product: extra['product'],
-                quantity: extra['quantity'],
-                price: extra['price'],
-              );
+              return BuyNow(paymentId: paymentId);
             },
           ),
         ],
