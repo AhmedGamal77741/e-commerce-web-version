@@ -258,6 +258,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
   String? manualRequest;
   bool isProcessing = false;
   String? currentPaymentId;
+  StreamSubscription<QuerySnapshot>? _pendingOrderSub;
   final Set<String> _finalizedPayments = {};
   int paymentMethod = 0;
   Map<String, dynamic>? userBank;
@@ -295,6 +296,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
       final docRef = FirebaseFirestore.instance.collection('orders').doc();
       final paymentId = docRef.id;
       currentPaymentId = paymentId;
+      // Start listening for pending order updates for this paymentId
+      _subscribePendingOrder(paymentId, uid);
 
       String? payerId;
       if (bankAccounts.isNotEmpty &&
@@ -336,6 +339,83 @@ class _PlaceOrderState extends State<PlaceOrder> {
         isProcessing = false;
       });
     }
+  }
+
+  void _subscribePendingOrder(String paymentId, String uid) {
+    // Cancel any existing subscription first
+    _pendingOrderSub?.cancel();
+    _pendingOrderSub = FirebaseFirestore.instance
+        .collection('pending_orders')
+        .where('userId', isEqualTo: uid)
+        .where('paymentId', isEqualTo: paymentId)
+        .snapshots()
+        .listen((snapshot) async {
+          if (!mounted) return;
+          final docs = snapshot.docs;
+          if (docs.isNotEmpty) {
+            final pendingDoc = docs.first;
+            final status = pendingDoc['status'] as String?;
+            if (status == 'failed') {
+              // remove doc and notify user
+              try {
+                await pendingDoc.reference.delete();
+              } catch (_) {}
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('결제 실패. 다시 시도해주세요.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                setState(() {
+                  currentPaymentId = null;
+                  isProcessing = false;
+                });
+              }
+              return;
+            }
+            if (status == 'success') {
+              final paymentIdFromDoc = pendingDoc['paymentId'] as String?;
+              if (paymentIdFromDoc != null &&
+                  !_finalizedPayments.contains(paymentIdFromDoc)) {
+                _finalizedPayments.add(paymentIdFromDoc);
+                if (!isProcessing && mounted) {
+                  setState(() => isProcessing = true);
+                }
+                // finalize order
+                await _finalizeOrderAfterPayment([pendingDoc], uid);
+              }
+            }
+          } else {
+            // pending doc was removed before we saw a 'success' status.
+            // Try to detect the created order in `orders` collection as fallback.
+            if (currentPaymentId == paymentId) {
+              try {
+                final orderQuery =
+                    await FirebaseFirestore.instance
+                        .collection('orders')
+                        .where('paymentId', isEqualTo: paymentId)
+                        .where('userId', isEqualTo: uid)
+                        .limit(1)
+                        .get();
+                if (orderQuery.docs.isNotEmpty) {
+                  // Treat this as success and finalize
+                  if (!_finalizedPayments.contains(paymentId)) {
+                    _finalizedPayments.add(paymentId);
+                    if (!isProcessing && mounted)
+                      setState(() => isProcessing = true);
+                    await _finalizeOrderAfterPayment([], uid);
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+        });
+  }
+
+  Future<void> _cancelPendingOrderSubscription() async {
+    await _pendingOrderSub?.cancel();
+    _pendingOrderSub = null;
   }
 
   Stream<QuerySnapshot>? get _pendingOrdersStream {
@@ -474,6 +554,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
         await pendingDocs.first.reference.delete();
       }
 
+      // Cancel subscription (if any) before navigating
+      await _cancelPendingOrderSubscription();
+
       if (mounted) {
         setState(() {
           isProcessing = false;
@@ -495,6 +578,12 @@ class _PlaceOrderState extends State<PlaceOrder> {
   void initState() {
     super.initState();
     _init();
+  }
+
+  @override
+  void dispose() {
+    _pendingOrderSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _init() async {
