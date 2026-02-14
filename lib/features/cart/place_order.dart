@@ -388,6 +388,12 @@ class _PlaceOrderState extends State<PlaceOrder> {
           final paymentId = pendingDoc['paymentId'] as String?;
           if (paymentId != null && !_finalizedPayments.contains(paymentId)) {
             _finalizedPayments.add(paymentId);
+            // Set isProcessing = true so UI shows loading state
+            if (!isProcessing) {
+              setState(() {
+                isProcessing = true;
+              });
+            }
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _finalizeOrderAfterPayment([pendingDoc], uid);
             });
