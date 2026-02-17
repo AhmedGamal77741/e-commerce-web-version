@@ -1,4 +1,6 @@
 // models/message_model.dart
+import 'package:ecommerece_app/core/models/product_model.dart';
+
 class MessageModel {
   final String id;
   final String chatRoomId;
@@ -12,7 +14,10 @@ class MessageModel {
   final bool isEdited;
   final List<String> lovedBy;
   List<String> deletedBy;
-
+  bool isStory = false;
+  final String? storyId;
+  final Map<String, dynamic>? postData;
+  final Product? productData;
   MessageModel({
     required this.id,
     required this.chatRoomId,
@@ -26,6 +31,10 @@ class MessageModel {
     this.isEdited = false,
     this.lovedBy = const [],
     this.deletedBy = const [],
+    this.isStory = false,
+    this.storyId,
+    this.postData,
+    this.productData,
   });
 
   factory MessageModel.fromMap(Map<String, dynamic> map) {
@@ -42,6 +51,16 @@ class MessageModel {
       isEdited: map['isEdited'] ?? false,
       lovedBy: List<String>.from(map['lovedBy'] ?? []),
       deletedBy: List<String>.from(map['deletedBy'] ?? []),
+      isStory: map['isStory'] ?? false,
+      storyId: map['storyId'] ?? '',
+      postData:
+          map['postData'] != null
+              ? Map<String, dynamic>.from(map['postData'])
+              : null,
+      productData:
+          map['productData'] != null
+              ? Product.fromMap(Map<String, dynamic>.from(map['productData']))
+              : null,
     );
   }
 
@@ -59,6 +78,10 @@ class MessageModel {
       'isEdited': isEdited,
       'lovedBy': lovedBy,
       'deletedBy': deletedBy,
+      'isStory': isStory,
+      'storyId': storyId,
+      'postData': postData,
+      'productData': productData?.toMap(),
     };
   }
 }

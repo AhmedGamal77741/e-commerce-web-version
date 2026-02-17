@@ -1,12 +1,16 @@
 import 'package:ecommerece_app/core/helpers/spacing.dart';
+import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/services/share_service.dart';
+import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
+import 'package:ecommerece_app/features/auth/signup/data/models/user_entity.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/home/comments.dart';
 import 'package:ecommerece_app/features/home/data/follow_service.dart';
 import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:ecommerece_app/features/home/widgets/post_actions.dart';
+import 'package:ecommerece_app/features/home/widgets/share_dialog.dart';
 import 'package:ecommerece_app/features/home/widgets/show_post_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,6 +18,8 @@ import 'package:flutter/material.dart';
 
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:shimmer/shimmer.dart';
 
 class PostItem extends StatelessWidget {
   final String postId;
@@ -226,6 +232,10 @@ class PostItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ScreenshotController _fromCommentsScreenshotController =
+        ScreenshotController();
+    final ScreenshotController _notFromCommentsScreenshotController =
+        ScreenshotController();
     final postsProvider = Provider.of<PostsProvider>(context, listen: false);
     if (postsProvider.getComments(postId).isEmpty &&
         !postsProvider.isLoadingComments(postId)) {
@@ -256,21 +266,395 @@ class PostItem extends StatelessWidget {
               children: [
                 // ── fromComments branch (unchanged) ───────────────────────
                 if (fromComments)
-                  Padding(
-                    padding: EdgeInsets.only(top: 5, left: 10, right: 10),
-                    child: Column(
-                      children: [
-                        Row(
+                  Screenshot(
+                    controller: _fromCommentsScreenshotController,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 5, left: 10, right: 10),
+                      child: Column(
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: ShapeDecoration(
+                                  image: DecorationImage(
+                                    image:
+                                        profileUrl.isNotEmpty
+                                            ? NetworkImage(profileUrl)
+                                            : AssetImage('assets/avatar.png')
+                                                as ImageProvider,
+                                    fit: BoxFit.cover,
+                                  ),
+                                  shape: OvalBorder(),
+                                ),
+                              ),
+                              horizontalSpace(5),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    verticalSpace(5),
+                                    Text(
+                                      displayName,
+                                      style: TextStyles.abeezee16px400wPblack
+                                          .copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                    if (!userMissing &&
+                                        myuser!.userId.isNotEmpty)
+                                      StreamBuilder<QuerySnapshot>(
+                                        stream:
+                                            FirebaseFirestore.instance
+                                                .collection('users')
+                                                .doc(myuser.userId)
+                                                .collection('followers')
+                                                .snapshots(),
+                                        builder: (context, subSnap) {
+                                          if (subSnap.connectionState ==
+                                              ConnectionState.waiting) {
+                                            return SizedBox(height: 16);
+                                          }
+                                          if (subSnap.hasError) {
+                                            return Text(
+                                              '구독자 오류',
+                                              style: TextStyle(
+                                                color: Colors.red,
+                                                fontSize: 16,
+                                              ),
+                                            );
+                                          }
+                                          final count =
+                                              subSnap.data?.docs.length ?? 0;
+                                          final formatted = count
+                                              .toString()
+                                              .replaceAllMapped(
+                                                RegExp(r'\B(?=(\d{3})+(?!\d))'),
+                                                (match) => ',',
+                                              );
+                                          return Padding(
+                                            padding: EdgeInsets.only(top: 2),
+                                            child: Text(
+                                              '구독자 $formatted명',
+                                              style: TextStyle(
+                                                color: const Color(0xFF787878),
+                                                fontSize: 16,
+                                                fontFamily: 'NotoSans',
+                                                fontWeight: FontWeight.w400,
+                                                height: 1.40,
+                                                letterSpacing: -0.09,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Spacer(),
+                              if (!userMissing &&
+                                  myuser!.userId !=
+                                      FirebaseAuth.instance.currentUser?.uid)
+                                StreamBuilder<DocumentSnapshot>(
+                                  stream:
+                                      FirebaseFirestore.instance
+                                          .collection('users')
+                                          .doc(
+                                            FirebaseAuth
+                                                .instance
+                                                .currentUser
+                                                ?.uid,
+                                          )
+                                          .collection('following')
+                                          .doc(myuser.userId)
+                                          .snapshots(),
+                                  builder: (context, snapshot) {
+                                    final isFollowing =
+                                        snapshot.hasData &&
+                                        snapshot.data!.exists;
+                                    final isPrivate =
+                                        myuser?.isPrivate ?? false;
+
+                                    if (isFollowing) {
+                                      return PopupMenuButton<String>(
+                                        onSelected: (value) async {
+                                          if (value == 'share') {
+                                            showShareDialog(
+                                              context,
+                                              'https://app.pang2chocolate.com/comment?postId=$postId',
+                                              postId,
+                                              myuser.name,
+                                              myuser.url,
+                                              postData,
+                                            );
+                                            /*                                           ShareService.sharePost(postId);
+                     */
+                                          } else if (value == 'unfollow') {
+                                            FollowService().toggleFollow(
+                                              myuser.userId,
+                                            );
+                                          }
+                                        },
+                                        color: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        itemBuilder:
+                                            (BuildContext context) => [
+                                              PopupMenuItem<String>(
+                                                value: 'share',
+                                                child: Text(
+                                                  '공유',
+                                                  style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ),
+                                              PopupMenuItem<String>(
+                                                value: 'unfollow',
+                                                child: Text(
+                                                  '구독 취소',
+                                                  style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                        child: Icon(
+                                          Icons.more_horiz,
+                                          color: Colors.black,
+                                          size: 22,
+                                        ),
+                                      );
+                                    }
+
+                                    if (isPrivate) {
+                                      return StreamBuilder<DocumentSnapshot>(
+                                        stream:
+                                            FirebaseFirestore.instance
+                                                .collection('users')
+                                                .doc(myuser.userId)
+                                                .collection('followRequests')
+                                                .doc(
+                                                  FirebaseAuth
+                                                      .instance
+                                                      .currentUser
+                                                      ?.uid,
+                                                )
+                                                .snapshots(),
+                                        builder: (context, requestSnapshot) {
+                                          final hasRequest =
+                                              requestSnapshot.hasData &&
+                                              requestSnapshot.data!.exists;
+                                          return ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  hasRequest
+                                                      ? Colors.grey[300]
+                                                      : Colors.black,
+                                              foregroundColor:
+                                                  hasRequest
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              minimumSize: Size(35, 33),
+                                              textStyle: TextStyle(
+                                                fontSize: 12,
+                                                fontFamily: 'NotoSans',
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                            ),
+                                            onPressed: () async {
+                                              if (hasRequest) {
+                                                await FirebaseFirestore.instance
+                                                    .collection('users')
+                                                    .doc(myuser.userId)
+                                                    .collection(
+                                                      'followRequests',
+                                                    )
+                                                    .doc(
+                                                      FirebaseAuth
+                                                          .instance
+                                                          .currentUser
+                                                          ?.uid,
+                                                    )
+                                                    .delete();
+                                              } else {
+                                                await FirebaseFirestore.instance
+                                                    .collection('users')
+                                                    .doc(myuser.userId)
+                                                    .collection(
+                                                      'followRequests',
+                                                    )
+                                                    .doc(
+                                                      FirebaseAuth
+                                                          .instance
+                                                          .currentUser
+                                                          ?.uid,
+                                                    )
+                                                    .set({
+                                                      'timestamp':
+                                                          FieldValue.serverTimestamp(),
+                                                    });
+                                              }
+                                            },
+                                            child: Text(
+                                              hasRequest ? '요청 취소' : '구독 신청',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontFamily: 'NotoSans',
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    }
+
+                                    return ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.black,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: Size(40, 28),
+                                        textStyle: TextStyle(
+                                          fontSize: 12,
+                                          fontFamily: 'NotoSans',
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: () async {
+                                        FollowService().toggleFollow(
+                                          myuser.userId,
+                                        );
+                                      },
+                                      child: Text(
+                                        '구독',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontFamily: 'NotoSans',
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                          if (postData['text'].toString().isNotEmpty)
+                            Padding(
+                              padding: EdgeInsets.only(top: 15),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      postData['text'],
+                                      style: TextStyle(
+                                        color: const Color(0xFF343434),
+                                        fontSize: 18,
+                                        fontFamily: 'NotoSans',
+                                        fontWeight: FontWeight.w500,
+                                        height: 1.40,
+                                        letterSpacing: -0.09,
+                                      ),
+                                    ),
+                                  ),
+                                  if (showMoreButton) ...[
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.more_vert,
+                                        color: Colors.black,
+                                        size: 22,
+                                      ),
+                                      onPressed: () {
+                                        showPostMenu(
+                                          context,
+                                          postId,
+                                          myuser?.userId ?? '',
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          verticalSpace(5),
+                          if (postData['imgUrl'].isNotEmpty)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(30),
+                              child: Image.network(
+                                postData['imgUrl'],
+                                fit: BoxFit.fitWidth,
+                                width: double.infinity,
+                              ),
+                            ),
+                          verticalSpace(30),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              PostActions(postId: postId, postData: postData),
+                              horizontalSpace(4),
+                              Expanded(
+                                child: Container(
+                                  height: 1,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () => context.pop(),
+                                child: Icon(Icons.close),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // ── !fromComments branch ──────────────────────────────────
+                if (!fromComments)
+                  Screenshot(
+                    controller: _notFromCommentsScreenshotController,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => Comments(postId: postId),
+                            ),
+                          );
+                        },
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Avatar
                             Container(
-                              width: 56,
-                              height: 56,
+                              width: 65,
+                              height: 65,
                               decoration: ShapeDecoration(
                                 image: DecorationImage(
                                   image:
-                                      profileUrl.isNotEmpty
-                                          ? NetworkImage(profileUrl)
+                                      (myuser?.url != null &&
+                                              myuser!.url.isNotEmpty)
+                                          ? NetworkImage(myuser.url)
                                           : AssetImage('assets/avatar.png')
                                               as ImageProvider,
                                   fit: BoxFit.cover,
@@ -278,420 +662,80 @@ class PostItem extends StatelessWidget {
                                 shape: OvalBorder(),
                               ),
                             ),
-                            horizontalSpace(5),
+                            horizontalSpace(8),
+
+                            // Body
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  verticalSpace(5),
+                                  verticalSpace(10),
                                   Text(
                                     displayName,
                                     style: TextStyles.abeezee16px400wPblack
                                         .copyWith(fontWeight: FontWeight.bold),
                                   ),
-                                  if (!userMissing && myuser!.userId.isNotEmpty)
-                                    StreamBuilder<QuerySnapshot>(
-                                      stream:
-                                          FirebaseFirestore.instance
-                                              .collection('users')
-                                              .doc(myuser.userId)
-                                              .collection('followers')
-                                              .snapshots(),
-                                      builder: (context, subSnap) {
-                                        if (subSnap.connectionState ==
-                                            ConnectionState.waiting) {
-                                          return SizedBox(height: 16);
-                                        }
-                                        if (subSnap.hasError) {
-                                          return Text(
-                                            '구독자 오류',
-                                            style: TextStyle(
-                                              color: Colors.red,
-                                              fontSize: 16,
-                                            ),
-                                          );
-                                        }
-                                        final count =
-                                            subSnap.data?.docs.length ?? 0;
-                                        final formatted = count
-                                            .toString()
-                                            .replaceAllMapped(
-                                              RegExp(r'\B(?=(\d{3})+(?!\d))'),
-                                              (match) => ',',
-                                            );
-                                        return Padding(
-                                          padding: EdgeInsets.only(top: 2),
-                                          child: Text(
-                                            '구독자 $formatted명',
-                                            style: TextStyle(
-                                              color: const Color(0xFF787878),
-                                              fontSize: 16,
-                                              fontFamily: 'NotoSans',
-                                              fontWeight: FontWeight.w400,
-                                              height: 1.40,
-                                              letterSpacing: -0.09,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                ],
-                              ),
-                            ),
-                            Spacer(),
-                            if (!userMissing &&
-                                myuser!.userId !=
-                                    FirebaseAuth.instance.currentUser?.uid)
-                              StreamBuilder<DocumentSnapshot>(
-                                stream:
-                                    FirebaseFirestore.instance
-                                        .collection('users')
-                                        .doc(
-                                          FirebaseAuth
-                                              .instance
-                                              .currentUser
-                                              ?.uid,
-                                        )
-                                        .collection('following')
-                                        .doc(myuser.userId)
-                                        .snapshots(),
-                                builder: (context, snapshot) {
-                                  final isFollowing =
-                                      snapshot.hasData && snapshot.data!.exists;
-                                  final isPrivate = myuser?.isPrivate ?? false;
-
-                                  if (isFollowing) {
-                                    return PopupMenuButton<String>(
-                                      onSelected: (value) async {
-                                        if (value == 'share') {
-                                          ShareService.sharePost(postId);
-                                        } else if (value == 'unfollow') {
-                                          FollowService().toggleFollow(
-                                            myuser.userId,
-                                          );
-                                        }
-                                      },
-                                      color: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      itemBuilder:
-                                          (BuildContext context) => [
-                                            PopupMenuItem<String>(
-                                              value: 'share',
-                                              child: Text(
-                                                '공유',
-                                                style: TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                            ),
-                                            PopupMenuItem<String>(
-                                              value: 'unfollow',
-                                              child: Text(
-                                                '구독 취소',
-                                                style: TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                      child: Icon(
-                                        Icons.more_horiz,
-                                        color: Colors.black,
-                                        size: 22,
-                                      ),
-                                    );
-                                  }
-
-                                  if (isPrivate) {
-                                    return StreamBuilder<DocumentSnapshot>(
-                                      stream:
-                                          FirebaseFirestore.instance
-                                              .collection('users')
-                                              .doc(myuser.userId)
-                                              .collection('followRequests')
-                                              .doc(
-                                                FirebaseAuth
-                                                    .instance
-                                                    .currentUser
-                                                    ?.uid,
-                                              )
-                                              .snapshots(),
-                                      builder: (context, requestSnapshot) {
-                                        final hasRequest =
-                                            requestSnapshot.hasData &&
-                                            requestSnapshot.data!.exists;
-                                        return ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                hasRequest
-                                                    ? Colors.grey[300]
-                                                    : Colors.black,
-                                            foregroundColor:
-                                                hasRequest
-                                                    ? Colors.black
-                                                    : Colors.white,
-                                            minimumSize: Size(35, 33),
-                                            textStyle: TextStyle(
-                                              fontSize: 12,
-                                              fontFamily: 'NotoSans',
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                            ),
-                                          ),
-                                          onPressed: () async {
-                                            if (hasRequest) {
-                                              await FirebaseFirestore.instance
-                                                  .collection('users')
-                                                  .doc(myuser.userId)
-                                                  .collection('followRequests')
-                                                  .doc(
-                                                    FirebaseAuth
-                                                        .instance
-                                                        .currentUser
-                                                        ?.uid,
-                                                  )
-                                                  .delete();
-                                            } else {
-                                              await FirebaseFirestore.instance
-                                                  .collection('users')
-                                                  .doc(myuser.userId)
-                                                  .collection('followRequests')
-                                                  .doc(
-                                                    FirebaseAuth
-                                                        .instance
-                                                        .currentUser
-                                                        ?.uid,
-                                                  )
-                                                  .set({
-                                                    'timestamp':
-                                                        FieldValue.serverTimestamp(),
-                                                  });
-                                            }
-                                          },
-                                          child: Text(
-                                            hasRequest ? '요청 취소' : '구독 신청',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontFamily: 'NotoSans',
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  }
-
-                                  return ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.black,
-                                      foregroundColor: Colors.white,
-                                      minimumSize: Size(40, 28),
-                                      textStyle: TextStyle(
-                                        fontSize: 12,
-                                        fontFamily: 'NotoSans',
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
+                                  if (postData['text'].toString().isNotEmpty)
+                                    Padding(
+                                      padding: EdgeInsets.only(top: 5),
+                                      child: Text(
+                                        postData['text'],
+                                        style: TextStyle(
+                                          color: const Color(0xFF343434),
+                                          fontSize: 16,
+                                          fontFamily: 'NotoSans',
+                                          fontWeight: FontWeight.w400,
+                                          height: 1.40,
+                                          letterSpacing: -0.09,
+                                        ),
                                       ),
                                     ),
-                                    onPressed: () async {
-                                      FollowService().toggleFollow(
-                                        myuser.userId,
-                                      );
-                                    },
-                                    child: Text(
-                                      '구독',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontFamily: 'NotoSans',
-                                        fontWeight: FontWeight.w500,
+                                  verticalSpace(5),
+                                  if (postData['imgUrl'].isNotEmpty)
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Image.network(
+                                        postData['imgUrl'],
+                                        fit: BoxFit.fitWidth,
+                                        width: double.infinity,
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                          ],
-                        ),
-                        if (postData['text'].toString().isNotEmpty)
-                          Padding(
-                            padding: EdgeInsets.only(top: 15),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    postData['text'],
-                                    style: TextStyle(
-                                      color: const Color(0xFF343434),
-                                      fontSize: 18,
-                                      fontFamily: 'NotoSans',
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.40,
-                                      letterSpacing: -0.09,
-                                    ),
-                                  ),
-                                ),
-                                if (showMoreButton) ...[
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.more_vert,
-                                      color: Colors.black,
-                                      size: 22,
-                                    ),
-                                    onPressed: () {
-                                      showPostMenu(
-                                        context,
-                                        postId,
-                                        myuser?.userId ?? '',
-                                      );
-                                    },
+                                  verticalSpace(5),
+                                  Row(
+                                    children: [
+                                      PostActions(
+                                        postId: postId,
+                                        postData: postData,
+                                      ),
+                                    ],
                                   ),
                                 ],
-                              ],
-                            ),
-                          ),
-                        verticalSpace(5),
-                        if (postData['imgUrl'].isNotEmpty)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(30),
-                            child: Image.network(
-                              postData['imgUrl'],
-                              fit: BoxFit.fitWidth,
-                              width: double.infinity,
-                            ),
-                          ),
-                        verticalSpace(30),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            PostActions(postId: postId, postData: postData),
-                            horizontalSpace(4),
-                            Expanded(
-                              child: Container(
-                                height: 1,
-                                color: Colors.grey[600],
                               ),
                             ),
-                            InkWell(
-                              onTap: () => context.pop(),
-                              child: Icon(Icons.close),
-                            ),
+
+                            // ── More button (popup menu) ──────────────────
+                            if (showMoreButton)
+                              isMyPost
+                                  ? _OwnPostMenu(
+                                    postId: postId,
+                                    currentText: postData['text'] ?? '',
+                                    onEdit:
+                                        () => _showEditDialog(
+                                          context,
+                                          postData['text'] ?? '',
+                                        ),
+                                    onDelete: () => _showDeleteDialog(context),
+                                  )
+                                  : _OtherPostMenu(
+                                    postId: postId,
+                                    userId: myuser?.userId ?? '',
+                                    onRunWithLoading: _runWithLoading,
+                                    displayName: displayName,
+                                    profileUrl: profileUrl,
+                                    postData: postData,
+                                  ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-
-                // ── !fromComments branch ──────────────────────────────────
-                if (!fromComments)
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => Comments(postId: postId),
-                          ),
-                        );
-                      },
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Avatar
-                          Container(
-                            width: 65,
-                            height: 65,
-                            decoration: ShapeDecoration(
-                              image: DecorationImage(
-                                image:
-                                    (myuser?.url != null &&
-                                            myuser!.url.isNotEmpty)
-                                        ? NetworkImage(myuser.url)
-                                        : AssetImage('assets/avatar.png')
-                                            as ImageProvider,
-                                fit: BoxFit.cover,
-                              ),
-                              shape: OvalBorder(),
-                            ),
-                          ),
-                          horizontalSpace(8),
-
-                          // Body
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                verticalSpace(10),
-                                Text(
-                                  displayName,
-                                  style: TextStyles.abeezee16px400wPblack
-                                      .copyWith(fontWeight: FontWeight.bold),
-                                ),
-                                if (postData['text'].toString().isNotEmpty)
-                                  Padding(
-                                    padding: EdgeInsets.only(top: 5),
-                                    child: Text(
-                                      postData['text'],
-                                      style: TextStyle(
-                                        color: const Color(0xFF343434),
-                                        fontSize: 16,
-                                        fontFamily: 'NotoSans',
-                                        fontWeight: FontWeight.w400,
-                                        height: 1.40,
-                                        letterSpacing: -0.09,
-                                      ),
-                                    ),
-                                  ),
-                                verticalSpace(5),
-                                if (postData['imgUrl'].isNotEmpty)
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Image.network(
-                                      postData['imgUrl'],
-                                      fit: BoxFit.fitWidth,
-                                      width: double.infinity,
-                                    ),
-                                  ),
-                                verticalSpace(5),
-                                Row(
-                                  children: [
-                                    PostActions(
-                                      postId: postId,
-                                      postData: postData,
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // ── More button (popup menu) ──────────────────
-                          if (showMoreButton)
-                            isMyPost
-                                ? _OwnPostMenu(
-                                  postId: postId,
-                                  currentText: postData['text'] ?? '',
-                                  onEdit:
-                                      () => _showEditDialog(
-                                        context,
-                                        postData['text'] ?? '',
-                                      ),
-                                  onDelete: () => _showDeleteDialog(context),
-                                )
-                                : _OtherPostMenu(
-                                  postId: postId,
-                                  userId: myuser?.userId ?? '',
-                                  onRunWithLoading: _runWithLoading,
-                                ),
-                        ],
                       ),
                     ),
                   ),
@@ -771,10 +815,16 @@ class _OtherPostMenu extends StatelessWidget {
   )
   onRunWithLoading;
 
+  final String displayName;
+  final String profileUrl;
+  final Map<String, dynamic> postData;
   const _OtherPostMenu({
     required this.postId,
     required this.userId,
     required this.onRunWithLoading,
+    required this.displayName,
+    required this.profileUrl,
+    required this.postData,
   });
 
   @override
@@ -783,7 +833,15 @@ class _OtherPostMenu extends StatelessWidget {
       onSelected: (value) async {
         switch (value) {
           case 'share':
-            ShareService.sharePost(postId);
+            showShareDialog(
+              context,
+              'https://app.pang2chocolate.com/comment?postId=$postId',
+              postId,
+              displayName,
+              profileUrl,
+              postData,
+            );
+            /*             ShareService.sharePost(postId); */
             break;
 
           case 'block':

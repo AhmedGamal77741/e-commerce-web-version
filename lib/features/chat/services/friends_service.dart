@@ -215,6 +215,29 @@ class FriendsService {
         });
   }
 
+  Future<List<MyUser>> getFriendsList() {
+    return _firestore.collection('users').doc(currentUserId).get().then((
+      userDoc,
+    ) async {
+      if (!userDoc.exists) return <MyUser>[];
+
+      final user = MyUser.fromDocument(userDoc.data()!);
+      if (user.friends.isEmpty) return <MyUser>[];
+
+      final friendsQuery =
+          await _firestore
+              .collection('users')
+              .where('userId', whereIn: user.friends)
+              .get();
+
+      // Filter out blocked users in Dart
+      return friendsQuery.docs
+          .map((doc) => MyUser.fromDocument(doc.data()))
+          .where((friend) => !(user.blocked?.contains(friend.userId) ?? false))
+          .toList();
+    });
+  }
+
   Stream<List<MyUser>> getBrandsStream() {
     return _firestore.collection('users').snapshots().asyncMap((userDoc) async {
       final friendsQuery =

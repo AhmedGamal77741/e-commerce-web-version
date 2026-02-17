@@ -180,7 +180,7 @@ Future<void> uploadPost({
   }
 }
 
-Future<String> uploadImageToFirebaseStorage() async {
+Future<String> uploadImageToFirebaseStorageHome() async {
   try {
     // 1. Pick image from gallery
     final XFile? image = await ImagePicker().pickImage(

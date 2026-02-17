@@ -280,7 +280,7 @@ class _AddPostState extends State<AddPost> {
               ElevatedButton(
                 onPressed: () async {
                   showLoadingDialog(context);
-                  imgUrl = await uploadImageToFirebaseStorage();
+                  imgUrl = await uploadImageToFirebaseStorageHome();
                   Navigator.pop(context);
                   setState(() {});
                 },
@@ -626,7 +626,7 @@ class _AddPostState extends State<AddPost> {
                   GestureDetector(
                     onTap: () async {
                       showLoadingDialog(context);
-                      imgUrl = await uploadImageToFirebaseStorage();
+                      imgUrl = await uploadImageToFirebaseStorageHome();
                       Navigator.pop(context);
                       setState(() {});
                     },

@@ -42,7 +42,7 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
           tabController: homeTabController,
         ),
       ),
-      _buildMainWidget(() => ReviewScreen()),
+      _buildMainWidget(() => ChatsNavbar()),
       _buildMainWidget(() => LandingScreen()),
     ];
   }
@@ -126,20 +126,6 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
           curve: Curves.easeInOut,
         );
       }
-    } else if (index == 3) {
-      // Chat tab tapped
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('로그인 후 채팅을 이용할 수 있습니다')));
-        return;
-      }
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => ChatsNavbar()),
-      );
-      return;
     } else if (index == 1) {
       // Shop tab tapped
       final user = FirebaseAuth.instance.currentUser;

@@ -5,14 +5,23 @@ class ShareService {
 
   static Future<void> shareProduct(String productId, String productName) async {
     final link = '$_appDomain/product/$productId';
-    await Share.share(
+    await SharePlus.instance.share(
+      ShareParams(
+        text: '이 상품 확인해보세요! 🛍️\n$link',
+        subject: '$productName을(를) 공유했습니다',
+      ),
+    );
+    /*     await Share.share(
       '이 상품 확인해보세요! 🛍️\n$link',
       subject: '$productName을(를) 공유했습니다',
-    );
+    ); */
   }
 
   static Future<void> sharePost(String postId) async {
     final link = '$_appDomain/comment?postId=$postId';
-    await Share.share('이 게시물을 확인해보세요! 👇\n$link', subject: '게시물 공유');
+    await SharePlus.instance.share(
+      ShareParams(text: '이 게시물을 확인해보세요! 👇\n$link', subject: '게시물 공유'),
+    );
+    /*     await Share.share('이 게시물을 확인해보세요! 👇\n$link', subject: '게시물 공유'); */
   }
 }
