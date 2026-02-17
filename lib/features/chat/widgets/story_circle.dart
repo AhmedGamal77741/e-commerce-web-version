@@ -5,7 +5,7 @@ import 'package:ecommerece_app/features/chat/ui/story_player_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/upload_story_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:image_picker/image_picker.dart';
 
 Widget buildStoryCircle({
@@ -39,7 +39,7 @@ Widget buildStoryCircle({
 
   final currentUser = FirebaseAuth.instance.currentUser!;
   return Padding(
-    padding: EdgeInsets.symmetric(horizontal: 8.w),
+    padding: EdgeInsets.symmetric(horizontal: 8),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -67,8 +67,8 @@ Widget buildStoryCircle({
                 }
               },
               child: Container(
-                width: 80.w,
-                height: 80.h,
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   image:
@@ -84,7 +84,7 @@ Widget buildStoryCircle({
                 ),
                 child: Center(
                   child: CircleAvatar(
-                    radius: 33.r,
+                    radius: 33,
                     backgroundImage:
                         isMe
                             ? currentUser.photoURL != null
@@ -99,16 +99,16 @@ Widget buildStoryCircle({
             // The Plus Icon for "My Story"
             if (isMe)
               Positioned(
-                bottom: 2.h,
-                right: 2.w,
+                bottom: 2,
+                right: 2,
                 child: GestureDetector(
                   onTap: () => handleAddNewStory(context),
                   child: Container(
-                    width: 25.w,
-                    height: 25.h,
+                    width: 25,
+                    height: 25,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(width: 2.w, color: Colors.white),
+                      border: Border.all(width: 2, color: Colors.white),
                       image: DecorationImage(
                         image: AssetImage('assets/story_plus.png'),
                       ),
@@ -120,7 +120,7 @@ Widget buildStoryCircle({
         ),
         Text(
           (isMe) ? currentUser.displayName.toString() : label,
-          style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w400),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
         ),
       ],
     ),

@@ -4,7 +4,7 @@ import 'package:ecommerece_app/features/chat/services/story_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
@@ -44,7 +44,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   void _addText() {
     setState(() {
       _textOverlays.add(
-        TextOverlay(text: "Tap to edit", position: Offset(100.w, 100.h)),
+        TextOverlay(text: "Tap to edit", position: Offset(100, 100)),
       );
     });
   }
@@ -160,14 +160,10 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
                 ),
 
                 Positioned(
-                  top: 20.h,
+                  top: 20,
                   left: 0,
                   child: IconButton(
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color: Colors.black,
-                      size: 50.sp,
-                    ),
+                    icon: Icon(Icons.arrow_back, color: Colors.black, size: 50),
                     onPressed: () async {
                       Navigator.pop(context);
                     },
@@ -175,15 +171,15 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
                 ),
                 // Top Buttons
                 Positioned(
-                  bottom: 5.h,
-                  right: 5.w,
+                  bottom: 5,
+                  right: 5,
                   child: Row(
                     children: [
                       GestureDetector(
                         onTap: _addText,
                         child: _buildOverlayButton(Icons.text_fields_rounded),
                       ),
-                      SizedBox(width: 15.w),
+                      SizedBox(width: 15),
                       GestureDetector(
                         onTap: _changeImage, // Function for the image button
                         child: _buildOverlayButton(Icons.image_outlined),

@@ -5,7 +5,7 @@ import 'package:ecommerece_app/features/chat/ui/story_player_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/upload_story_screen.dart';
 import 'package:ecommerece_app/features/chat/widgets/story_circle.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:image_picker/image_picker.dart';
 
 Widget buildStoryBar(
@@ -13,8 +13,8 @@ Widget buildStoryBar(
   List<UserStoryGroup> friendsGroups,
 ) {
   return Container(
-    height: 120.h,
-    padding: EdgeInsets.symmetric(vertical: 10.h),
+    height: 120,
+    padding: EdgeInsets.symmetric(vertical: 10),
     child: ListView.builder(
       scrollDirection: Axis.horizontal,
       itemCount: friendsGroups.length + 1,

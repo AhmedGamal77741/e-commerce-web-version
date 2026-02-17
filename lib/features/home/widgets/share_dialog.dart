@@ -8,7 +8,6 @@ import 'package:ecommerece_app/features/chat/services/friends_service.dart';
 import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/upload_story_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 
@@ -29,10 +28,10 @@ Future<void> _capturePostFromCommentsAndOpen(
 
     final Widget snapshotWidget = Material(
       child: Container(
-        width: 300.w,
-        height: 600.h,
+        width: 300,
+        height: 600,
         color: ColorsManager.primary,
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -41,8 +40,8 @@ Future<void> _capturePostFromCommentsAndOpen(
             Row(
               children: [
                 Container(
-                  width: 56.w,
-                  height: 56.h,
+                  width: 56,
+                  height: 56,
                   decoration: ShapeDecoration(
                     image: DecorationImage(
                       image:
@@ -55,13 +54,13 @@ Future<void> _capturePostFromCommentsAndOpen(
                     shape: OvalBorder(),
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     displayName,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16.sp,
+                      fontSize: 16,
                       color: Colors.black,
                     ),
                   ),
@@ -70,18 +69,18 @@ Future<void> _capturePostFromCommentsAndOpen(
             ),
             if ((postData['text'] ?? '').toString().isNotEmpty)
               Padding(
-                padding: EdgeInsets.only(top: 12.h),
+                padding: EdgeInsets.only(top: 12),
                 child: Text(
                   postData['text'] ?? '',
                   style: TextStyle(
                     color: const Color(0xFF343434),
-                    fontSize: 16.sp,
+                    fontSize: 16,
                   ),
                 ),
               ),
             if ((postData['imgUrl'] ?? '').toString().isNotEmpty)
               Padding(
-                padding: EdgeInsets.only(top: 10.h),
+                padding: EdgeInsets.only(top: 10),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: Image(
@@ -182,27 +181,27 @@ Widget _buildSquareAction({
   return GestureDetector(
     onTap: onTap,
     child: Container(
-      width: 110.w,
-      height: 160.h,
+      width: 110,
+      height: 160,
       decoration: BoxDecoration(
         color: Colors.grey[200],
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
-          SizedBox(height: 8.h),
+          SizedBox(height: 8),
           if (asset != null)
             Opacity(
               opacity: 0.2,
-              child: Image.asset(asset, width: 80.w, height: 80.h),
+              child: Image.asset(asset, width: 80, height: 80),
             )
           else
-            Icon(icon, size: 80.sp, color: Colors.grey[600]),
-          SizedBox(height: 8.h),
+            Icon(icon, size: 80, color: Colors.grey[600]),
+          SizedBox(height: 8),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18.sp, color: Colors.black54),
+            style: TextStyle(fontSize: 18, color: Colors.black54),
           ),
         ],
       ),
