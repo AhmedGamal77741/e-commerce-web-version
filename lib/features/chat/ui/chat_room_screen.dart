@@ -15,16 +15,16 @@ import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:image_picker/image_picker.dart';
 import '../services/chat_service.dart';
 import '../models/message_model.dart';
 
-// ── Design tokens (matching screenshot) ──────────────────────────────────────
-const _kBgColor = Color(0xFFF2F2F2); // overall background
-const _kBubbleColor = Color(0xFFEEEEEE); // all bubbles same colour
-const _kInputBg = Color(0xFFE8E8E8); // input field background
-const _kSendActive = Color(0xFF1A1A1A); // send button when active
-const _kSendInactive = Color(0xFFCCCCCC); // send button when empty
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const _kBgColor = Color(0xFFF2F2F2);
+const _kBubbleColor = Color(0xFFEEEEEE);
+const _kInputBg = Color(0xFFE8E8E8);
+const _kSendActive = Color(0xFF1A1A1A);
 
 class ChatScreen extends StatefulWidget {
   final String chatRoomId;
@@ -46,16 +46,23 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
   XFile? _pickedImage;
   bool _isBlocked = false;
   bool _blocked = false;
   bool _loadingBlockState = true;
   MessageModel? _replyToMessage;
 
-  // ── Group members state ───────────────────────────────────────────────────
+  // ── Chat room state ───────────────────────────────────────────────────────
   ChatRoomModel? _chatRoom;
-  List<String> _memberNames = [];
   bool _isGroup = false;
+
+  // ── Alias state ───────────────────────────────────────────────────────────
+  // userId → alias (only populated after _loadAliases completes)
+  Map<String, String> _aliases = {};
+
+  // For direct chats: the other participant's userId
+  String _otherUserId = '';
 
   @override
   void initState() {
@@ -68,6 +75,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void _markMessagesAsRead() =>
       _chatService.markMessagesAsRead(widget.chatRoomId);
 
+  // ── Load chat room + aliases ──────────────────────────────────────────────
+
   Future<void> _loadChatRoom() async {
     final doc =
         await FirebaseFirestore.instance
@@ -75,50 +84,82 @@ class _ChatScreenState extends State<ChatScreen> {
             .doc(widget.chatRoomId)
             .get();
     if (!doc.exists || !mounted) return;
+
     final room = ChatRoomModel.fromMap(doc.data()!);
+
     if (room.type == 'group') {
-      final names = await _fetchMemberNames(room.participants);
+      // Group: load aliases for all participants so member names resolve
+      await _loadAliases(room.participants);
       if (mounted)
         setState(() {
           _chatRoom = room;
           _isGroup = true;
-          _memberNames = names;
         });
     } else {
-      if (mounted) setState(() => _isGroup = false);
+      // Direct: identify the other participant and load their alias
+      final otherId = room.participants.firstWhere(
+        (id) => id != currentUserId,
+        orElse: () => '',
+      );
+      _otherUserId = otherId;
+      await _loadAliases(room.participants);
+      if (mounted)
+        setState(() {
+          _chatRoom = room;
+          _isGroup = false;
+        });
     }
   }
 
-  Future<List<String>> _fetchMemberNames(List<String> ids) async {
-    final results = await Future.wait(
-      ids.map((id) async {
-        if (id == currentUserId) return '나';
-        try {
-          final doc =
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(id)
-                  .get();
-          return doc.data()?['name'] as String? ?? '알 수 없음';
-        } catch (_) {
-          return '알 수 없음';
+  /// Fetches aliases for [userIds] from the current user's aliases subcollection
+  /// and merges them into [_aliases].
+  Future<void> _loadAliases(List<String> userIds) async {
+    if (currentUserId.isEmpty) return;
+    try {
+      final snap =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUserId)
+              .collection('aliases')
+              .get();
+      final map = <String, String>{};
+      for (final d in snap.docs) {
+        final alias = d.data()['alias'] as String?;
+        if (alias != null && alias.isNotEmpty && userIds.contains(d.id)) {
+          map[d.id] = alias;
         }
-      }),
-    );
-    final sorted = [...results];
-    final mi = sorted.indexOf('나');
-    if (mi > 0) {
-      sorted.removeAt(mi);
-      sorted.insert(0, '나');
+      }
+      if (mounted) setState(() => _aliases = map);
+    } catch (e) {
+      debugPrint('Error loading aliases: $e');
     }
-    return sorted;
   }
 
-  String get _membersSubtitle {
-    if (_memberNames.isEmpty) return '';
-    if (_memberNames.length <= 2) return _memberNames.join(', ');
-    return '${_memberNames.take(2).join(', ')} 외 ${_memberNames.length - 2}명';
+  // ── Resolved display name helpers ─────────────────────────────────────────
+
+  /// Returns alias if set, otherwise real name.
+  String _resolveDisplayName(String userId, String realName) {
+    return _aliases[userId] ?? realName;
   }
+
+  /// AppBar title: for direct chats uses alias; for group chats uses
+  /// [widget.chatRoomName] (the group name, which has no alias).
+  String get _appBarTitle {
+    if (!_isGroup && _otherUserId.isNotEmpty) {
+      // If alias exists, show it; otherwise fall back to the name passed in
+      return _aliases[_otherUserId] ?? widget.chatRoomName;
+    }
+    return widget.chatRoomName;
+  }
+
+  /// Subtitle shown under the group name listing member names (with aliases).
+  String get _membersSubtitle {
+    if (_chatRoom == null || !_isGroup) return '';
+    // We build names lazily here; real names are fetched in the dialog
+    return ''; // handled properly in _showMembersDialog via FutureBuilder
+  }
+
+  // ── Members dialog (group only) ───────────────────────────────────────────
 
   void _showMembersDialog() {
     if (_chatRoom == null) return;
@@ -130,18 +171,15 @@ class _ChatScreenState extends State<ChatScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            insetPadding: const EdgeInsets.symmetric(
-              horizontal: 32,
-              vertical: 80,
-            ),
+            insetPadding: EdgeInsets.symmetric(horizontal: 32, vertical: 80),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                  padding: EdgeInsets.fromLTRB(24, 24, 24, 12),
                   child: Row(
                     children: [
-                      const Text(
+                      Text(
                         '멤버',
                         style: TextStyle(
                           fontSize: 18,
@@ -158,18 +196,21 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 Divider(color: Colors.grey[100], height: 1),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 360),
+                  constraints: BoxConstraints(maxHeight: 360),
                   child: FutureBuilder<List<Map<String, dynamic>>>(
                     future: _fetchMemberDetails(_chatRoom!.participants),
                     builder: (context, snap) {
-                      if (!snap.hasData)
-                        return const Padding(
+                      if (!snap.hasData) {
+                        return Padding(
                           padding: EdgeInsets.all(32),
-                          child: Center(child: CircularProgressIndicator()),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
                         );
+                      }
                       return ListView.separated(
                         shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: EdgeInsets.symmetric(vertical: 8),
                         itemCount: snap.data!.length,
                         separatorBuilder:
                             (_, __) =>
@@ -178,8 +219,22 @@ class _ChatScreenState extends State<ChatScreen> {
                           final m = snap.data![i];
                           final isMe = m['id'] == currentUserId;
                           final url = m['url'] as String? ?? '';
+                          final realName = m['name'] as String? ?? '알 수 없음';
+                          // Apply alias in the member list too
+                          final displayName =
+                              isMe
+                                  ? '${realName} (나)'
+                                  : _resolveDisplayName(
+                                    m['id'] as String,
+                                    realName,
+                                  );
+                          final hasAlias =
+                              !isMe &&
+                              _aliases.containsKey(m['id']) &&
+                              _aliases[m['id']]!.isNotEmpty;
+
                           return Padding(
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                               horizontal: 20,
                               vertical: 10,
                             ),
@@ -192,24 +247,39 @@ class _ChatScreenState extends State<ChatScreen> {
                                   backgroundColor: Colors.grey[200],
                                   child:
                                       url.isEmpty
-                                          ? const Icon(
+                                          ? Icon(
                                             Icons.person,
                                             size: 20,
                                             color: Colors.grey,
                                           )
                                           : null,
                                 ),
-                                const SizedBox(width: 12),
+                                SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    isMe ? '${m['name']} (나)' : m['name'],
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight:
-                                          isMe
-                                              ? FontWeight.w600
-                                              : FontWeight.w400,
-                                    ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        displayName,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight:
+                                              isMe
+                                                  ? FontWeight.w600
+                                                  : FontWeight.w400,
+                                        ),
+                                      ),
+                                      // Show real name as subtitle when alias is set
+                                      if (hasAlias)
+                                        Text(
+                                          realName,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey[400],
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -223,12 +293,12 @@ class _ChatScreenState extends State<ChatScreen> {
                 Divider(color: Colors.grey[100], height: 1),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text(
+                  child: Text(
                     '닫기',
                     style: TextStyle(color: Colors.black, fontSize: 14),
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
               ],
             ),
           ),
@@ -246,12 +316,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   .collection('users')
                   .doc(id)
                   .get();
-          if (doc.exists)
+          if (doc.exists) {
             return {
               'id': id,
               'name': doc.data()!['name'] ?? '알 수 없음',
               'url': doc.data()!['url'] ?? '',
             };
+          }
         } catch (_) {}
         return {'id': id, 'name': '알 수 없음', 'url': ''};
       }),
@@ -266,6 +337,51 @@ class _ChatScreenState extends State<ChatScreen> {
     );
     return results;
   }
+
+  // ── Members subtitle for group appbar ─────────────────────────────────────
+  // We build a FutureBuilder-based subtitle widget instead of a plain string
+  // so it can resolve aliases properly.
+  Widget _buildGroupSubtitle() {
+    if (_chatRoom == null) return const SizedBox.shrink();
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchMemberDetails(_chatRoom!.participants),
+      builder: (ctx, snap) {
+        if (!snap.hasData) return const SizedBox.shrink();
+        final names =
+            snap.data!.map((m) {
+              final isMe = m['id'] == currentUserId;
+              if (isMe) return '나';
+              return _resolveDisplayName(
+                m['id'] as String,
+                m['name'] as String? ?? '알 수 없음',
+              );
+            }).toList();
+
+        // Put '나' first
+        final mi = names.indexOf('나');
+        if (mi > 0) {
+          names.removeAt(mi);
+          names.insert(0, '나');
+        }
+
+        final subtitle =
+            names.length <= 2
+                ? names.join(', ')
+                : '${names.take(2).join(', ')} 외 ${names.length - 2}명';
+
+        return Text(
+          subtitle,
+          style: TextStyle(
+            color: Colors.grey[500],
+            fontSize: 11,
+            fontWeight: FontWeight.w400,
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Block state ───────────────────────────────────────────────────────────
 
   @override
   void dispose() {
@@ -337,6 +453,8 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _blocked = false);
   }
 
+  // ── Send messages ─────────────────────────────────────────────────────────
+
   Future<void> _sendImageMessage() async {
     if (_pickedImage == null) return;
     final fileName =
@@ -380,6 +498,8 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -398,23 +518,16 @@ class _ChatScreenState extends State<ChatScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Title: alias for direct, group name for group
               Text(
-                widget.chatRoomName,
+                _appBarTitle,
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              if (_isGroup && _membersSubtitle.isNotEmpty)
-                Text(
-                  _membersSubtitle,
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
+              if (_isGroup && _chatRoom != null) _buildGroupSubtitle(),
             ],
           ),
         ),
@@ -424,15 +537,16 @@ class _ChatScreenState extends State<ChatScreen> {
               ? const Center(child: CircularProgressIndicator())
               : Column(
                 children: [
-                  // ── Message list ──────────────────────────────────────────
+                  // ── Message list ────────────────────────────────────────────
                   Expanded(
                     child: StreamBuilder<List<MessageModel>>(
                       stream: _chatService.getMessagesStream(widget.chatRoomId),
                       builder: (context, snapshot) {
-                        if (snapshot.hasError)
+                        if (snapshot.hasError) {
                           return Center(
                             child: Text('Error: ${snapshot.error}'),
                           );
+                        }
                         final messages = snapshot.data ?? [];
                         if (messages.isEmpty) {
                           return Center(
@@ -483,22 +597,34 @@ class _ChatScreenState extends State<ChatScreen> {
                         return ListView.builder(
                           controller: _scrollController,
                           reverse: true,
-                          padding: const EdgeInsets.symmetric(
+                          padding: EdgeInsets.symmetric(
                             horizontal: 14,
                             vertical: 8,
                           ),
                           itemCount: messages.length,
                           itemBuilder: (context, index) {
                             final message = messages[index];
-                            if (message.deletedBy.contains(currentUserId))
+                            if (message.deletedBy.contains(currentUserId)) {
                               return const SizedBox.shrink();
+                            }
                             final isMe = message.senderId == currentUserId;
+
+                            // Resolve sender display name using alias
+                            final resolvedSenderName =
+                                isMe
+                                    ? message.senderName
+                                    : _resolveDisplayName(
+                                      message.senderId,
+                                      message.senderName,
+                                    );
+
                             final showDate =
                                 index == messages.length - 1 ||
                                 !_isSameDay(
                                   messages[index].timestamp,
                                   messages[index + 1].timestamp,
                                 );
+
                             return Column(
                               children: [
                                 if (showDate)
@@ -506,6 +632,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                 MessageBubble(
                                   message: message,
                                   isMe: isMe,
+                                  resolvedSenderName: resolvedSenderName,
+                                  aliases: _aliases,
                                   onReply:
                                       () => setState(
                                         () => _replyToMessage = message,
@@ -523,11 +651,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
 
-                  // ── Reply preview strip ───────────────────────────────────
+                  // ── Reply preview strip ─────────────────────────────────────
                   if (_replyToMessage != null)
                     Container(
                       color: const Color(0xFFE2E2E2),
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
                       ),
@@ -541,13 +669,17 @@ class _ChatScreenState extends State<ChatScreen> {
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _replyToMessage!.senderName,
+                                  // Show alias for replied-to sender too
+                                  _resolveDisplayName(
+                                    _replyToMessage!.senderId,
+                                    _replyToMessage!.senderName,
+                                  ),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -578,7 +710,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
 
-                  // ── Input bar ─────────────────────────────────────────────
+                  // ── Input bar ───────────────────────────────────────────────
                   if (!widget.isDeleted)
                     (_blocked || _isBlocked)
                         ? _BlockedBar(
@@ -628,10 +760,10 @@ class _DateSeparator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: EdgeInsets.symmetric(vertical: 10),
       child: Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.07),
             borderRadius: BorderRadius.circular(20),
@@ -671,14 +803,13 @@ class _InputBar extends StatelessWidget {
       top: false,
       child: Container(
         color: _kBgColor,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // ── Unified pill: + icon blended into the text field ───────────
             Expanded(
               child: Container(
-                constraints: const BoxConstraints(minHeight: 40),
+                constraints: BoxConstraints(minHeight: 40),
                 decoration: BoxDecoration(
                   color: _kInputBg,
                   borderRadius: BorderRadius.circular(24),
@@ -686,11 +817,10 @@ class _InputBar extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // + button inside pill
                     GestureDetector(
                       onTap: onPickImage,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 10,
                         ),
@@ -701,17 +831,13 @@ class _InputBar extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Text field, fills remaining space
                     Expanded(
                       child: TextField(
                         controller: controller,
                         onChanged: (_) => onChanged(),
                         maxLines: 4,
                         minLines: 1,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black,
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.black),
                         decoration: InputDecoration(
                           hintText: '메시지 입력',
                           hintStyle: TextStyle(
@@ -720,7 +846,7 @@ class _InputBar extends StatelessWidget {
                           ),
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding: const EdgeInsets.only(
+                          contentPadding: EdgeInsets.only(
                             right: 12,
                             top: 10,
                             bottom: 10,
@@ -732,15 +858,13 @@ class _InputBar extends StatelessWidget {
                 ),
               ),
             ),
-
-            // ── Send button — only shown when there is content ─────────────
             AnimatedSize(
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeInOut,
               child:
                   hasContent
                       ? Padding(
-                        padding: const EdgeInsets.only(left: 8),
+                        padding: EdgeInsets.only(left: 8),
                         child: GestureDetector(
                           onTap: onSend,
                           child: Container(
@@ -750,7 +874,7 @@ class _InputBar extends StatelessWidget {
                               color: _kSendActive,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.arrow_upward_rounded,
                               size: 20,
                               color: Colors.white,
@@ -792,7 +916,7 @@ class _BlockedBar extends StatelessWidget {
       top: false,
       child: Container(
         color: Colors.grey[200],
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         child: Column(
           children: [
             Text(
@@ -805,7 +929,7 @@ class _BlockedBar extends StatelessWidget {
               style: const TextStyle(color: Colors.red, fontSize: 14),
             ),
             if (blocked) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
@@ -841,6 +965,12 @@ class _BlockedBar extends StatelessWidget {
 class MessageBubble extends StatelessWidget {
   final MessageModel message;
   final bool isMe;
+
+  /// The pre-resolved display name (alias if set, otherwise real name)
+  final String resolvedSenderName;
+
+  /// Full alias map so the reply preview can also resolve names
+  final Map<String, String> aliases;
   final VoidCallback onReply;
   final bool interactable;
   final bool isDeleted;
@@ -849,6 +979,8 @@ class MessageBubble extends StatelessWidget {
     Key? key,
     required this.message,
     required this.isMe,
+    required this.resolvedSenderName,
+    required this.aliases,
     required this.onReply,
     required this.interactable,
     required this.isDeleted,
@@ -870,24 +1002,21 @@ class MessageBubble extends StatelessWidget {
           mainAxisAlignment:
               isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
-            // Avatar (other users only)
             if (!isMe) ...[
               _Avatar(senderId: message.senderId, isDeleted: isDeleted),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
             ],
-
-            // Column: name + reply + bubble + timestamp
             Flexible(
               child: Column(
                 crossAxisAlignment:
                     isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
-                  // Sender name
+                  // Sender name (with alias)
                   if (!isMe)
                     Padding(
-                      padding: const EdgeInsets.only(left: 4, bottom: 3),
+                      padding: EdgeInsets.only(left: 4, bottom: 3),
                       child: Text(
-                        isDeleted ? '삭제된 사용자' : message.senderName,
+                        isDeleted ? '삭제된 사용자' : resolvedSenderName,
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.grey[500],
@@ -896,12 +1025,10 @@ class MessageBubble extends StatelessWidget {
                       ),
                     ),
 
-                  // Bubble row with love indicators
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Love indicator left side (my messages)
                       if (isMe && message.lovedBy.isNotEmpty)
                         _LoveIndicator(
                           count: message.lovedBy.length,
@@ -911,11 +1038,12 @@ class MessageBubble extends StatelessWidget {
                           onTap:
                               interactable ? () => _toggleLove(context) : null,
                         ),
-
-                      // The bubble
-                      Flexible(child: _BubbleContent(message: message)),
-
-                      // Love indicator right side (others' messages)
+                      Flexible(
+                        child: _BubbleContent(
+                          message: message,
+                          aliases: aliases,
+                        ),
+                      ),
                       if (!isMe && message.lovedBy.isNotEmpty)
                         _LoveIndicator(
                           count: message.lovedBy.length,
@@ -928,7 +1056,6 @@ class MessageBubble extends StatelessWidget {
                     ],
                   ),
 
-                  // Timestamp
                   Padding(
                     padding: EdgeInsets.only(
                       top: 3,
@@ -965,7 +1092,7 @@ class MessageBubble extends StatelessWidget {
           (context) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Container(
                 width: 36,
                 height: 4,
@@ -974,7 +1101,7 @@ class MessageBubble extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               ListTile(
                 leading: const Icon(Icons.reply_outlined),
                 title: const Text('답장'),
@@ -994,7 +1121,7 @@ class MessageBubble extends StatelessWidget {
                   title: const Text('삭제', style: TextStyle(color: Colors.red)),
                   onTap: () => Navigator.pop(context),
                 ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
             ],
           ),
     );
@@ -1008,17 +1135,21 @@ class MessageBubble extends StatelessWidget {
 
 class _BubbleContent extends StatelessWidget {
   final MessageModel message;
-  const _BubbleContent({required this.message});
+
+  /// Aliases passed down so reply preview can also resolve names
+  final Map<String, String> aliases;
+
+  const _BubbleContent({required this.message, required this.aliases});
 
   @override
   Widget build(BuildContext context) {
-    // Reply preview inline
     Widget? replyWidget;
     if (message.replyToMessageId != null &&
         message.replyToMessageId!.isNotEmpty) {
       replyWidget = _ReplyPreview(
         messageId: message.replyToMessageId!,
         chatRoomId: message.chatRoomId,
+        aliases: aliases,
       );
     }
 
@@ -1032,7 +1163,7 @@ class _BubbleContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (replyWidget != null) ...[replyWidget, const SizedBox(height: 6)],
+          if (replyWidget != null) ...[replyWidget, SizedBox(height: 6)],
           if (message.content.isNotEmpty)
             Text(
               message.content,
@@ -1043,7 +1174,7 @@ class _BubbleContent extends StatelessWidget {
               ),
             ),
           if (message.postData != null) ...[
-            if (message.content.isNotEmpty) const SizedBox(height: 6),
+            if (message.content.isNotEmpty) SizedBox(height: 6),
             ChatPostShareWidget(
               imageUrl: message.postData!['imgUrl'],
               authorName: message.postData!['authorName'],
@@ -1059,7 +1190,7 @@ class _BubbleContent extends StatelessWidget {
             ),
           ],
           if (message.productData != null) ...[
-            if (message.content.isNotEmpty) const SizedBox(height: 6),
+            if (message.content.isNotEmpty) SizedBox(height: 6),
             ChatPostShareWidget(
               imageUrl: message.productData!.imgUrl!,
               authorName: message.productData!.pricePoints[0].toString(),
@@ -1068,7 +1199,7 @@ class _BubbleContent extends StatelessWidget {
             ),
           ],
           if (message.imageUrl != null && message.imageUrl!.isNotEmpty) ...[
-            if (message.content.isNotEmpty) const SizedBox(height: 6),
+            if (message.content.isNotEmpty) SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: InkWell(
@@ -1122,8 +1253,9 @@ class _Avatar extends StatelessWidget {
     return FutureBuilder(
       future: UserCache.getUser(senderId),
       builder: (_, snap) {
-        if (!snap.hasData)
+        if (!snap.hasData) {
           return CircleAvatar(radius: 16, backgroundColor: Colors.grey[200]);
+        }
         final data = snap.data!.data() as Map<String, dynamic>?;
         final url = data?['url'] as String? ?? '';
         return CircleAvatar(
@@ -1145,7 +1277,15 @@ class _Avatar extends StatelessWidget {
 class _ReplyPreview extends StatelessWidget {
   final String messageId;
   final String chatRoomId;
-  const _ReplyPreview({required this.messageId, required this.chatRoomId});
+
+  /// Aliases so the replied-to sender's name shows with alias
+  final Map<String, String> aliases;
+
+  const _ReplyPreview({
+    required this.messageId,
+    required this.chatRoomId,
+    required this.aliases,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1158,8 +1298,15 @@ class _ReplyPreview extends StatelessWidget {
               .doc(messageId)
               .get(),
       builder: (_, snap) {
-        if (!snap.hasData || !snap.data!.exists) return const SizedBox.shrink();
+        if (!snap.hasData || !snap.data!.exists) {
+          return const SizedBox.shrink();
+        }
         final data = snap.data!.data() as Map<String, dynamic>;
+        final senderId = data['senderId'] as String? ?? '';
+        final realSenderName = data['senderName'] as String? ?? '';
+        // Resolve alias for the replied-to sender
+        final displayName = aliases[senderId] ?? realSenderName;
+
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           decoration: BoxDecoration(
@@ -1180,7 +1327,7 @@ class _ReplyPreview extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      data['senderName'] ?? '',
+                      displayName,
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -1210,6 +1357,7 @@ class _LoveIndicator extends StatelessWidget {
   final int count;
   final bool lovedByMe;
   final VoidCallback? onTap;
+
   const _LoveIndicator({
     required this.count,
     required this.lovedByMe,
@@ -1221,7 +1369,7 @@ class _LoveIndicator extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: EdgeInsets.symmetric(horizontal: 4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

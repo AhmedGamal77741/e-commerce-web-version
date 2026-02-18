@@ -40,14 +40,14 @@ class _EditScreenState extends State<EditScreen> {
     super.dispose();
   }
 
-  // ── Pills — same colours as chats_navbar ──────────────────────────────────
+  // ── Pills ─────────────────────────────────────────────────────────────────
   Widget _buildPill(int index) {
     final bool isSelected = _selectedTab == index;
     return GestureDetector(
       onTap: () => setState(() => _selectedTab = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.grey[200],
           borderRadius: BorderRadius.circular(20),
@@ -79,13 +79,12 @@ class _EditScreenState extends State<EditScreen> {
             // ── Pills row ────────────────────────────────────────────────────
             Container(
               color: ColorsManager.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 children: [
-                  // Back arrow
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.only(right: 10),
                       child: Icon(
                         Icons.arrow_back,
@@ -94,7 +93,6 @@ class _EditScreenState extends State<EditScreen> {
                       ),
                     ),
                   ),
-                  // Scrollable pills
                   Expanded(
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -102,7 +100,7 @@ class _EditScreenState extends State<EditScreen> {
                         children: [
                           for (int i = 0; i < _tabs.length; i++) ...[
                             _buildPill(i),
-                            if (i < _tabs.length - 1) const SizedBox(width: 8),
+                            if (i < _tabs.length - 1) SizedBox(width: 8),
                           ],
                         ],
                       ),
@@ -112,10 +110,10 @@ class _EditScreenState extends State<EditScreen> {
               ),
             ),
 
-            // ── Always-visible search bar (original design) ──────────────────
+            // ── Search bar ───────────────────────────────────────────────────
             Container(
               color: ColorsManager.primary,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
               child: Container(
                 height: 40,
                 decoration: BoxDecoration(
@@ -124,7 +122,7 @@ class _EditScreenState extends State<EditScreen> {
                 ),
                 child: TextField(
                   controller: _searchCtrl,
-                  style: const TextStyle(fontSize: 14, color: Colors.black),
+                  style: TextStyle(fontSize: 14, color: Colors.black),
                   decoration: InputDecoration(
                     hintText:
                         _selectedTab == 0
@@ -153,7 +151,7 @@ class _EditScreenState extends State<EditScreen> {
                               ),
                             )
                             : null,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(vertical: 10),
                     isDense: true,
                   ),
                   onChanged:
@@ -166,7 +164,7 @@ class _EditScreenState extends State<EditScreen> {
             // ── Divider ──────────────────────────────────────────────────────
             Container(color: Colors.grey[300], height: 1),
 
-            // ── Tab content — primary bg ──────────────────────────────────────
+            // ── Tab content ──────────────────────────────────────────────────
             Expanded(
               child: ColoredBox(
                 color: ColorsManager.primary,
@@ -188,7 +186,7 @@ class _EditScreenState extends State<EditScreen> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TAB 0 — 연락처 edit
+// TAB 0 — 연락처 edit  (with alias support)
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _ContactsEditTab extends StatefulWidget {
@@ -209,6 +207,26 @@ class _ContactsEditTabState extends State<_ContactsEditTab> {
 
   Stream<List<String>> get _favoriteIdsStream =>
       _favoritesService.getFavoriteIdsStream();
+
+  /// userId → alias string (only entries where alias is non-empty)
+  Stream<Map<String, String>> get _aliasesStream {
+    if (uid.isEmpty) return Stream.value({});
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('aliases')
+        .snapshots()
+        .map((snap) {
+          final map = <String, String>{};
+          for (final doc in snap.docs) {
+            final alias = doc.data()['alias'] as String?;
+            if (alias != null && alias.isNotEmpty) {
+              map[doc.id] = alias;
+            }
+          }
+          return map;
+        });
+  }
 
   Stream<Set<String>> get _hiddenIdsStream {
     if (uid.isEmpty) return Stream.value({});
@@ -237,8 +255,7 @@ class _ContactsEditTabState extends State<_ContactsEditTab> {
         .snapshots()
         .map((snap) {
           if (!snap.exists) return <String, int>{};
-          final data = snap.data();
-          final raw = data?['favoritesOrder'];
+          final raw = snap.data()?['favoritesOrder'];
           if (raw == null) return <String, int>{};
           return Map<String, int>.from(raw as Map);
         });
@@ -291,7 +308,7 @@ class _ContactsEditTabState extends State<_ContactsEditTab> {
 
   Widget _sectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 16, top: 20, bottom: 8),
+      padding: EdgeInsets.only(left: 16, top: 20, bottom: 8),
       child: Text(
         title,
         style: TextStyle(
@@ -303,9 +320,20 @@ class _ContactsEditTabState extends State<_ContactsEditTab> {
     );
   }
 
-  Widget _friendRow({required MyUser user, required Widget trailing}) {
+  /// A standard friend row that respects aliases.
+  /// [aliases] is optional — pass it for friends; omit for blocked users
+  /// who are no longer in the friends list.
+  Widget _friendRow({
+    required MyUser user,
+    required Widget trailing,
+    Map<String, String> aliases = const {},
+  }) {
+    final displayName = aliases[user.userId] ?? user.name;
+    final hasAlias =
+        aliases.containsKey(user.userId) && aliases[user.userId]!.isNotEmpty;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
           CircleAvatar(
@@ -315,18 +343,28 @@ class _ContactsEditTabState extends State<_ContactsEditTab> {
             backgroundColor: Colors.grey[200],
             child:
                 user.url.isEmpty
-                    ? const Icon(Icons.person, size: 20, color: Colors.grey)
+                    ? Icon(Icons.person, size: 20, color: Colors.grey)
                     : null,
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
-            child: Text(
-              user.name,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
-                color: Colors.black,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.black,
+                  ),
+                ),
+                if (hasAlias)
+                  Text(
+                    user.name,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  ),
+              ],
             ),
           ),
           trailing,
@@ -339,7 +377,7 @@ class _ContactsEditTabState extends State<_ContactsEditTab> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey[300]!),
           borderRadius: BorderRadius.circular(20),
@@ -356,209 +394,261 @@ class _ContactsEditTabState extends State<_ContactsEditTab> {
   Widget build(BuildContext context) {
     final q = widget.query;
 
-    return StreamBuilder<List<String>>(
-      stream: _favoriteIdsStream,
-      builder: (ctx, favSnap) {
-        final favIds = favSnap.data ?? [];
-        return StreamBuilder<Map<String, int>>(
-          stream: _favoriteOrderStream,
-          builder: (ctx, orderSnap) {
-            final orderMap = orderSnap.data ?? {};
-            return StreamBuilder<Set<String>>(
-              stream: _hiddenIdsStream,
-              builder: (ctx, hiddenSnap) {
-                final hiddenIds = hiddenSnap.data ?? {};
-                return StreamBuilder<List<String>>(
-                  stream: _blockedIdsStream,
-                  builder: (ctx, blockedSnap) {
-                    final blockedIds = blockedSnap.data ?? [];
-                    return StreamBuilder<List<MyUser>>(
-                      stream: _friendsService.getFriendsStream(),
-                      builder: (ctx, friendsSnap) {
-                        if (!friendsSnap.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
+    // Outermost stream: aliases (used for display + search)
+    return StreamBuilder<Map<String, String>>(
+      stream: _aliasesStream,
+      builder: (ctx, aliasSnap) {
+        final aliases = aliasSnap.data ?? {};
 
-                        final allFriends =
-                            friendsSnap.data!
-                                .where((u) => u.type == 'user')
-                                .toList();
+        return StreamBuilder<List<String>>(
+          stream: _favoriteIdsStream,
+          builder: (ctx, favSnap) {
+            final favIds = favSnap.data ?? [];
 
-                        final filtered =
-                            q.isEmpty
-                                ? allFriends
-                                : allFriends
+            return StreamBuilder<Map<String, int>>(
+              stream: _favoriteOrderStream,
+              builder: (ctx, orderSnap) {
+                final orderMap = orderSnap.data ?? {};
+
+                return StreamBuilder<Set<String>>(
+                  stream: _hiddenIdsStream,
+                  builder: (ctx, hiddenSnap) {
+                    final hiddenIds = hiddenSnap.data ?? {};
+
+                    return StreamBuilder<List<String>>(
+                      stream: _blockedIdsStream,
+                      builder: (ctx, blockedSnap) {
+                        final blockedIds = blockedSnap.data ?? [];
+
+                        return StreamBuilder<List<MyUser>>(
+                          stream: _friendsService.getFriendsStream(),
+                          builder: (ctx, friendsSnap) {
+                            if (!friendsSnap.hasData) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+
+                            final allFriends =
+                                friendsSnap.data!
+                                    .where((u) => u.type == 'user')
+                                    .toList();
+
+                            // Search matches real name OR alias
+                            final filtered =
+                                q.isEmpty
+                                    ? allFriends
+                                    : allFriends.where((u) {
+                                      final alias =
+                                          aliases[u.userId]?.toLowerCase() ??
+                                          '';
+                                      return u.name.toLowerCase().contains(q) ||
+                                          alias.contains(q);
+                                    }).toList();
+
+                            final favorites =
+                                filtered
                                     .where(
-                                      (u) => u.name.toLowerCase().contains(q),
+                                      (u) =>
+                                          favIds.contains(u.userId) &&
+                                          !hiddenIds.contains(u.userId),
+                                    )
+                                    .toList()
+                                  ..sort((a, b) {
+                                    final aO = orderMap[a.userId] ?? 999999;
+                                    final bO = orderMap[b.userId] ?? 999999;
+                                    return aO.compareTo(bO);
+                                  });
+
+                            final friends =
+                                filtered
+                                    .where(
+                                      (u) =>
+                                          !favIds.contains(u.userId) &&
+                                          !hiddenIds.contains(u.userId),
                                     )
                                     .toList();
 
-                        final favorites =
-                            filtered
-                                .where(
-                                  (u) =>
-                                      favIds.contains(u.userId) &&
-                                      !hiddenIds.contains(u.userId),
-                                )
-                                .toList()
-                              ..sort((a, b) {
-                                final aO = orderMap[a.userId] ?? 999999;
-                                final bO = orderMap[b.userId] ?? 999999;
-                                return aO.compareTo(bO);
-                              });
+                            final hiddenUsers =
+                                filtered
+                                    .where((u) => hiddenIds.contains(u.userId))
+                                    .toList();
 
-                        final friends =
-                            filtered
-                                .where(
-                                  (u) =>
-                                      !favIds.contains(u.userId) &&
-                                      !hiddenIds.contains(u.userId),
-                                )
-                                .toList();
+                            return FutureBuilder<List<MyUser>>(
+                              future: _fetchBlockedUsers(blockedIds),
+                              builder: (ctx, blockedUsersSnap) {
+                                final blockedUsers =
+                                    blockedUsersSnap.data ?? [];
 
-                        final hiddenUsers =
-                            filtered
-                                .where((u) => hiddenIds.contains(u.userId))
-                                .toList();
+                                return ListView(
+                                  children: [
+                                    // ── 즐겨찾기 (REORDERABLE) ──────────────
+                                    if (favorites.isNotEmpty) ...[
+                                      _sectionHeader('즐겨찾기'),
+                                      ReorderableListView.builder(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        buildDefaultDragHandles: false,
+                                        itemCount: favorites.length,
+                                        proxyDecorator:
+                                            (child, index, animation) =>
+                                                Material(
+                                                  color: ColorsManager.primary,
+                                                  child: child,
+                                                ),
+                                        onReorder: (oldIdx, newIdx) {
+                                          final reordered = List<MyUser>.from(
+                                            favorites,
+                                          );
+                                          if (newIdx > oldIdx) newIdx--;
+                                          final item = reordered.removeAt(
+                                            oldIdx,
+                                          );
+                                          reordered.insert(newIdx, item);
+                                          _reorderFavorites(reordered);
+                                        },
+                                        itemBuilder: (ctx, index) {
+                                          final u = favorites[index];
+                                          final displayName =
+                                              aliases[u.userId] ?? u.name;
+                                          final hasAlias =
+                                              aliases.containsKey(u.userId) &&
+                                              aliases[u.userId]!.isNotEmpty;
 
-                        return FutureBuilder<List<MyUser>>(
-                          future: _fetchBlockedUsers(blockedIds),
-                          builder: (ctx, blockedUsersSnap) {
-                            final blockedUsers = blockedUsersSnap.data ?? [];
-
-                            return ListView(
-                              children: [
-                                // ── 즐겨찾기 (REORDERABLE) ────────────────
-                                if (favorites.isNotEmpty) ...[
-                                  _sectionHeader('즐겨찾기'),
-                                  ReorderableListView.builder(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    buildDefaultDragHandles: false,
-                                    itemCount: favorites.length,
-                                    proxyDecorator:
-                                        (child, index, animation) => Material(
-                                          color: ColorsManager.primary,
-                                          child: child,
-                                        ),
-                                    onReorder: (oldIdx, newIdx) {
-                                      final reordered = List<MyUser>.from(
-                                        favorites,
-                                      );
-                                      if (newIdx > oldIdx) newIdx--;
-                                      final item = reordered.removeAt(oldIdx);
-                                      reordered.insert(newIdx, item);
-                                      _reorderFavorites(reordered);
-                                    },
-                                    itemBuilder: (ctx, index) {
-                                      final u = favorites[index];
-                                      return Container(
-                                        key: ValueKey(u.userId),
-                                        color: ColorsManager.primary,
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              CircleAvatar(
-                                                radius: 22,
-                                                backgroundImage:
-                                                    u.url.isNotEmpty
-                                                        ? NetworkImage(u.url)
-                                                        : null,
-                                                backgroundColor:
-                                                    Colors.grey[200],
-                                                child:
-                                                    u.url.isEmpty
-                                                        ? const Icon(
-                                                          Icons.person,
-                                                          size: 20,
-                                                          color: Colors.grey,
-                                                        )
-                                                        : null,
+                                          return Container(
+                                            key: ValueKey(u.userId),
+                                            color: ColorsManager.primary,
+                                            child: Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 16,
+                                                vertical: 8,
                                               ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  u.name,
-                                                  style: const TextStyle(
-                                                    fontSize: 15,
-                                                    fontWeight: FontWeight.w400,
-                                                    color: Colors.black,
+                                              child: Row(
+                                                children: [
+                                                  CircleAvatar(
+                                                    radius: 22,
+                                                    backgroundImage:
+                                                        u.url.isNotEmpty
+                                                            ? NetworkImage(
+                                                              u.url,
+                                                            )
+                                                            : null,
+                                                    backgroundColor:
+                                                        Colors.grey[200],
+                                                    child:
+                                                        u.url.isEmpty
+                                                            ? Icon(
+                                                              Icons.person,
+                                                              size: 20,
+                                                              color:
+                                                                  Colors.grey,
+                                                            )
+                                                            : null,
                                                   ),
-                                                ),
+                                                  SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          displayName,
+                                                          style: TextStyle(
+                                                            fontSize: 15,
+                                                            fontWeight:
+                                                                FontWeight.w400,
+                                                            color: Colors.black,
+                                                          ),
+                                                        ),
+                                                        if (hasAlias)
+                                                          Text(
+                                                            u.name,
+                                                            style: TextStyle(
+                                                              fontSize: 11,
+                                                              color:
+                                                                  Colors
+                                                                      .grey[400],
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  _pillButton(
+                                                    '해제',
+                                                    () => _removeFavorite(
+                                                      u.userId,
+                                                    ),
+                                                  ),
+                                                  SizedBox(width: 8),
+                                                  ReorderableDragStartListener(
+                                                    index: index,
+                                                    child: Icon(
+                                                      Icons.drag_handle,
+                                                      color: Colors.grey[400],
+                                                      size: 20,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                              _pillButton(
-                                                '해제',
-                                                () => _removeFavorite(u.userId),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              ReorderableDragStartListener(
-                                                index: index,
-                                                child: Icon(
-                                                  Icons.drag_handle,
-                                                  color: Colors.grey[400],
-                                                  size: 20,
-                                                ),
-                                              ),
-                                            ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+
+                                    // ── 친구 ───────────────────────────────
+                                    if (friends.isNotEmpty) ...[
+                                      _sectionHeader('친구'),
+                                      ...friends.map(
+                                        (u) => _friendRow(
+                                          user: u,
+                                          aliases: aliases,
+                                          trailing: _pillButton(
+                                            '숨김',
+                                            () => _hide(u),
                                           ),
                                         ),
-                                      );
-                                    },
-                                  ),
-                                ],
-
-                                // ── 친구 ───────────────────────────────────
-                                if (friends.isNotEmpty) ...[
-                                  _sectionHeader('친구'),
-                                  ...friends.map(
-                                    (u) => _friendRow(
-                                      user: u,
-                                      trailing: _pillButton(
-                                        '숨김',
-                                        () => _hide(u),
                                       ),
-                                    ),
-                                  ),
-                                ],
+                                    ],
 
-                                // ── 숨긴 친구 ───────────────────────────────
-                                if (hiddenUsers.isNotEmpty) ...[
-                                  _sectionHeader('숨긴 친구'),
-                                  ...hiddenUsers.map(
-                                    (u) => _friendRow(
-                                      user: u,
-                                      trailing: _pillButton(
-                                        '해제',
-                                        () => _unhide(u.userId),
+                                    // ── 숨긴 친구 ───────────────────────────
+                                    if (hiddenUsers.isNotEmpty) ...[
+                                      _sectionHeader('숨긴 친구'),
+                                      ...hiddenUsers.map(
+                                        (u) => _friendRow(
+                                          user: u,
+                                          aliases: aliases,
+                                          trailing: _pillButton(
+                                            '해제',
+                                            () => _unhide(u.userId),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                ],
+                                    ],
 
-                                // ── 차단된 친구 ─────────────────────────────
-                                if (blockedUsers.isNotEmpty) ...[
-                                  _sectionHeader('차단된 친구'),
-                                  ...blockedUsers.map(
-                                    (u) => _friendRow(
-                                      user: u,
-                                      trailing: _pillButton(
-                                        '해제',
-                                        () => _unblock(u.userId),
-                                        color: Colors.red[400],
+                                    // ── 차단된 친구 ─────────────────────────
+                                    // Blocked users are shown with real names
+                                    // (no alias — they may no longer be friends)
+                                    if (blockedUsers.isNotEmpty) ...[
+                                      _sectionHeader('차단된 친구'),
+                                      ...blockedUsers.map(
+                                        (u) => _friendRow(
+                                          user: u,
+                                          trailing: _pillButton(
+                                            '해제',
+                                            () => _unblock(u.userId),
+                                            color: Colors.red[400],
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                ],
+                                    ],
 
-                                const SizedBox(height: 40),
-                              ],
+                                    SizedBox(height: 40),
+                                  ],
+                                );
+                              },
                             );
                           },
                         );
@@ -594,8 +684,7 @@ class _ContactsEditTabState extends State<_ContactsEditTab> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TAB 1 — 1:1채팅 edit
-// Search filters list; selection persists across searches.
+// TAB 1 — 1:1채팅 edit  (with alias support)
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _DirectChatsEditTab extends StatefulWidget {
@@ -608,10 +697,40 @@ class _DirectChatsEditTab extends StatefulWidget {
 
 class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
   final ChatService _chatService = ChatService();
+
   String get uid => FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  /// Live alias map — kept up to date via a Firestore listener
+  Map<String, String> _aliases = {};
 
   // Selection persists regardless of search query
   final Set<String> _selected = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribeAliases();
+  }
+
+  // Listen to aliases subcollection so the list updates in real time
+  // without needing a full rebuild chain.
+  void _subscribeAliases() {
+    if (uid.isEmpty) return;
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('aliases')
+        .snapshots()
+        .listen((snap) {
+          if (!mounted) return;
+          final map = <String, String>{};
+          for (final doc in snap.docs) {
+            final alias = doc.data()['alias'] as String?;
+            if (alias != null && alias.isNotEmpty) map[doc.id] = alias;
+          }
+          setState(() => _aliases = map);
+        });
+  }
 
   Future<MyUser?> _getOtherUser(ChatRoomModel chat) async {
     final otherId = chat.participants.firstWhere(
@@ -657,16 +776,16 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+              padding: EdgeInsets.fromLTRB(24, 28, 24, 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 15, color: Colors.black),
+                    style: TextStyle(fontSize: 15, color: Colors.black),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
@@ -676,7 +795,7 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(vertical: 12),
                           ),
                           onPressed: () => Navigator.pop(ctx, false),
                           child: Text(
@@ -688,7 +807,7 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
@@ -698,10 +817,10 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(vertical: 12),
                           ),
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text(
+                          child: Text(
                             '나가기',
                             style: TextStyle(
                               fontSize: 14,
@@ -733,7 +852,6 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              // All eligible direct chats
               final allChats =
                   snapshot.data!
                       .where(
@@ -767,12 +885,26 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
                   return FutureBuilder<MyUser?>(
                     future: _getOtherUser(chat),
                     builder: (ctx, userSnap) {
-                      final name = userSnap.data?.name ?? chat.name ?? '알 수 없음';
+                      // Resolve the other participant's ID for alias lookup
+                      final otherId = chat.participants.firstWhere(
+                        (id) => id != uid,
+                        orElse: () => '',
+                      );
+
+                      final realName =
+                          userSnap.data?.name ?? chat.name ?? '알 수 없음';
                       final avatarUrl = userSnap.data?.url ?? '';
 
-                      // Filter: hide rows that don't match search
+                      // Use alias if one exists for this participant
+                      final displayName = _aliases[otherId] ?? realName;
+                      final hasAlias =
+                          _aliases.containsKey(otherId) &&
+                          _aliases[otherId]!.isNotEmpty;
+
+                      // Search: match alias OR real name OR last message
                       if (q.isNotEmpty &&
-                          !name.toLowerCase().contains(q) &&
+                          !displayName.toLowerCase().contains(q) &&
+                          !realName.toLowerCase().contains(q) &&
                           !(chat.lastMessage ?? '').toLowerCase().contains(q)) {
                         return const SizedBox.shrink();
                       }
@@ -786,12 +918,13 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
                                 _selected.add(chat.id);
                             }),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(
+                          padding: EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 10,
                           ),
                           child: Row(
                             children: [
+                              // ── Select circle ──
                               AnimatedContainer(
                                 duration: const Duration(milliseconds: 150),
                                 width: 22,
@@ -812,14 +945,16 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
                                 ),
                                 child:
                                     isSelected
-                                        ? const Icon(
+                                        ? Icon(
                                           Icons.check,
                                           size: 13,
                                           color: Colors.white,
                                         )
                                         : null,
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
+
+                              // ── Avatar ──
                               CircleAvatar(
                                 radius: 22,
                                 backgroundImage:
@@ -829,27 +964,51 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
                                 backgroundColor: Colors.grey[200],
                                 child:
                                     avatarUrl.isEmpty
-                                        ? const Icon(
+                                        ? Icon(
                                           Icons.person,
                                           size: 20,
                                           color: Colors.grey,
                                         )
                                         : null,
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
+
+                              // ── Name (alias + real name subtitle) ──
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      name,
-                                      style: const TextStyle(
+                                      displayName,
+                                      style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w500,
                                         color: Colors.black,
                                       ),
                                     ),
-                                    if (chat.lastMessage?.isNotEmpty == true)
+                                    // Show real name as grey subtitle when alias is active
+                                    if (hasAlias)
+                                      Text(
+                                        realName,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey[400],
+                                        ),
+                                      )
+                                    else if (chat.lastMessage?.isNotEmpty ==
+                                        true)
+                                      Text(
+                                        chat.lastMessage!,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[500],
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    // Show last message below real-name subtitle
+                                    if (hasAlias &&
+                                        chat.lastMessage?.isNotEmpty == true)
                                       Text(
                                         chat.lastMessage!,
                                         style: TextStyle(
@@ -862,12 +1021,13 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
                                   ],
                                 ),
                               ),
+
                               // ── Unread dot ──
                               if ((chat.unreadCount[uid] ?? 0) > 0)
                                 Container(
                                   width: 8,
                                   height: 8,
-                                  margin: const EdgeInsets.only(right: 4),
+                                  margin: EdgeInsets.only(right: 4),
                                   decoration: const BoxDecoration(
                                     color: Colors.grey,
                                     shape: BoxShape.circle,
@@ -895,8 +1055,7 @@ class _DirectChatsEditTabState extends State<_DirectChatsEditTab> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TAB 2 — 그룹채팅 edit
-// Search filters list; selection persists across searches.
+// TAB 2 — 그룹채팅 edit  (unchanged — group chats have no aliases)
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _GroupChatsEditTab extends StatefulWidget {
@@ -911,7 +1070,6 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
   final ChatService _chatService = ChatService();
   String get uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  // Selection persists regardless of search query
   final Set<String> _selected = {};
 
   Stream<Map<String, int>> get _groupOrderStream {
@@ -922,8 +1080,7 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
         .snapshots()
         .map((snap) {
           if (!snap.exists) return <String, int>{};
-          final data = snap.data();
-          final raw = data?['groupChatsOrder'];
+          final raw = snap.data()?['groupChatsOrder'];
           if (raw == null) return <String, int>{};
           return Map<String, int>.from(raw as Map);
         });
@@ -950,16 +1107,16 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+              padding: EdgeInsets.fromLTRB(24, 28, 24, 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     '${_selected.length}개의 그룹채팅방을\n나가시겠습니까?',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 15, color: Colors.black),
+                    style: TextStyle(fontSize: 15, color: Colors.black),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
@@ -969,7 +1126,7 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(vertical: 12),
                           ),
                           onPressed: () => Navigator.pop(ctx, false),
                           child: Text(
@@ -981,7 +1138,7 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
@@ -991,10 +1148,10 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(vertical: 12),
                           ),
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text(
+                          child: Text(
                             '나가기',
                             style: TextStyle(
                               fontSize: 14,
@@ -1039,7 +1196,6 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
                   final allGroups =
                       snapshot.data!.where((c) => c.type == 'group').toList();
 
-                  // Sort by saved order
                   allGroups.sort((a, b) {
                     final aO = orderMap[a.id] ?? 999999;
                     final bO = orderMap[b.id] ?? 999999;
@@ -1106,13 +1262,12 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
                                   _selected.add(chat.id);
                               }),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 10,
                             ),
                             child: Row(
                               children: [
-                                // ── Select circle ──
                                 AnimatedContainer(
                                   duration: const Duration(milliseconds: 150),
                                   width: 22,
@@ -1133,15 +1288,14 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
                                   ),
                                   child:
                                       isSelected
-                                          ? const Icon(
+                                          ? Icon(
                                             Icons.check,
                                             size: 13,
                                             color: Colors.white,
                                           )
                                           : null,
                                 ),
-                                const SizedBox(width: 12),
-                                // ── Avatar ──
+                                SizedBox(width: 12),
                                 CircleAvatar(
                                   radius: 22,
                                   backgroundImage:
@@ -1153,15 +1307,14 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
                                   child:
                                       (chat.groupImage == null ||
                                               chat.groupImage!.isEmpty)
-                                          ? const Icon(
+                                          ? Icon(
                                             Icons.group,
                                             size: 20,
                                             color: Colors.grey,
                                           )
                                           : null,
                                 ),
-                                const SizedBox(width: 12),
-                                // ── Name + last msg ──
+                                SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -1169,7 +1322,7 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
                                     children: [
                                       Text(
                                         chat.name,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w500,
                                           color: Colors.black,
@@ -1188,7 +1341,6 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
                                     ],
                                   ),
                                 ),
-                                // ── Drag handle (hidden while searching) ──
                                 if (canReorder)
                                   ReorderableDragStartListener(
                                     index: i,
@@ -1199,7 +1351,7 @@ class _GroupChatsEditTabState extends State<_GroupChatsEditTab> {
                                     ),
                                   )
                                 else
-                                  const SizedBox(width: 24),
+                                  SizedBox(width: 24),
                               ],
                             ),
                           ),
@@ -1250,7 +1402,7 @@ class _BottomBar extends StatelessWidget {
               child: InkWell(
                 onTap: onDeselectAll,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  padding: EdgeInsets.symmetric(vertical: 18),
                   alignment: Alignment.center,
                   child: Text(
                     '선택해제',
@@ -1272,7 +1424,7 @@ class _BottomBar extends StatelessWidget {
               child: InkWell(
                 onTap: hasSelection ? onLeave : null,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  padding: EdgeInsets.symmetric(vertical: 18),
                   alignment: Alignment.center,
                   child: Text(
                     '나가기',

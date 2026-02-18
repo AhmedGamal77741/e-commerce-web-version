@@ -16,6 +16,9 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
   final ChatService chatService = ChatService();
   String get currentUserId => FirebaseAuth.instance.currentUser!.uid;
 
+  // ── Active overlay (only one menu open at a time) ────────────────────────
+  OverlayEntry? _activeMenuOverlay;
+
   // ─── Group chats order stream ─────────────────────────────────────────────
   Stream<Map<String, int>> get _groupOrderStream {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -33,127 +36,146 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
         });
   }
 
+  @override
+  void dispose() {
+    _dismissActiveMenu();
+    super.dispose();
+  }
+
+  void _dismissActiveMenu() {
+    _activeMenuOverlay?.remove();
+    _activeMenuOverlay = null;
+  }
+
   // ─── KakaoTalk-style long-press popup ─────────────────────────────────────
   void _showGroupMenu({
-    required BuildContext tileContext,
+    required LayerLink layerLink,
+    required Size tileSize,
     required ChatRoomModel chat,
   }) {
-    final RenderBox box = tileContext.findRenderObject() as RenderBox;
-    final Offset offset = box.localToGlobal(Offset.zero);
-    final Size tileSize = box.size;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    _dismissActiveMenu();
 
     const double popupWidth = 220;
     const double popupHeight = 210;
 
-    double left = offset.dx + tileSize.width - popupWidth - 8;
-    double top = offset.dy + (tileSize.height / 2) - (popupHeight / 2);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
 
-    if (left < 8) left = 8;
-    if (left + popupWidth > screenWidth - 8)
-      left = screenWidth - popupWidth - 8;
-    if (top < 8) top = 8;
-    if (top + popupHeight > screenHeight - 20)
-      top = screenHeight - popupHeight - 20;
+    // Same math as original: right-aligned to tile, vertically centred + nudge down
+    final double followerDx = tileSize.width - popupWidth - 8;
+    final double followerDy = (tileSize.height / 2) - (popupHeight / 2) + 80;
 
-    showDialog(
-      context: context,
-      barrierColor: Colors.transparent,
-      barrierDismissible: false,
-      builder:
-          (_) => Stack(
-            children: [
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(color: Colors.transparent),
-                ),
+    _activeMenuOverlay = OverlayEntry(
+      builder: (overlayContext) {
+        return Stack(
+          children: [
+            // ── Transparent dismiss barrier ──────────────────────────────
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _dismissActiveMenu,
+                child: const SizedBox.expand(),
               ),
-              Positioned(
-                left: left,
-                top: top,
-                width: popupWidth,
-                child: Material(
-                  color: Colors.transparent,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(height: 20),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            chat.name,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.black,
+            ),
+
+            // ── Popup anchored to the tile ────────────────────────────────
+            CompositedTransformFollower(
+              link: layerLink,
+              showWhenUnlinked: false,
+              offset: Offset(followerDx, followerDy),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: _ClampedMenu(
+                  popupWidth: popupWidth,
+                  popupHeight: popupHeight,
+                  screenWidth: screenWidth,
+                  screenHeight: screenHeight,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      width: popupWidth,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: 20),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              chat.name,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.black,
+                              ),
                             ),
                           ),
-                        ),
-                        SizedBox(height: 10),
-                        Divider(
-                          color: Colors.grey[200],
-                          thickness: 1,
-                          height: 1,
-                        ),
-                        _buildMenuOption(
-                          label: '사진 변경',
-                          onTap: () async {
-                            Navigator.pop(context);
-                            await _changeGroupImage(chat);
-                          },
-                        ),
-                        Divider(
-                          color: Colors.grey[200],
-                          thickness: 1,
-                          height: 1,
-                        ),
-                        _buildMenuOption(
-                          label: '이름 변경',
-                          onTap: () {
-                            Navigator.pop(context);
-                            _showRenameDialog(chat);
-                          },
-                        ),
-                        Divider(
-                          color: Colors.grey[200],
-                          thickness: 1,
-                          height: 1,
-                        ),
-                        _buildMenuOption(
-                          label: '나가기',
-                          isLast: true,
-                          onTap: () {
-                            Navigator.pop(context);
-                            _confirmLeaveGroup(chat);
-                          },
-                        ),
-                        SizedBox(height: 8),
-                      ],
+                          const SizedBox(height: 10),
+                          Divider(
+                            color: Colors.grey[200],
+                            thickness: 1,
+                            height: 1,
+                          ),
+                          _buildMenuOption(
+                            label: '사진 변경',
+                            onTap: () async {
+                              _dismissActiveMenu();
+                              await _changeGroupImage(chat);
+                            },
+                          ),
+                          Divider(
+                            color: Colors.grey[200],
+                            thickness: 1,
+                            height: 1,
+                          ),
+                          _buildMenuOption(
+                            label: '이름 변경',
+                            onTap: () {
+                              _dismissActiveMenu();
+                              _showRenameDialog(chat);
+                            },
+                          ),
+                          Divider(
+                            color: Colors.grey[200],
+                            thickness: 1,
+                            height: 1,
+                          ),
+                          _buildMenuOption(
+                            label: '나가기',
+                            isLast: true,
+                            onTap: () {
+                              _dismissActiveMenu();
+                              _confirmLeaveGroup(chat);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
+        );
+      },
     );
+
+    Overlay.of(context).insert(_activeMenuOverlay!);
   }
 
   Widget _buildMenuOption({
@@ -166,14 +188,14 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
       onTap: onTap,
       borderRadius:
           isLast
-              ? BorderRadius.only(
+              ? const BorderRadius.only(
                 bottomLeft: Radius.circular(16),
                 bottomRight: Radius.circular(16),
               )
               : BorderRadius.zero,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         alignment: Alignment.center,
         child: Text(
           label,
@@ -198,11 +220,11 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(24, 28, 24, 20),
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  const Text(
                     '채팅방 나가기',
                     style: TextStyle(
                       fontSize: 18,
@@ -210,13 +232,13 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text(
                     '"${chat.name}" 채팅방에서 나가시겠습니까?\n나가면 대화 내용이 삭제됩니다.',
                     style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
@@ -226,7 +248,7 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                             ),
-                            padding: EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                           onPressed: () => Navigator.pop(ctx, false),
                           child: Text(
@@ -238,7 +260,7 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                           ),
                         ),
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
@@ -248,10 +270,10 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                             ),
-                            padding: EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: Text(
+                          child: const Text(
                             '나가기',
                             style: TextStyle(
                               fontSize: 14,
@@ -309,16 +331,19 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
       builder:
           (dialogContext) => Dialog(
             backgroundColor: Colors.white,
-            insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 80),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 80,
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(28, 32, 28, 24),
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  const Text(
                     '이름 변경',
                     style: TextStyle(
                       fontSize: 22,
@@ -326,17 +351,17 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 6),
+                  const SizedBox(height: 6),
                   Text(
                     '채팅방 이름을 변경합니다',
                     style: TextStyle(fontSize: 12, color: Colors.grey[400]),
                   ),
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                   TextField(
                     controller: nameController,
                     maxLength: 40,
                     autofocus: true,
-                    style: TextStyle(fontSize: 16, color: Colors.black),
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
                     decoration: InputDecoration(
                       hintText: '채팅방 이름',
                       hintStyle: TextStyle(
@@ -358,7 +383,7 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 28),
+                  const SizedBox(height: 28),
                   Row(
                     children: [
                       Expanded(
@@ -368,7 +393,7 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                             ),
-                            padding: EdgeInsets.symmetric(vertical: 13),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
                           ),
                           onPressed: () => Navigator.pop(dialogContext),
                           child: Text(
@@ -381,7 +406,7 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                           ),
                         ),
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
@@ -391,7 +416,7 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                             ),
-                            padding: EdgeInsets.symmetric(vertical: 13),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
                           ),
                           onPressed: () async {
                             final newName = nameController.text.trim();
@@ -420,7 +445,7 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
                               }
                             }
                           },
-                          child: Text(
+                          child: const Text(
                             '변경',
                             style: TextStyle(
                               fontSize: 14,
@@ -456,7 +481,6 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
             final groupChats =
                 snapshot.data!.where((chat) => chat.type == 'group').toList();
 
-            // Sort by order from edit screen
             groupChats.sort((a, b) {
               final aOrder = orderMap[a.id] ?? 999999;
               final bOrder = orderMap[b.id] ?? 999999;
@@ -472,88 +496,100 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
               itemCount: groupChats.length,
               itemBuilder: (context, index) {
                 final chat = groupChats[index];
-                final tileKey = GlobalKey();
                 final int unread = chat.unreadCount[currentUserId] ?? 0;
 
-                return Container(
-                  key: tileKey,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => ChatScreen(
-                                chatRoomId: chat.id,
-                                chatRoomName: chat.name,
-                              ),
-                        ),
-                      );
-                    },
-                    onLongPress: () {
-                      final tileCtx = tileKey.currentContext;
-                      if (tileCtx == null) return;
-                      _showGroupMenu(tileContext: tileCtx, chat: chat);
-                    },
-                    child: Row(
-                      children: [
-                        // ── Avatar ──
-                        CircleAvatar(
-                          radius: 25,
-                          backgroundImage:
-                              (chat.groupImage != null &&
-                                      chat.groupImage!.isNotEmpty)
-                                  ? NetworkImage(chat.groupImage!)
-                                      as ImageProvider
-                                  : const AssetImage('assets/009.png'),
-                        ),
-                        const SizedBox(width: 12),
+                // LayerLink per tile — replaces the old GlobalKey approach
+                final LayerLink layerLink = LayerLink();
 
-                        // ── Name + last message ──
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final tileSize = Size(constraints.maxWidth, 72);
+
+                    return CompositedTransformTarget(
+                      link: layerLink,
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => ChatScreen(
+                                      chatRoomId: chat.id,
+                                      chatRoomName: chat.name,
+                                    ),
+                              ),
+                            );
+                          },
+                          onLongPress: () {
+                            _showGroupMenu(
+                              layerLink: layerLink,
+                              tileSize: tileSize,
+                              chat: chat,
+                            );
+                          },
+                          child: Row(
                             children: [
-                              Text(
-                                chat.name,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black,
+                              // ── Avatar ──
+                              CircleAvatar(
+                                radius: 25,
+                                backgroundImage:
+                                    (chat.groupImage != null &&
+                                            chat.groupImage!.isNotEmpty)
+                                        ? NetworkImage(chat.groupImage!)
+                                            as ImageProvider
+                                        : const AssetImage('assets/009.png'),
+                              ),
+                              const SizedBox(width: 12),
+
+                              // ── Name + last message ──
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      chat.name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    _GroupLastMessage(
+                                      chat: chat,
+                                      currentUserId: currentUserId,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              _GroupLastMessage(
-                                chat: chat,
-                                currentUserId: currentUserId,
-                              ),
+
+                              // ── Unread badge ──
+                              if (unread > 0)
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    unread.toString(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
-
-                        // ── Unread badge ──
-                        if (unread > 0)
-                          Container(
-                            width: 20,
-                            height: 20,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.grey,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              unread.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 );
               },
             );
@@ -564,7 +600,68 @@ class _GroupChatsScreenState extends State<GroupChatsScreen> {
   }
 }
 
-// ─── Last message preview widget (optimized — no extra Firestore reads) ───────
+// ─── _ClampedMenu ─────────────────────────────────────────────────────────────
+
+class _ClampedMenu extends StatefulWidget {
+  const _ClampedMenu({
+    required this.child,
+    required this.popupWidth,
+    required this.popupHeight,
+    required this.screenWidth,
+    required this.screenHeight,
+  });
+
+  final Widget child;
+  final double popupWidth;
+  final double popupHeight;
+  final double screenWidth;
+  final double screenHeight;
+
+  @override
+  State<_ClampedMenu> createState() => _ClampedMenuState();
+}
+
+class _ClampedMenuState extends State<_ClampedMenu> {
+  double _dx = 0;
+  double _dy = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final box = context.findRenderObject() as RenderBox?;
+      if (box == null) return;
+      final pos = box.localToGlobal(Offset.zero);
+
+      double dx = 0;
+      double dy = 0;
+
+      if (pos.dx + widget.popupWidth > widget.screenWidth - 8) {
+        dx = (widget.screenWidth - 8) - (pos.dx + widget.popupWidth);
+      }
+      if (pos.dx + dx < 8) dx = 8 - pos.dx;
+      if (pos.dy + widget.popupHeight > widget.screenHeight - 20) {
+        dy = (widget.screenHeight - 20) - (pos.dy + widget.popupHeight);
+      }
+      if (pos.dy + dy < 8) dy = 8 - pos.dy;
+
+      if (dx != 0 || dy != 0) {
+        setState(() {
+          _dx = dx;
+          _dy = dy;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(offset: Offset(_dx, _dy), child: widget.child);
+  }
+}
+
+// ─── Last message preview widget ─────────────────────────────────────────────
 
 class _GroupLastMessage extends StatelessWidget {
   final ChatRoomModel chat;
@@ -578,7 +675,6 @@ class _GroupLastMessage extends StatelessWidget {
     final senderId = chat.lastMessageSenderId ?? '';
     final senderName = chat.lastMessageSenderName ?? '';
 
-    // No messages yet → show participant count
     if (content.isEmpty && senderId.isEmpty) {
       if (chat.participants.isEmpty) return const SizedBox.shrink();
       return Text(
@@ -589,7 +685,6 @@ class _GroupLastMessage extends StatelessWidget {
 
     final bool isMe = senderId == currentUserId;
     final String nameLabel = isMe ? '나' : senderName;
-
     final bool isPhoto = content == '[사진]' || content == '[image]';
 
     return Row(
