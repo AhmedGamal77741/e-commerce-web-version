@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/features/chat/models/story_model.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -10,7 +11,7 @@ class StoryService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   Future<void> uploadStory(
-    File imageFile,
+    Uint8List imageFile,
     String name,
     String profileImg,
   ) async {
@@ -24,7 +25,7 @@ class StoryService {
       Reference ref = _storage.ref().child('stories/$uid/$storyId');
 
       // TaskSnapshot is required to ensure we wait for completion
-      TaskSnapshot snapshot = await ref.putFile(imageFile);
+      TaskSnapshot snapshot = await ref.putData(imageFile);
       print("DEBUG: Storage upload complete. State: ${snapshot.state}");
 
       String downloadUrl = await snapshot.ref.getDownloadURL();

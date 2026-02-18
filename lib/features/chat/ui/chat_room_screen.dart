@@ -2,6 +2,8 @@
 import 'dart:io';
 import 'package:ecommerece_app/core/cache/user_cache.dart';
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
+import 'package:ecommerece_app/core/models/product_model.dart';
+import 'package:ecommerece_app/features/cart/services/cart_service.dart';
 import 'package:ecommerece_app/features/chat/models/chat_room_model.dart';
 import 'package:ecommerece_app/features/chat/models/story_model.dart';
 import 'package:ecommerece_app/features/chat/services/story_service.dart';
@@ -1193,9 +1195,23 @@ class _BubbleContent extends StatelessWidget {
             if (message.content.isNotEmpty) SizedBox(height: 6),
             ChatPostShareWidget(
               imageUrl: message.productData!.imgUrl!,
-              authorName: message.productData!.pricePoints[0].toString(),
-              postTitle: message.productData!.productName,
-              onTap: () {},
+              postTitle:
+                  '${message.productData!.pricePoints[0].price.toString()} 원',
+              authorName: message.productData!.productName,
+              onTap: () async {
+                bool isSub = await isUserSubscribed();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (_) => ItemDetails(
+                          product: message.productData!,
+                          isSub: isSub,
+                          arrivalDay: message.productData!.arrivalDate!,
+                        ),
+                  ),
+                );
+              },
             ),
           ],
           if (message.imageUrl != null && message.imageUrl!.isNotEmpty) ...[

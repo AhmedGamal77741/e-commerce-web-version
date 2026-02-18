@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:ecommerece_app/features/chat/models/text_overlay_model.dart';
 import 'package:ecommerece_app/features/chat/services/story_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,7 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 
 class UploadStoryScreen extends StatefulWidget {
-  final File initialImage;
+  final Uint8List initialImage;
   const UploadStoryScreen({super.key, required this.initialImage});
 
   @override
@@ -18,7 +19,7 @@ class UploadStoryScreen extends StatefulWidget {
 }
 
 class _UploadStoryScreenState extends State<UploadStoryScreen> {
-  late File _currentImage;
+  late Uint8List _currentImage;
   List<TextOverlay> _textOverlays = [];
   final ImagePicker _picker = ImagePicker();
   final ScreenshotController _screenshotController = ScreenshotController();
@@ -36,7 +37,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
     if (pickedFile != null) {
       setState(() {
-        _currentImage = File(pickedFile.path);
+        _currentImage = File(pickedFile.path).readAsBytesSync();
       });
     }
   }
@@ -113,7 +114,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: Image.file(_currentImage, fit: BoxFit.cover),
+                        child: Image.memory(_currentImage, fit: BoxFit.contain),
                       ),
                       ..._textOverlays.asMap().entries.map((entry) {
                         int index = entry.key;
@@ -224,16 +225,16 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
         final imageBytes = await _screenshotController.capture();
 
         if (imageBytes != null) {
-          final tempDir = await getTemporaryDirectory();
+          /*           final tempDir = await getTemporaryDirectory();
           final file =
               await File(
                 '${tempDir.path}/story_${DateTime.now().millisecondsSinceEpoch}.png',
               ).create();
-          await file.writeAsBytes(imageBytes);
+          await file.writeAsBytes(imageBytes); */
 
           final currentUser = FirebaseAuth.instance.currentUser!;
           await StoryService().uploadStory(
-            file,
+            imageBytes,
             currentUser.displayName.toString(),
             currentUser.photoURL.toString(),
           );

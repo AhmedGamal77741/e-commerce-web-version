@@ -8,6 +8,7 @@ import 'package:ecommerece_app/features/cart/services/cart_service.dart';
 import 'package:ecommerece_app/features/cart/services/favorites_service.dart';
 import 'package:ecommerece_app/features/chat/services/chat_service.dart';
 import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
+import 'package:ecommerece_app/features/home/widgets/share_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -680,14 +681,24 @@ class _ItemDetailsState extends State<ItemDetails> {
                             IconButton(
                               onPressed: () async {
                                 final productId = widget.product.product_id;
-                                final base = Uri.base.origin;
-                                final url = '$base/product/$productId';
-                                await Clipboard.setData(
+                                final url =
+                                    'https://app.pang2chocolate.com/product/$productId';
+
+                                showShareDialog(
+                                  context,
+                                  'product',
+                                  url,
+                                  productId,
+                                  widget.product.productName,
+                                  widget.product.imgUrl.toString(),
+                                  widget.product.toMap(),
+                                );
+                                /*                                 await Clipboard.setData(
                                   ClipboardData(text: url),
                                 );
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(content: Text('상품 링크가 복사되었습니다!')),
-                                );
+                                ); */
                               },
                               icon: ImageIcon(
                                 const AssetImage('assets/grey_006m.png'),
