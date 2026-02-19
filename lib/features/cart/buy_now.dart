@@ -1552,8 +1552,6 @@ class _BuyNowState extends State<BuyNow> {
     String paymentId,
     String option,
     String dm,
-    String option,
-    String dm,
   ) async {
     final url = Uri.parse(
       'https://pay.pang2chocolate.com/b-payment.html'
@@ -1573,8 +1571,6 @@ class _BuyNowState extends State<BuyNow> {
     String phoneNo,
     String paymentId,
     String payerId,
-    String option,
-    String dm,
     String option,
     String dm,
   ) async {
