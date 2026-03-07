@@ -4,15 +4,14 @@ import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
-import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
+// import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/cart/services/cart_service.dart';
 import 'package:ecommerece_app/features/cart/services/favorites_service.dart';
-import 'package:ecommerece_app/features/chat/services/chat_service.dart'; // NEW UI
-import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart'; // NEW UI
-import 'package:ecommerece_app/features/home/widgets/share_dialog.dart'; // NEW UI
+import 'package:ecommerece_app/features/chat/services/chat_service.dart';
+import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
+import 'package:ecommerece_app/features/home/widgets/share_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
@@ -45,7 +44,6 @@ class ItemDetails extends StatefulWidget {
 }
 
 class _ItemDetailsState extends State<ItemDetails> {
-  // NEW UI: chat service for floating seller chat button
   final ChatService _chatService = ChatService();
 
   late bool liked = false;
@@ -74,7 +72,6 @@ class _ItemDetailsState extends State<ItemDetails> {
     );
   }
 
-  // ── NEW LOGIC: write pending_buynow to Firestore then navigate ─────────────
   Future<void> _handleBuyNow({
     required String uid,
     required bool isSub,
@@ -82,7 +79,6 @@ class _ItemDetailsState extends State<ItemDetails> {
     required int currentStock,
   }) async {
     try {
-      // Generate paymentId server-side style (Firestore doc id)
       final paymentId =
           FirebaseFirestore.instance.collection('orders').doc().id;
 
@@ -94,7 +90,6 @@ class _ItemDetailsState extends State<ItemDetails> {
           .doc(uid)
           .collection('pending_buynow');
 
-      // Clear any stale pending_buynow docs for this user
       final existing = await pendingColl.get();
       for (final doc in existing.docs) {
         try {
@@ -102,11 +97,10 @@ class _ItemDetailsState extends State<ItemDetails> {
         } catch (_) {}
       }
 
-      // Write new pending_buynow — includes imgUrl for BuyNow UI display
       await pendingColl.doc(paymentId).set({
         'product_id': widget.product.product_id,
         'product_name': widget.product.productName,
-        'imgUrl': widget.product.imgUrl ?? '', // ← ADDED
+        'imgUrl': widget.product.imgUrl ?? '',
         'deliveryManagerId': widget.product.deliveryManagerId,
         'price': finalPrice,
         'quantity': pricePoint.quantity,
@@ -127,7 +121,6 @@ class _ItemDetailsState extends State<ItemDetails> {
     }
   }
 
-  // ── Shared stock + cart check used by both buttons ─────────────────────────
   Future<int?> _getValidatedStock(PricePoint pricePoint) async {
     final productRef = FirebaseFirestore.instance
         .collection('products')
@@ -228,7 +221,7 @@ class _ItemDetailsState extends State<ItemDetails> {
               child: Center(child: _ShiningPremiumBanner()),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(20, 14, 20, 14),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,14 +296,13 @@ class _ItemDetailsState extends State<ItemDetails> {
             _buildInfoCard(),
           ],
         ),
-        // NEW LOGIC: SafeArea protects against system nav bar overlap
         bottomNavigationBar: SafeArea(
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Expanded(child: _buildCartButton(isLoggedIn: false)),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Expanded(
                   child: _buildBuyNowButton(isLoggedIn: false, isSub: false),
                 ),
@@ -342,7 +334,6 @@ class _ItemDetailsState extends State<ItemDetails> {
         return Scaffold(
           body: Stack(
             children: [
-              // NEW UI: ListView inside Stack to allow floating chat button
               ListView(
                 children: [
                   SizedBox(
@@ -375,7 +366,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                                   child: SmoothPageIndicator(
                                     controller: _pageController,
                                     count: imageUrls.length,
-                                    effect: ScrollingDotsEffect(
+                                    effect: const ScrollingDotsEffect(
                                       activeDotColor: Colors.black,
                                       dotColor: Colors.grey,
                                       dotHeight: 10,
@@ -386,6 +377,20 @@ class _ItemDetailsState extends State<ItemDetails> {
                               ),
                             ),
                           ),
+                        Positioned(
+                          top: 5,
+                          left: 5,
+                          child: IconButton(
+                            icon: const Icon(Icons.arrow_back),
+                            onPressed: () {
+                              if (GoRouter.of(context).canPop()) {
+                                GoRouter.of(context).pop();
+                              } else {
+                                GoRouter.of(context).goNamed(Routes.navBar);
+                              }
+                            },
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -397,7 +402,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                       child: Center(child: _ShiningPremiumBanner()),
                     ),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(20, 14, 20, 14),
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,32 +414,32 @@ class _ItemDetailsState extends State<ItemDetails> {
                             children: [
                               Text(
                                 widget.product.sellerName,
-                                style: TextStyle(
-                                  color: const Color(0xFF121212),
+                                style: const TextStyle(
+                                  color: Color(0xFF121212),
                                   fontSize: 14,
                                   fontFamily: 'NotoSans',
                                   fontWeight: FontWeight.w400,
                                   height: 1.40,
                                 ),
                               ),
-                              SizedBox(height: 10),
+                              const SizedBox(height: 10),
                               Text(
                                 widget.product.productName,
-                                style: TextStyle(
-                                  color: const Color(0xFF121212),
+                                style: const TextStyle(
+                                  color: Color(0xFF121212),
                                   fontSize: 16,
                                   fontFamily: 'NotoSans',
                                   fontWeight: FontWeight.w400,
                                   height: 1.40,
                                 ),
                               ),
-                              SizedBox(height: 10),
+                              const SizedBox(height: 10),
                               Text(
                                 widget.product.stock == 0
                                     ? '품절'
                                     : widget.product.arrivalDate ?? '',
-                                style: TextStyle(
-                                  color: const Color(0xFF747474),
+                                style: const TextStyle(
+                                  color: Color(0xFF747474),
                                   fontSize: 14,
                                   fontFamily: 'NotoSans',
                                   fontWeight: FontWeight.w400,
@@ -447,7 +452,6 @@ class _ItemDetailsState extends State<ItemDetails> {
                         const Spacer(),
                         Row(
                           children: [
-                            // NEW UI: showShareDialog instead of ShareService
                             IconButton(
                               onPressed: () {
                                 final url =
@@ -502,7 +506,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                 ],
               ),
 
-              // NEW UI: floating chat with seller button
+              // Floating chat with seller button
               Positioned(
                 right: 0,
                 bottom: -10,
@@ -539,10 +543,9 @@ class _ItemDetailsState extends State<ItemDetails> {
             ],
           ),
 
-          // NEW LOGIC: SafeArea protects against system nav bar overlap (Android + iOS)
           bottomNavigationBar: SafeArea(
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   Expanded(
@@ -551,7 +554,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                       uid: currentUser.uid,
                     ),
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: _buildBuyNowButton(
                       isLoggedIn: true,
@@ -624,7 +627,7 @@ class _ItemDetailsState extends State<ItemDetails> {
       },
       style: TextButton.styleFrom(
         backgroundColor: ColorsManager.white,
-        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(
@@ -632,7 +635,7 @@ class _ItemDetailsState extends State<ItemDetails> {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
-      child: Text(
+      child: const Text(
         '장바구니 담기',
         style: TextStyle(
           color: Colors.black,
@@ -665,7 +668,6 @@ class _ItemDetailsState extends State<ItemDetails> {
         final currentStock = await _getValidatedStock(pricePoint);
         if (currentStock == null) return;
 
-        // NEW LOGIC: write pending_buynow then navigate with paymentId
         await _handleBuyNow(
           uid: uid,
           isSub: isSub,
@@ -675,12 +677,12 @@ class _ItemDetailsState extends State<ItemDetails> {
       },
       style: TextButton.styleFrom(
         backgroundColor: ColorsManager.primaryblack,
-        padding: EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      child: Text(
+      child: const Text(
         '바로 구매',
         style: TextStyle(
           color: Colors.white,
@@ -698,7 +700,7 @@ class _ItemDetailsState extends State<ItemDetails> {
     required bool isSub,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Container(
         decoration: ShapeDecoration(
           color: Colors.white,
@@ -724,14 +726,14 @@ class _ItemDetailsState extends State<ItemDetails> {
                               children: [
                                 Text(
                                   '${pricePoint.quantity}개 ${formatCurrency.format(pricePoint.price)}원',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontFamily: 'NotoSans',
                                     fontWeight: FontWeight.w400,
                                     fontSize: 16,
                                     height: 1.4,
                                   ),
                                 ),
-                                SizedBox(width: 5),
+                                const SizedBox(width: 5),
                                 Text(
                                   '(1개 ${formatCurrency.format(perUnit.round())}원)',
                                   style: TextStyles.abeezee14px400wP600,
@@ -742,14 +744,14 @@ class _ItemDetailsState extends State<ItemDetails> {
                               children: [
                                 Text(
                                   '${pricePoint.quantity}개 ',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontFamily: 'NotoSans',
                                     fontWeight: FontWeight.w400,
                                     fontSize: 18,
                                     height: 1.4,
                                   ),
                                 ),
-                                SizedBox(width: 5),
+                                const SizedBox(width: 5),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -757,14 +759,14 @@ class _ItemDetailsState extends State<ItemDetails> {
                                       children: [
                                         Text(
                                           '일반가 ${formatCurrency.format((pricePoint.price / 0.8).round())} 원',
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontFamily: 'NotoSans',
                                             fontWeight: FontWeight.w400,
                                             fontSize: 16,
                                             height: 1.4,
                                           ),
                                         ),
-                                        SizedBox(width: 5),
+                                        const SizedBox(width: 5),
                                         Text(
                                           '(1개 ${formatCurrency.format(perUnitN.round())}원)',
                                           style: TextStyles.abeezee14px400wP600,
@@ -777,7 +779,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                                         children: [
                                           Text(
                                             '멤버십 ${formatCurrency.format(pricePoint.price)} 원',
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontFamily: 'NotoSans',
                                               fontWeight: FontWeight.w400,
                                               fontSize: 16,
@@ -785,7 +787,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                                               color: Colors.white,
                                             ),
                                           ),
-                                          SizedBox(width: 5),
+                                          const SizedBox(width: 5),
                                           Text(
                                             '(1개 ${formatCurrency.format(perUnit.round())}원)',
                                             style: TextStyles
@@ -822,9 +824,14 @@ class _ItemDetailsState extends State<ItemDetails> {
 
   Widget _buildInfoCard() {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
       child: Container(
-        padding: EdgeInsets.only(left: 15, top: 15, bottom: 15, right: 15),
+        padding: const EdgeInsets.only(
+          left: 15,
+          top: 15,
+          bottom: 15,
+          right: 15,
+        ),
         decoration: ShapeDecoration(
           color: Colors.white,
           shape: RoundedRectangleBorder(
@@ -837,17 +844,17 @@ class _ItemDetailsState extends State<ItemDetails> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildInfoRow('배송', widget.product.arrivalDate ?? ''),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             const Divider(height: 1, thickness: 0.40, color: Color(0xFF747474)),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             _buildInfoRow('보관법 및 소비기한', widget.product.instructions),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             const Divider(height: 1, thickness: 0.40, color: Color(0xFF747474)),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             _buildInfoRow('남은 수량', '${widget.product.stock.toString()} 개'),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             const Divider(height: 1, thickness: 0.40, color: Color(0xFF747474)),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             _buildInfoRow('제품안내', widget.product.description ?? ''),
           ],
         ),
@@ -862,19 +869,19 @@ class _ItemDetailsState extends State<ItemDetails> {
       children: [
         Text(
           title,
-          style: TextStyle(
-            color: const Color(0xFF121212),
+          style: const TextStyle(
+            color: Color(0xFF121212),
             fontSize: 16,
             fontFamily: 'NotoSans',
             fontWeight: FontWeight.w400,
             height: 1.40,
           ),
         ),
-        SizedBox(height: 12 / 2),
+        const SizedBox(height: 6),
         Text(
           content,
-          style: TextStyle(
-            color: const Color(0xFF747474),
+          style: const TextStyle(
+            color: Color(0xFF747474),
             fontSize: 14,
             fontFamily: 'NotoSans',
             fontWeight: FontWeight.w400,
@@ -904,8 +911,7 @@ class _ShiningPremiumBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      // NEW UI: responsive padding with .r
-      padding: EdgeInsets.fromLTRB(20, 20, 20, 10),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -920,7 +926,7 @@ class _ShiningPremiumBanner extends StatelessWidget {
               ),
             ),
             child: Padding(
-              padding: EdgeInsets.all(20), // NEW UI: responsive
+              padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
                   verticalSpace(15),
@@ -965,7 +971,9 @@ class _ShiningPremiumBanner extends StatelessWidget {
             style: ButtonStyle(
               backgroundColor: WidgetStateProperty.all(Colors.white),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              minimumSize: WidgetStateProperty.all(Size(double.infinity, 80)),
+              minimumSize: WidgetStateProperty.all(
+                const Size(double.infinity, 80),
+              ),
               shape: WidgetStateProperty.all(
                 RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(50),

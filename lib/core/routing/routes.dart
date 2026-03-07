@@ -16,6 +16,10 @@ class Routes {
   static const String authScreen = '/auth';
   static const String deleteAccount = '/delete-account';
   static const String buyNowScreen = '/buy-now';
-  static const String chatScreen = 'chatScreen';
   static const String alertsScreen = '/alerts';
+  static const String chatScreen = 'chatScreen';
+
+  // ── Bank account registration deep link landing ───────────────────────────
+  // Matches app.pang2chocolate.com/bank-registered?success=...&userId=...&paymentId=...
+  static const String bankRegisteredScreen = '/bank-registered';
 }

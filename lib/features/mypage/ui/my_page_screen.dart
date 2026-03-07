@@ -10,6 +10,7 @@ import 'package:ecommerece_app/features/mypage/ui/my_story.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:ecommerece_app/core/widgets/safe_network_image.dart';
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({super.key});
@@ -31,12 +32,9 @@ class _MyPageScreenState extends State<MyPageScreen> {
           Scaffold(
             appBar: AppBar(
               centerTitle: true,
-
-              // ← Give the toolbar the full height you need
               toolbarHeight: 100,
-
               title: Column(
-                mainAxisSize: MainAxisSize.min, // don’t expand vertically
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   StreamBuilder<DocumentSnapshot>(
                     stream:
@@ -64,24 +62,31 @@ class _MyPageScreenState extends State<MyPageScreen> {
                           InkWell(
                             onTap: () async {
                               LoadingService().showLoading();
-
                               final newUrl = await uploadImageToFirebaseStorage(
                                 await ImagePicker().pickImage(
                                   source: ImageSource.gallery,
                                 ),
                               );
-                              /* setState(() => imgUrl = newUrl); */
                               LoadingService().hideLoading();
                             },
                             child: ClipOval(
-                              child: Image.network(
-                                (imgUrl.isEmpty ? userData['url'] : imgUrl) ??
+                              child: SafeNetworkImage(
+                                url:
+                                    (imgUrl.isEmpty
+                                        ? (userData['url'] as String?)
+                                        : imgUrl) ??
                                     '',
-                                height: 64,
                                 width: 64,
-                                fit:
-                                    BoxFit
-                                        .cover, // or BoxFit.contain to avoid cropping
+                                height: 64,
+                                fit: BoxFit.cover,
+                                errorWidget: Icon(Icons.person, size: 64),
+                                placeholder: SizedBox(
+                                  width: 64,
+                                  height: 64,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -120,7 +125,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
                   ),
                 ],
               ),
-
               bottom: TabBar(
                 tabs: [Tab(text: '내 이야기'), Tab(text: '마이페이지')],
                 labelStyle: TextStyle(

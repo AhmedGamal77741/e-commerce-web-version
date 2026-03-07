@@ -1,5 +1,3 @@
-import 'package:ecommerece_app/core/helpers/basetime.dart';
-import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
@@ -8,7 +6,6 @@ import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/cart/cart.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 
-import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -24,8 +21,6 @@ class Shop extends StatefulWidget {
 }
 
 class ShopState extends State<Shop> with TickerProviderStateMixin {
-  List<Map<String, dynamic>> _categories = [];
-  bool _isLoading = true;
   TabController? _tabController;
   final ScrollController categoryProductsScreenScrollController =
       ScrollController();
@@ -33,7 +28,7 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _loadCategories();
+    // no manual loading, categories are obtained via stream in build
   }
 
   void resetToFirstCategory() {
@@ -49,83 +44,89 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _loadCategories() async {
-    try {
-      final QuerySnapshot snapshot =
-          await FirebaseFirestore.instance.collection('categories').get();
-
-      List<Map<String, dynamic>> categories =
-          snapshot.docs.map((doc) {
-            return {
-              'id': doc.id,
-              'name': (doc.data() as Map<String, dynamic>)['name'] ?? 'Unknown',
-            };
-          }).toList();
-
-      if (mounted) {
-        setState(() {
-          _categories = categories;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      print('Error loading categories: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    // If no categories, show a message
-    if (_categories.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(title: Text('Shop')),
-        body: Center(child: Text('No categories available')),
-      );
-    }
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, authSnapshot) {
-        if (authSnapshot.connectionState == ConnectionState.waiting) {
+    // listen for realtime category changes (with order field)
+    return StreamBuilder<QuerySnapshot>(
+      stream:
+          FirebaseFirestore.instance
+              .collection('categories')
+              .orderBy('order')
+              .snapshots(),
+      builder: (context, catSnapshot) {
+        if (catSnapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-        final firebaseUser = authSnapshot.data;
-        if (firebaseUser == null) {
-          // Not logged in, just show the shop as before (or you can restrict access)
-          return _buildShopTabController(null);
+        if (catSnapshot.hasError) {
+          return Scaffold(
+            body: Center(child: Text('Error loading categories')),
+          );
         }
-        return StreamBuilder<DocumentSnapshot>(
-          stream:
-              FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(firebaseUser.uid)
-                  .snapshots(),
-          builder: (context, userSnapshot) {
-            if (userSnapshot.connectionState == ConnectionState.waiting) {
+
+        // convert docs to simple map list
+        final categories =
+            catSnapshot.data?.docs
+                .map(
+                  (doc) => {
+                    'id': doc.id,
+                    'name':
+                        (doc.data() as Map<String, dynamic>)['name'] ??
+                        'Unknown',
+                  },
+                )
+                .toList() ??
+            [];
+
+        if (categories.isEmpty) {
+          return Scaffold(
+            appBar: AppBar(title: Text('Shop')),
+            body: Center(child: Text('No categories available')),
+          );
+        }
+
+        // now continue with auth/user stream as before
+        return StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, authSnapshot) {
+            if (authSnapshot.connectionState == ConnectionState.waiting) {
               return Scaffold(body: Center(child: CircularProgressIndicator()));
             }
-            if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
-              return Scaffold(
-                body: Center(child: Text('User profile not found')),
-              );
+            final firebaseUser = authSnapshot.data;
+            if (firebaseUser == null) {
+              return _buildShopTabController(null, categories);
             }
-            final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
-            return _buildShopTabController(userData);
+            return StreamBuilder<DocumentSnapshot>(
+              stream:
+                  FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(firebaseUser.uid)
+                      .snapshots(),
+              builder: (context, userSnapshot) {
+                if (userSnapshot.connectionState == ConnectionState.waiting) {
+                  return Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                  return Scaffold(
+                    body: Center(child: Text('User profile not found')),
+                  );
+                }
+                final userData =
+                    userSnapshot.data!.data() as Map<String, dynamic>?;
+                return _buildShopTabController(userData, categories);
+              },
+            );
           },
         );
       },
     );
   }
 
-  Widget _buildShopTabController(Map<String, dynamic>? userData) {
+  Widget _buildShopTabController(
+    Map<String, dynamic>? userData,
+    List<Map<String, dynamic>> categories,
+  ) {
     int initialIndex = 0;
     final bool isSub = userData != null && (userData['isSub'] ?? false);
 
@@ -148,7 +149,8 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
       });
     }
     return DefaultTabController(
-      length: _categories.length,
+      key: ValueKey(categories.map((c) => c['id']).join(',')),
+      length: categories.length,
       initialIndex: initialIndex,
       child: Builder(
         builder: (context) {
@@ -171,11 +173,11 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
               ),
             ),
             appBar: AppBar(
-              toolbarHeight: 65,
+              toolbarHeight: 40,
               title: Text(''),
               centerTitle: false,
               bottom: PreferredSize(
-                preferredSize: Size.fromHeight(48),
+                preferredSize: Size.fromHeight(100),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -259,7 +261,10 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                       ],
                     ),
                     TabBar(
-                      tabAlignment: TabAlignment.start,
+                      tabAlignment:
+                          categories.length > 4
+                              ? TabAlignment.start
+                              : TabAlignment.center,
                       padding: EdgeInsets.zero,
                       labelStyle: TextStyle(
                         fontSize: 16,
@@ -273,9 +278,9 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                       unselectedLabelColor: ColorsManager.primary600,
                       indicatorSize: TabBarIndicatorSize.tab,
                       indicatorColor: ColorsManager.primaryblack,
-                      isScrollable: _categories.length > 4,
+                      isScrollable: categories.length > 4,
                       tabs:
-                          _categories
+                          categories
                               .map((category) => Tab(text: category['name']))
                               .toList(),
                     ),
@@ -287,7 +292,7 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
               padding: EdgeInsets.only(right: 8, top: 15, bottom: 4),
               child: TabBarView(
                 children:
-                    _categories
+                    categories
                         .map(
                           (category) => CategoryProductsScreen(
                             categoryId: category['id'],
@@ -339,7 +344,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Get user address from ancestor widget if passed, or fetch from Firestore if needed
     final shopState = context.findAncestorStateOfType<ShopState>();
     if (shopState != null && widget.userData != null) {
       final userData = widget.userData!;
@@ -390,7 +394,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Display products in a grid
     return Scaffold(
       body: Padding(
         padding: EdgeInsets.symmetric(horizontal: 12),
@@ -404,18 +407,13 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
           builder: (context, snapshot) {
             final formatCurrency = NumberFormat('#,###');
             if (snapshot.hasError) {
-              print('Error: ${snapshot.error}');
               return Center(child: Text('오류: ${snapshot.error}'));
             }
-            /*             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            } */
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
               return const Center(child: Text('아직 제품이 없습니다'));
             }
             final products = snapshot.data!.docs;
-            /*             List<Product> sameRegion = [];
- */
+
             List<Product> otherRegion = [];
             List<Product> soldOut = [];
 
@@ -425,26 +423,13 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
               );
               if (product.stock == 0) {
                 soldOut.add(product);
-              } /* else if (_isSameRegion(userAddressMap, product.address)) {
-                sameRegion.add(product);
-              }  */ else {
+              } else {
                 otherRegion.add(product);
               }
             }
 
-            final sortedProducts = [
-              /* ...sameRegion,  */ ...otherRegion,
-              ...soldOut,
-            ];
-            /*             // Sort: available products first, then sold out
-            final sortedProducts = List.from(products)..sort((a, b) {
-              final stockA = (a.data() as Map<String, dynamic>)['stock'] ?? 0;
-              final stockB = (b.data() as Map<String, dynamic>)['stock'] ?? 0;
-              if ((stockA > 0 && stockB > 0) || (stockA == 0 && stockB == 0))
-                return 0;
-              if (stockA > 0) return -1;
-              return 1;
-            }); */
+            final sortedProducts = [...otherRegion, ...soldOut];
+
             return ListView.separated(
               controller: widget.scrollController,
               separatorBuilder: (context, index) {
@@ -461,10 +446,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                   onTap: () {
                     GoRouter.of(context).pushNamed(
                       'productDetails',
-                      pathParameters: {
-                        'productId':
-                            p.product_id.toString(), // <- fills :productId
-                      },
+                      pathParameters: {'productId': p.product_id.toString()},
                     );
                   },
                   child: Padding(

@@ -57,6 +57,7 @@ dependencies:
   timeago: ^3.7.0
   url_launcher: ^6.3.1
   uuid: ^4.5.1
+  http: ^1.6.0
   web: any
 
 dev_dependencies:

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
@@ -10,16 +11,13 @@ import 'package:ecommerece_app/features/cart/models/address.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class BuyNow extends StatefulWidget {
-  // paymentId comes from server (pre-created before navigation)
   final String? paymentId;
-
-  // Optional display hints — real values come from pendingBuynowData
   final String? productName;
   final String? productImgUrl;
 
@@ -37,17 +35,12 @@ class _BuyNowState extends State<BuyNow> {
   final invoiceeCorpNameController = TextEditingController();
   final invoiceeCEONameController = TextEditingController();
 
-  // ── Misc controllers ──────────────────────────────────────────────────────
-  bool isAddingNewBank = false;
+  // ── Controllers ───────────────────────────────────────────────────────────
   final deliveryAddressController = TextEditingController();
-  final deliveryInstructionsController = TextEditingController();
-  final cashReceiptController = TextEditingController();
   final phoneController = TextEditingController();
   final nameController = TextEditingController();
   final emailController = TextEditingController();
 
-  // ── Form key (bottom sheet only) ──────────────────────────────────────────
-  // Main screen has no inline form fields — all input lives in the bottom sheet.
   final _bottomSheetFormKey = GlobalKey<FormState>();
 
   // ── Address ───────────────────────────────────────────────────────────────
@@ -61,8 +54,6 @@ class _BuyNowState extends State<BuyNow> {
     addressMap: {},
   );
 
-  Map<String, dynamic>? userBank;
-
   // ── Delivery request ──────────────────────────────────────────────────────
   final List<String> deliveryRequests = [
     '문앞',
@@ -74,25 +65,30 @@ class _BuyNowState extends State<BuyNow> {
   String selectedRequest = '문앞';
   String? manualRequest;
 
-  // ── Payment state ─────────────────────────────────────────────────────────
+  // ── Receipt option ────────────────────────────────────────────────────────
   int selectedOption = 1;
-  bool isProcessing = false;
-  String? currentPaymentId;
-  final Set<String> _finalizedPayments = {};
 
   // ── Bank accounts ─────────────────────────────────────────────────────────
   List<Map<String, dynamic>> bankAccounts = [];
-  int selectedBankIndex = 0;
+  int selectedBankIndex = -1;
 
-  // ── pending_buynow data loaded from Firestore ─────────────────────────────
+  // ── pending_buynow data ───────────────────────────────────────────────────
   Map<String, dynamic>? pendingBuynowData;
   int pendingPrice = 0;
   int pendingQuantity = 0;
 
+  // ── Payment state ─────────────────────────────────────────────────────────
+  bool isProcessing = false;
+  String? currentPaymentId;
+
+  // ── Bank registration tracking ────────────────────────────────────────────
+  StreamSubscription<QuerySnapshot>? _bankRegSub;
+  String? _bankRegPaymentId;
+
   final formatCurrency = NumberFormat('#,###');
 
   // ───────────────────────────────────────────────────────────────────────────
-  // INIT
+  // LIFECYCLE
   // ───────────────────────────────────────────────────────────────────────────
 
   @override
@@ -101,9 +97,21 @@ class _BuyNowState extends State<BuyNow> {
     _init();
   }
 
+  @override
+  void dispose() {
+    _bankRegSub?.cancel();
+    invoiceeCorpNumController.dispose();
+    invoiceeCorpNameController.dispose();
+    invoiceeCEONameController.dispose();
+    deliveryAddressController.dispose();
+    phoneController.dispose();
+    nameController.dispose();
+    emailController.dispose();
+    super.dispose();
+  }
+
   Future<void> _init() async {
     await _fetchBankAccounts();
-    await _fetchUserPaymentInfo();
     await _loadCachedUserValues();
     await _loadPendingBuynowData();
     await _ensureCachedAddressAndInstructions();
@@ -121,27 +129,20 @@ class _BuyNowState extends State<BuyNow> {
     final data = userDoc.data();
     if (data != null && data['bankAccounts'] != null) {
       final accounts = List<Map<String, dynamic>>.from(data['bankAccounts']);
-      setState(() {
-        bankAccounts = accounts;
-        selectedBankIndex = accounts.isNotEmpty ? 0 : -1;
-      });
+      if (mounted) {
+        setState(() {
+          bankAccounts = accounts;
+          selectedBankIndex = accounts.isNotEmpty ? 0 : -1;
+        });
+      }
     } else {
-      setState(() {
-        bankAccounts = [];
-        selectedBankIndex = -1;
-      });
+      if (mounted) {
+        setState(() {
+          bankAccounts = [];
+          selectedBankIndex = -1;
+        });
+      }
     }
-  }
-
-  Future<void> _fetchUserPaymentInfo() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    final userDoc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    final data = userDoc.data();
-    setState(() {
-      userBank = data?['bank'] as Map<String, dynamic>?;
-    });
   }
 
   Future<void> _loadPendingBuynowData() async {
@@ -155,7 +156,7 @@ class _BuyNowState extends State<BuyNow> {
               .collection('pending_buynow')
               .doc(widget.paymentId)
               .get();
-      if (doc.exists) {
+      if (doc.exists && mounted) {
         setState(() {
           pendingBuynowData = doc.data();
           pendingPrice = pendingBuynowData?['price'] ?? 0;
@@ -175,25 +176,21 @@ class _BuyNowState extends State<BuyNow> {
             .collection('usercached_values')
             .doc(uid)
             .get();
-    if (doc.exists) {
-      final data = doc.data();
-      if (data != null && mounted) {
-        setState(() {
-          nameController.text = data['name'] ?? '';
-          emailController.text = data['email'] ?? '';
-          phoneController.text = data['phone'] ?? '';
-          invoiceeType = data['invoiceeType'] ?? '사업자';
-          invoiceeCorpNumController.text = data['invoiceeCorpNum'] ?? '';
-          invoiceeCorpNameController.text = data['invoiceeCorpName'] ?? '';
-          invoiceeCEONameController.text = data['invoiceeCEOName'] ?? '';
-          selectedOption = data['selectedOption'] ?? 1;
-        });
-      }
-    }
+    if (!doc.exists || !mounted) return;
+    final data = doc.data();
+    if (data == null) return;
+    setState(() {
+      nameController.text = data['name'] ?? '';
+      emailController.text = data['email'] ?? '';
+      phoneController.text = data['phone'] ?? '';
+      invoiceeType = data['invoiceeType'] ?? '사업자';
+      invoiceeCorpNumController.text = data['invoiceeCorpNum'] ?? '';
+      invoiceeCorpNameController.text = data['invoiceeCorpName'] ?? '';
+      invoiceeCEONameController.text = data['invoiceeCEOName'] ?? '';
+      selectedOption = data['selectedOption'] ?? 1;
+    });
   }
 
-  /// Ensures usercached_values has address & delivery instructions so the
-  /// backend has a reliable fallback if pending_buynow fields are missing.
   Future<void> _ensureCachedAddressAndInstructions() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -229,18 +226,19 @@ class _BuyNowState extends State<BuyNow> {
           await userRef.collection('addresses').doc(defaultAddressId).get();
       if (addrSnap.exists) {
         final addr = addrSnap.data() as Map<String, dynamic>;
-        setState(() {
-          address = Address(
-            id: addr['id'] ?? defaultAddressId,
-            name: addr['name'] ?? '',
-            phone: addr['phone'] ?? '',
-            address: addr['address'] ?? '',
-            detailAddress: addr['detailAddress'] ?? '',
-            isDefault: addr['isDefault'] ?? false,
-            addressMap: addr['addressMap'] ?? {},
-          );
-        });
-
+        if (mounted) {
+          setState(() {
+            address = Address(
+              id: addr['id'] ?? defaultAddressId,
+              name: addr['name'] ?? '',
+              phone: addr['phone'] ?? '',
+              address: addr['address'] ?? '',
+              detailAddress: addr['detailAddress'] ?? '',
+              isDefault: addr['isDefault'] ?? false,
+              addressMap: addr['addressMap'] ?? {},
+            );
+          });
+        }
         final addressPatch = {
           'deliveryAddressId': address.id,
           'deliveryAddress': address.address,
@@ -248,10 +246,7 @@ class _BuyNowState extends State<BuyNow> {
           'recipientName': address.name,
           'recipientPhone': address.phone,
         };
-
         await cacheRef.set(addressPatch, SetOptions(merge: true));
-
-        // Also patch pending_buynow so backend's first-priority source is fresh
         _patchPendingBuynow(addressPatch);
       }
     }
@@ -269,12 +264,7 @@ class _BuyNowState extends State<BuyNow> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // PATCH pending_buynow  (always fire-and-forget — never awaited)
-  //
-  // Writes the freshest address / delivery data into pending_buynow so the
-  // backend reads it from its highest-priority source. This is intentionally
-  // synchronous-looking (void, no await at call sites) so it never blocks the
-  // user-gesture requirement that mobile browsers enforce on launchUrl.
+  // PATCH pending_buynow
   // ───────────────────────────────────────────────────────────────────────────
 
   void _patchPendingBuynow(Map<String, dynamic> fields) {
@@ -301,7 +291,6 @@ class _BuyNowState extends State<BuyNow> {
     if (result != null) {
       deliveryAddressController.text = result.address;
       setState(() => address = result);
-
       final patch = {
         'deliveryAddressId': result.id,
         'deliveryAddress': result.address,
@@ -309,21 +298,18 @@ class _BuyNowState extends State<BuyNow> {
         'recipientName': result.name,
         'recipientPhone': result.phone,
       };
-
-      // Both fire-and-forget — address is now in pending_buynow and cache
       _patchPendingBuynow(patch);
       _saveCachedUserValues();
     }
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // SAVE CACHE  (full snapshot of all user values including address fields)
+  // CACHE SAVE
   // ───────────────────────────────────────────────────────────────────────────
 
-  Future<bool> _saveCachedUserValues() async {
+  Future<bool> _saveCachedUserValues({bool showFeedback = false}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return false;
-
     try {
       await FirebaseFirestore.instance
           .collection('usercached_values')
@@ -338,7 +324,6 @@ class _BuyNowState extends State<BuyNow> {
             'invoiceeCorpName': invoiceeCorpNameController.text.trim(),
             'invoiceeCEOName': invoiceeCEONameController.text.trim(),
             'selectedOption': selectedOption,
-            // Address + delivery fields so backend has a full fallback
             'deliveryAddressId': address.id,
             'deliveryAddress': address.address,
             'deliveryAddressDetail': address.detailAddress,
@@ -349,8 +334,7 @@ class _BuyNowState extends State<BuyNow> {
             'recipientName': address.name,
             'recipientPhone': address.phone,
           }, SetOptions(merge: true));
-
-      if (mounted) {
+      if (showFeedback && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('정보가 저장되었습니다'),
@@ -360,7 +344,7 @@ class _BuyNowState extends State<BuyNow> {
       }
       return true;
     } catch (e) {
-      if (mounted) {
+      if (showFeedback && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('저장 실패: ${e.toString()}'),
@@ -404,15 +388,66 @@ class _BuyNowState extends State<BuyNow> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // ORDER PLACEMENT
-  //
-  // Intentionally void (not async) — zero awaits before launchUrl so the
-  // browser's user-gesture requirement is always satisfied on mobile.
-  // All data is already written into pending_buynow and usercached_values
-  // by the time the user reaches this button.
+  // BANK REGISTRATION FLOW
   // ───────────────────────────────────────────────────────────────────────────
 
-  void _handlePlaceOrder(int totalPrice, String uid) {
+  void _launchBankRegistration(String uid) {
+    final regPaymentId = FirebaseFirestore.instance.collection('_tmp').doc().id;
+    _bankRegPaymentId = regPaymentId;
+
+    _bankRegSub?.cancel();
+    _bankRegSub = FirebaseFirestore.instance
+        .collection('pending_orders')
+        .where('userId', isEqualTo: uid)
+        .where('paymentId', isEqualTo: regPaymentId)
+        .snapshots()
+        .listen((snap) async {
+          if (snap.docs.isEmpty || !mounted) return;
+          final status = snap.docs.first['status'] as String?;
+
+          if (status == 'registered') {
+            _bankRegSub?.cancel();
+            _bankRegSub = null;
+            await _fetchBankAccounts();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('계좌가 등록되었습니다 ✓'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          } else if (status == 'failed') {
+            _bankRegSub?.cancel();
+            _bankRegSub = null;
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('계좌 등록에 실패했습니다. 다시 시도해 주세요.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        });
+
+    launchUrl(
+      Uri.parse(
+        'https://pay.pang2chocolate.com/bank-register.html'
+        '?userId=${Uri.encodeComponent(uid)}'
+        '&paymentId=${Uri.encodeComponent(regPaymentId)}'
+        '&phoneNo=${Uri.encodeComponent(phoneController.text.trim())}'
+        '&option=${Uri.encodeComponent(selectedOption.toString())}',
+      ),
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // ORDER PLACEMENT
+  // ───────────────────────────────────────────────────────────────────────────
+
+  Future<void> _handlePlaceOrder(String uid) async {
     if (selectedOption != 1 && selectedOption != 2) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -424,196 +459,130 @@ class _BuyNowState extends State<BuyNow> {
     }
     if (!_validateReceiptTypeFields()) return;
 
-    setState(() => isProcessing = true);
+    if (bankAccounts.isEmpty || selectedBankIndex < 0) {
+      _showBankAccountBottomSheet(uid);
+      return;
+    }
+
+    final payerId = bankAccounts[selectedBankIndex]['payerId'] as String? ?? '';
+    if (payerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('계좌 정보가 올바르지 않습니다. 계좌를 다시 등록해주세요.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     final paymentId = widget.paymentId;
     if (paymentId == null || paymentId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.')),
+        const SnackBar(
+          content: Text('주문 처리 중 오류가 발생했습니다. 다시 시도해 주세요.'),
+          backgroundColor: Colors.red,
+        ),
       );
-      setState(() => isProcessing = false);
       return;
-    }
-    currentPaymentId = paymentId;
-
-    String? payerId;
-    if (bankAccounts.isNotEmpty &&
-        selectedBankIndex >= 0 &&
-        selectedBankIndex < bankAccounts.length) {
-      payerId = bankAccounts[selectedBankIndex]['payerId'] as String?;
     }
 
     final dm = pendingBuynowData?['deliveryManagerId']?.toString() ?? '';
 
-    // launchUrl fires immediately — nothing async above this point
-    if (payerId != null && payerId.isNotEmpty) {
-      _launchBankRpaymentPage(
-        totalPrice.toString(),
-        uid,
-        phoneController.text.trim(),
-        paymentId,
-        payerId,
-        selectedOption.toString(),
-        dm,
-      );
-    } else {
-      _launchBankPaymentPage(
-        totalPrice.toString(),
-        uid,
-        phoneController.text.trim(),
-        paymentId,
-        selectedOption.toString(),
-        dm,
-      );
-    }
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // PAYMENT BUTTON  (StreamBuilder on pending_orders)
-  // ───────────────────────────────────────────────────────────────────────────
-
-  Widget _buildPaymentButton(int totalPrice, String uid) {
-    return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('pending_orders')
-              .where('userId', isEqualTo: uid)
-              .where('paymentId', isEqualTo: currentPaymentId)
-              .snapshots(),
-      builder: (context, snapshot) {
-        final docs = snapshot.data?.docs ?? [];
-        final pendingDoc = docs.isNotEmpty ? docs.first : null;
-        final status =
-            pendingDoc != null ? pendingDoc['status'] as String : null;
-
-        // No pending doc → show Order button
-        if (pendingDoc == null) {
-          return WideTextButton(
-            txt: '주문',
-            func: () => _handlePlaceOrder(totalPrice, uid),
-            color: Colors.black,
-            txtColor: Colors.white,
-          );
-        }
-
-        // Failed
-        if (status == 'failed') {
-          Future.microtask(() async {
-            await pendingDoc.reference.delete();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('결제 실패. 다시 시도해주세요.'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          });
-          return const SizedBox.shrink();
-        }
-
-        // Success
-        if (status == 'success') {
-          final paymentId = pendingDoc['paymentId'] as String?;
-          if (paymentId != null && !_finalizedPayments.contains(paymentId)) {
-            _finalizedPayments.add(paymentId);
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _finalizeOrderAfterPayment([pendingDoc], uid);
-            });
-          }
-          return Column(
-            children: [
-              SizedBox(height: 8),
-              Text(
-                isProcessing
-                    ? '결제 성공! 주문을 완료 처리 중입니다...'
-                    : '주문이 성공적으로 완료되었습니다!',
-                style: const TextStyle(color: Colors.green),
-              ),
-              if (isProcessing) ...[
-                SizedBox(height: 8),
-                const CircularProgressIndicator(),
-              ],
-            ],
-          );
-        }
-
-        // Pending
-        if (status == 'pending') {
-          return Column(
-            children: [
-              WideTextButton(
-                txt: '결제 진행 중... 취소',
-                func: () async {
-                  await pendingDoc.reference.delete();
-                  setState(() {
-                    currentPaymentId = null;
-                    isProcessing = false;
-                  });
-                  if (Navigator.canPop(context)) Navigator.pop(context);
-                },
-                color: Colors.grey.shade400,
-                txtColor: Colors.white,
-              ),
-              SizedBox(height: 8),
-              const CircularProgressIndicator(),
-              SizedBox(height: 8),
-              const Text(
-                '결제 대기 중입니다. 결제를 취소하려면 위 버튼을 누르세요.',
-                style: TextStyle(color: Colors.black),
-              ),
-            ],
-          );
-        }
-
-        // Fallback
-        return WideTextButton(
-          txt: '주문',
-          func: () => _handlePlaceOrder(totalPrice, uid),
-          color: Colors.black,
-          txtColor: Colors.white,
-        );
-      },
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // FINALIZE  (server already handled everything; just cleanup + navigate)
-  // ───────────────────────────────────────────────────────────────────────────
-
-  Future<void> _finalizeOrderAfterPayment(
-    List<QueryDocumentSnapshot> pendingDocs,
-    String uid,
-  ) async {
-    if (!mounted) return;
-    setState(() => isProcessing = true);
+    _showLoadingModal();
 
     try {
-      if (pendingDocs.isNotEmpty) {
-        await pendingDocs.first.reference.delete();
-      }
+      final response = await http.post(
+        Uri.parse('https://pay.pang2chocolate.com/api/charge-bank'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'userId': uid,
+          'paymentId': paymentId,
+          'payerId': payerId,
+          'option': selectedOption.toString(),
+          if (dm.isNotEmpty) 'dm': dm,
+        }),
+      );
+
+      final result = jsonDecode(response.body) as Map<String, dynamic>;
 
       if (mounted) {
-        setState(() {
-          isProcessing = false;
-          currentPaymentId = null;
-        });
-        context.go(Routes.orderCompleteScreen);
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (result['success'] == true) {
+        if (mounted) context.go(Routes.orderCompleteScreen);
+      } else {
+        final msg = result['message'] as String? ?? '결제에 실패했습니다. 다시 시도해 주세요.';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: Colors.red),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('주문 완료 처리 중 오류가 발생했습니다.')));
-      setState(() => isProcessing = false);
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('결제 중 오류가 발생했습니다. 다시 시도해 주세요.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
+
+  // ── Non-dismissible loading modal ─────────────────────────────────────────
+  void _showLoadingModal() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (_) => const PopScope(
+            canPop: false,
+            child: Center(
+              child: Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(16)),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Colors.black),
+                      SizedBox(height: 16),
+                      Text(
+                        '결제 처리 중입니다...',
+                        style: TextStyle(
+                          fontFamily: 'NotoSans',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '잠시만 기다려 주세요',
+                        style: TextStyle(
+                          fontFamily: 'NotoSans',
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+    );
   }
 
   // ───────────────────────────────────────────────────────────────────────────
   // BANK ACCOUNT BOTTOM SHEET
   // ───────────────────────────────────────────────────────────────────────────
 
-  void _showBankAccountDialog() {
+  void _showBankAccountBottomSheet(String uid) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -621,12 +590,12 @@ class _BuyNowState extends State<BuyNow> {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return Padding(
-              padding: EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     '계좌 선택',
                     style: TextStyle(
                       fontSize: 18,
@@ -642,12 +611,16 @@ class _BuyNowState extends State<BuyNow> {
                     ),
                   ...bankAccounts.asMap().entries.map((entry) {
                     final idx = entry.key;
-                    final acc = entry.value;
+                    final bank = entry.value;
                     return Column(
                       children: [
                         ListTile(
+                          leading: const Icon(
+                            Icons.account_balance,
+                            color: Colors.black,
+                          ),
                           title: Text(
-                            '${acc['bankName']} / ${acc['bankNumber']}',
+                            '${bank['bankName']} (${bank['bankNum']})',
                             style: const TextStyle(color: Colors.black),
                           ),
                           tileColor:
@@ -658,10 +631,7 @@ class _BuyNowState extends State<BuyNow> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           onTap: () {
-                            setState(() {
-                              selectedBankIndex = idx;
-                              isAddingNewBank = false;
-                            });
+                            setState(() => selectedBankIndex = idx);
                             setStateDialog(() {});
                             Navigator.of(context).pop();
                           },
@@ -670,15 +640,12 @@ class _BuyNowState extends State<BuyNow> {
                       ],
                     );
                   }),
+                  verticalSpace(8),
                   WideTextButton(
                     txt: '새 계좌 등록하기',
                     func: () {
-                      setState(() {
-                        selectedBankIndex = -1;
-                        isAddingNewBank = true;
-                      });
-                      setStateDialog(() {});
                       Navigator.of(context).pop();
+                      _launchBankRegistration(uid);
                     },
                     color: Colors.black,
                     txtColor: Colors.white,
@@ -715,8 +682,8 @@ class _BuyNowState extends State<BuyNow> {
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.arrow_back_ios),
           ),
-          title: Text(
-            "주문 / 결제",
+          title: const Text(
+            '주문 / 결제',
             style: TextStyle(
               fontFamily: 'NotoSans',
               fontWeight: FontWeight.w800,
@@ -725,24 +692,11 @@ class _BuyNowState extends State<BuyNow> {
         ),
 
         body: Padding(
-          padding: EdgeInsets.only(left: 15, top: 10, right: 15),
+          padding: const EdgeInsets.only(left: 15, top: 10, right: 15),
           child: ListView(
             children: [
-              // ── Product summary card ──────────────────────────────────────
-              Container(
-                padding: EdgeInsets.only(
-                  left: 15,
-                  top: 15,
-                  bottom: 15,
-                  right: 15,
-                ),
-                decoration: ShapeDecoration(
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    side: const BorderSide(width: 1.5, color: Colors.black),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+              // ── Product summary ───────────────────────────────────────
+              _buildSectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -765,12 +719,11 @@ class _BuyNowState extends State<BuyNow> {
                         horizontalSpace(10),
                         Column(
                           mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               displayName,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.black,
                                 fontSize: 16,
                                 fontFamily: 'NotoSans',
@@ -781,7 +734,7 @@ class _BuyNowState extends State<BuyNow> {
                             verticalSpace(8),
                             Text(
                               '${pendingQuantity.toString()} 개',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.black,
                                 fontSize: 16,
                                 fontFamily: 'NotoSans',
@@ -789,10 +742,10 @@ class _BuyNowState extends State<BuyNow> {
                                 height: 1.40,
                               ),
                             ),
-                            SizedBox(height: 8),
+                            const SizedBox(height: 8),
                             Text(
                               '${formatCurrency.format(pendingPrice)} 원',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.black,
                                 fontSize: 16,
                                 fontFamily: 'NotoSans',
@@ -809,16 +762,8 @@ class _BuyNowState extends State<BuyNow> {
               ),
               verticalSpace(10),
 
-              // ── Address card ──────────────────────────────────────────────
-              Container(
-                padding: EdgeInsets.only(left: 15, top: 15, bottom: 15),
-                decoration: ShapeDecoration(
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    side: const BorderSide(width: 1.5, color: Colors.black),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+              // ── Address ───────────────────────────────────────────────
+              _buildSectionCard(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -829,12 +774,7 @@ class _BuyNowState extends State<BuyNow> {
                                 future:
                                     FirebaseFirestore.instance
                                         .collection('users')
-                                        .doc(
-                                          FirebaseAuth
-                                              .instance
-                                              .currentUser!
-                                              .uid,
-                                        )
+                                        .doc(uid)
                                         .get(),
                                 builder: (context, snapshot) {
                                   if (snapshot.connectionState ==
@@ -843,12 +783,8 @@ class _BuyNowState extends State<BuyNow> {
                                       child: CircularProgressIndicator(),
                                     );
                                   }
-                                  if (snapshot.hasError) {
-                                    return Center(
-                                      child: Text('Error: ${snapshot.error}'),
-                                    );
-                                  }
-                                  if (!snapshot.hasData ||
+                                  if (snapshot.hasError ||
+                                      !snapshot.hasData ||
                                       !snapshot.data!.exists) {
                                     return const Center(
                                       child: Text('User data not found'),
@@ -858,42 +794,13 @@ class _BuyNowState extends State<BuyNow> {
                                   if (userData == null ||
                                       (userData['defaultAddressId'] ?? '') ==
                                           '') {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '배송지 미설정',
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontSize: 15,
-                                            fontFamily: 'NotoSans',
-                                            fontWeight: FontWeight.w400,
-                                            height: 1.40,
-                                          ),
-                                        ),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          '배송지를 설정해주세요',
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            color: const Color(0xFF9E9E9E),
-                                            fontFamily: 'NotoSans',
-                                          ),
-                                        ),
-                                      ],
-                                    );
+                                    return _buildNoAddress();
                                   }
                                   return FutureBuilder(
                                     future:
                                         FirebaseFirestore.instance
                                             .collection('users')
-                                            .doc(
-                                              FirebaseAuth
-                                                  .instance
-                                                  .currentUser!
-                                                  .uid,
-                                            )
+                                            .doc(uid)
                                             .collection('addresses')
                                             .doc(userData['defaultAddressId'])
                                             .get(),
@@ -931,7 +838,7 @@ class _BuyNowState extends State<BuyNow> {
                     ),
                     IconButton(
                       onPressed: _selectAddress,
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.arrow_forward_ios_sharp,
                         size: 30,
                         color: Colors.black,
@@ -942,347 +849,178 @@ class _BuyNowState extends State<BuyNow> {
               ),
               verticalSpace(10),
 
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Delivery request card ─────────────────────────────────
-                  Container(
-                    padding: EdgeInsets.fromLTRB(15, 15, 0, 15),
-                    decoration: ShapeDecoration(
-                      color: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(width: 1.5, color: Colors.black),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: StatefulBuilder(
-                      builder: (context, setStateDropdown) {
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '배송 요청사항',
-                                    style: TextStyles.abeezee16px400wPblack
-                                        .copyWith(fontWeight: FontWeight.w800),
-                                  ),
-                                  verticalSpace(5),
-                                  Text(
-                                    selectedRequest,
-                                    style: TextStyle(
-                                      color: Colors.grey[800],
-                                      fontSize: 16,
-                                      fontFamily: 'NotoSans',
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                  if (selectedRequest == '직접입력') ...[
-                                    SizedBox(height: 12),
-                                    TextFormField(
-                                      initialValue: manualRequest,
-                                      onChanged: (text) {
-                                        setState(() => manualRequest = text);
-                                        // Fire and forget — no await, never
-                                        // blocks launchUrl gesture chain
-                                        _patchPendingBuynow({
-                                          'deliveryInstructions': text.trim(),
-                                        });
-                                        _saveCachedUserValues();
-                                      },
-                                      decoration: InputDecoration(
-                                        labelText: '직접 입력',
-                                        hintText: '배송 요청을 입력하세요',
-                                        border: const OutlineInputBorder(),
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 14,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.arrow_forward_ios,
-                                size: 30,
-                                color: Colors.black,
-                              ),
-                              onPressed: () {
-                                showModalBottomSheet(
-                                  backgroundColor: Colors.white,
-                                  context: context,
-                                  builder: (context) {
-                                    return Padding(
-                                      padding: EdgeInsets.all(15),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children:
-                                            deliveryRequests
-                                                .map(
-                                                  (request) => ListTile(
-                                                    title: Text(
-                                                      request,
-                                                      style: TextStyle(
-                                                        color: Colors.black,
-                                                        fontSize: 16,
-                                                        fontFamily: 'NotoSans',
-                                                        fontWeight:
-                                                            FontWeight.w400,
-                                                      ),
-                                                    ),
-                                                    onTap: () {
-                                                      setStateDropdown(() {
-                                                        selectedRequest =
-                                                            request;
-                                                        if (selectedRequest !=
-                                                            '직접입력') {
-                                                          manualRequest = null;
-                                                        }
-                                                      });
-                                                      setState(() {});
-
-                                                      // Fire and forget
-                                                      _patchPendingBuynow({
-                                                        'deliveryInstructions':
-                                                            request == '직접입력'
-                                                                ? (manualRequest
-                                                                        ?.trim() ??
-                                                                    '')
-                                                                : request,
-                                                      });
-                                                      _saveCachedUserValues();
-
-                                                      Navigator.pop(context);
-                                                    },
-                                                  ),
-                                                )
-                                                .toList(),
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-
-                  verticalSpace(10),
-
-                  // ── Bank account card (only if accounts exist) ────────────
-                  if (bankAccounts.isNotEmpty) ...[
-                    Container(
-                      padding: EdgeInsets.fromLTRB(15, 15, 0, 15),
-                      decoration: ShapeDecoration(
-                        color: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          side: const BorderSide(
-                            width: 1.5,
-                            color: Colors.black,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '간편 계좌 결제',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 16,
-                                    fontFamily: 'NotoSans',
-                                    fontWeight: FontWeight.w800,
-                                    height: 1.40,
-                                  ),
-                                ),
-                                verticalSpace(5),
-                                Text(
-                                  (bankAccounts.isNotEmpty &&
-                                          selectedBankIndex >= 0 &&
-                                          selectedBankIndex <
-                                              bankAccounts.length)
-                                      ? '${bankAccounts[selectedBankIndex]['bankName']} / ${bankAccounts[selectedBankIndex]['bankNumber']}'
-                                      : '주문과 동시에 새 계좌 등록이 진행됩니다.',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: Colors.grey[800],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed:
-                                isProcessing ? null : _showBankAccountDialog,
-                            icon: Icon(
-                              Icons.arrow_forward_ios,
-                              size: 30,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    verticalSpace(10),
-                  ],
-
-                  // ── Receipt / invoice card ────────────────────────────────
-                  Container(
-                    padding: EdgeInsets.fromLTRB(15, 15, 0, 15),
-                    decoration: ShapeDecoration(
-                      color: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(width: 1.5, color: Colors.black),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+              // ── Delivery request ──────────────────────────────────────
+              _buildSectionCard(
+                child: StatefulBuilder(
+                  builder: (context, setStateDropdown) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '현금영수증 · 세금계산서',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                  fontFamily: 'NotoSans',
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.40,
-                                ),
+                                '배송 요청사항',
+                                style: TextStyles.abeezee16px400wPblack
+                                    .copyWith(fontWeight: FontWeight.w800),
                               ),
                               verticalSpace(5),
                               Text(
-                                selectedOption == 1
-                                    ? '현금 영수증'
-                                    : selectedOption == 2
-                                    ? '세금 계산서'
-                                    : '필요 없음',
+                                selectedRequest,
                                 style: TextStyle(
-                                  fontSize: 15,
                                   color: Colors.grey[800],
+                                  fontSize: 16,
+                                  fontFamily: 'NotoSans',
+                                  fontWeight: FontWeight.w400,
                                 ),
                               ),
+                              if (selectedRequest == '직접입력') ...[
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  initialValue: manualRequest,
+                                  onChanged: (text) {
+                                    setState(() => manualRequest = text);
+                                    _patchPendingBuynow({
+                                      'deliveryInstructions': text.trim(),
+                                    });
+                                    _saveCachedUserValues();
+                                  },
+                                  decoration: const InputDecoration(
+                                    labelText: '직접 입력',
+                                    hintText: '배송 요청을 입력하세요',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
                         IconButton(
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: Colors.white,
-                              isScrollControlled: true,
-                              builder: (context) {
-                                return StatefulBuilder(
-                                  builder: (context, setStateRadio) {
-                                    return Padding(
-                                      padding: EdgeInsets.only(
-                                        top: 20,
-                                        left: 20,
-                                        right: 20,
-                                        bottom:
-                                            MediaQuery.of(
-                                              context,
-                                            ).viewInsets.bottom +
-                                            20,
-                                      ),
-                                      child: SingleChildScrollView(
-                                        child: Form(
-                                          key: _bottomSheetFormKey,
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            children: [
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceEvenly,
-                                                children: [
-                                                  _buildRadioOption(
-                                                    value: 1,
-                                                    label: '현금 영수증',
-                                                    setStateRadio:
-                                                        setStateRadio,
-                                                  ),
-                                                  _buildRadioOption(
-                                                    value: 2,
-                                                    label: '세금 계산서',
-                                                    setStateRadio:
-                                                        setStateRadio,
-                                                  ),
-                                                ],
-                                              ),
-                                              if (selectedOption == 1)
-                                                ..._buildCashReceiptFields()
-                                              else
-                                                ..._buildTaxInvoiceFields(
-                                                  setStateRadio,
-                                                ),
-                                              verticalSpace(10),
-                                              WideTextButton(
-                                                txt: '저장',
-                                                func: () async {
-                                                  if (!_bottomSheetFormKey
-                                                      .currentState!
-                                                      .validate())
-                                                    return;
-                                                  final success =
-                                                      await _saveCachedUserValues();
-                                                  if (success && mounted) {
-                                                    Navigator.pop(context);
-                                                  }
-                                                },
-                                                color: Colors.black,
-                                                txtColor: Colors.white,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                            );
-                          },
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.arrow_forward_ios,
                             size: 30,
                             color: Colors.black,
                           ),
+                          onPressed:
+                              () => _showDeliveryRequestSheet(setStateDropdown),
                         ),
                       ],
-                    ),
-                  ),
-
-                  verticalSpace(10),
-                ],
+                    );
+                  },
+                ),
               ),
+              verticalSpace(10),
 
+              // ── Bank account ──────────────────────────────────────────
+              _buildSectionCard(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '결제 계좌',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 16,
+                              fontFamily: 'NotoSans',
+                              fontWeight: FontWeight.w800,
+                              height: 1.40,
+                            ),
+                          ),
+                          verticalSpace(5),
+                          Text(
+                            bankAccounts.isEmpty
+                                ? '등록된 계좌가 없습니다'
+                                : (selectedBankIndex >= 0 &&
+                                    selectedBankIndex < bankAccounts.length)
+                                ? '${bankAccounts[selectedBankIndex]['bankName']} '
+                                    '(${bankAccounts[selectedBankIndex]['bankNum']})'
+                                : '계좌를 선택해주세요',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color:
+                                  bankAccounts.isEmpty
+                                      ? Colors.red[300]
+                                      : Colors.grey[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => _showBankAccountBottomSheet(uid),
+                      icon: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 30,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              verticalSpace(10),
+
+              // ── Receipt / invoice ─────────────────────────────────────
+              _buildSectionCard(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '현금영수증 · 세금계산서',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 16,
+                              fontFamily: 'NotoSans',
+                              fontWeight: FontWeight.w800,
+                              height: 1.40,
+                            ),
+                          ),
+                          verticalSpace(5),
+                          Text(
+                            selectedOption == 1
+                                ? '현금 영수증'
+                                : selectedOption == 2
+                                ? '세금 계산서'
+                                : '필요 없음',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _showReceiptBottomSheet,
+                      icon: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 30,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               verticalSpace(15),
             ],
           ),
         ),
 
-        // ── Bottom bar ───────────────────────────────────────────────────────
+        // ── Bottom bar ────────────────────────────────────────────────────
         bottomNavigationBar: Container(
-          padding: EdgeInsets.fromLTRB(16, 10, 16, 28),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
           decoration: const BoxDecoration(color: Colors.white),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1291,7 +1029,7 @@ class _BuyNowState extends State<BuyNow> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
+                  const Text(
                     '총 결제 금액 ',
                     style: TextStyle(
                       color: Colors.black,
@@ -1303,7 +1041,7 @@ class _BuyNowState extends State<BuyNow> {
                   ),
                   Text(
                     '${formatCurrency.format(pendingPrice)} 원',
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.black,
                       fontSize: 18,
                       fontFamily: 'NotoSans',
@@ -1314,18 +1052,22 @@ class _BuyNowState extends State<BuyNow> {
                 ],
               ),
               verticalSpace(8),
-              _buildPaymentButton(pendingPrice, uid),
+              WideTextButton(
+                txt: '주문',
+                func: isProcessing ? () {} : () => _handlePlaceOrder(uid),
+                color: Colors.black,
+                txtColor: Colors.white,
+              ),
               if (bankAccounts.isEmpty) ...[
                 verticalSpace(8),
-                Text(
-                  '* 간편결제 계좌 등록 후 결제가 진행됩니다',
+                const Text(
+                  '* 계좌 등록 후 결제가 진행됩니다',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.black,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontFamily: 'NotoSans',
-                    fontWeight: FontWeight.w800,
-                    height: 1.40,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -1337,8 +1079,49 @@ class _BuyNowState extends State<BuyNow> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // SMALL UI HELPERS
+  // UI HELPERS
   // ───────────────────────────────────────────────────────────────────────────
+
+  Widget _buildSectionCard({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(15, 15, 0, 15),
+      decoration: ShapeDecoration(
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(width: 1.5, color: Colors.black),
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildNoAddress() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '배송지 미설정',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 15,
+            fontFamily: 'NotoSans',
+            fontWeight: FontWeight.w400,
+            height: 1.40,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          '배송지를 설정해주세요',
+          style: TextStyle(
+            fontSize: 15,
+            color: Color(0xFF9E9E9E),
+            fontFamily: 'NotoSans',
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildAddressText({
     required String label,
@@ -1371,29 +1154,142 @@ class _BuyNowState extends State<BuyNow> {
     height: 1.40,
   );
 
+  void _showDeliveryRequestSheet(StateSetter setStateDropdown) {
+    showModalBottomSheet(
+      backgroundColor: Colors.white,
+      context: context,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(15),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children:
+                deliveryRequests
+                    .map(
+                      (request) => ListTile(
+                        title: Text(
+                          request,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                            fontFamily: 'NotoSans',
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        onTap: () {
+                          setStateDropdown(() {
+                            selectedRequest = request;
+                            if (selectedRequest != '직접입력') {
+                              manualRequest = null;
+                            }
+                          });
+                          setState(() {});
+                          _patchPendingBuynow({
+                            'deliveryInstructions':
+                                request == '직접입력'
+                                    ? (manualRequest?.trim() ?? '')
+                                    : request,
+                          });
+                          _saveCachedUserValues();
+                          Navigator.pop(context);
+                        },
+                      ),
+                    )
+                    .toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showReceiptBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateRadio) {
+            return Padding(
+              padding: EdgeInsets.only(
+                top: 20,
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _bottomSheetFormKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildRadioOption(
+                            value: 1,
+                            label: '현금 영수증',
+                            setStateSheet: setStateRadio,
+                          ),
+                          _buildRadioOption(
+                            value: 2,
+                            label: '세금 계산서',
+                            setStateSheet: setStateRadio,
+                          ),
+                        ],
+                      ),
+                      if (selectedOption == 1)
+                        ..._buildCashReceiptFields()
+                      else
+                        ..._buildTaxInvoiceFields(setStateRadio),
+                      verticalSpace(10),
+                      WideTextButton(
+                        txt: '저장',
+                        func: () async {
+                          if (!_bottomSheetFormKey.currentState!.validate())
+                            return;
+                          final success = await _saveCachedUserValues(
+                            showFeedback: true,
+                          );
+                          if (success && mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                        color: Colors.black,
+                        txtColor: Colors.white,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildRadioOption({
     required int value,
     required String label,
-    required StateSetter setStateRadio,
+    required StateSetter setStateSheet,
   }) {
     return Row(
       children: [
-        Transform.scale(
-          scale: 20 / 15,
-          child: Radio<int>(
-            value: value,
-            groupValue: selectedOption,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-            onChanged: (v) {
-              setStateRadio(() => selectedOption = v!);
-              setState(() {});
-            },
-          ),
+        Radio<int>(
+          value: value,
+          groupValue: selectedOption,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+          onChanged: (v) {
+            setStateSheet(() => selectedOption = v!);
+            setState(() {});
+          },
         ),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 20,
             fontFamily: 'NotoSans',
             fontWeight: FontWeight.w800,
@@ -1414,7 +1310,7 @@ class _BuyNowState extends State<BuyNow> {
           (val) => (val == null || val.trim().isEmpty) ? '이름을 입력해주세요' : null,
       onChanged: (_) => null,
     ),
-    SizedBox(height: 10),
+    const SizedBox(height: 10),
     UnderlineTextField(
       controller: emailController,
       hintText: '이메일',
@@ -1422,13 +1318,14 @@ class _BuyNowState extends State<BuyNow> {
       keyboardType: TextInputType.emailAddress,
       validator: (val) {
         if (val == null || val.trim().isEmpty) return '이메일을 입력해주세요';
-        if (!RegExp(r'^.+@.+\..+$').hasMatch(val.trim()))
+        if (!RegExp(r'^.+@.+\..+$').hasMatch(val.trim())) {
           return '유효한 이메일을 입력해주세요';
+        }
         return null;
       },
       onChanged: (_) => null,
     ),
-    SizedBox(height: 10),
+    const SizedBox(height: 10),
     UnderlineTextField(
       controller: phoneController,
       hintText: '전화번호',
@@ -1438,15 +1335,16 @@ class _BuyNowState extends State<BuyNow> {
         if (val == null || val.trim().isEmpty) return '전화번호를 입력해주세요';
         if (!RegExp(
           r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
-        ).hasMatch(val))
+        ).hasMatch(val)) {
           return '유효한 한국 전화번호를 입력하세요';
+        }
         return null;
       },
       onChanged: (_) => null,
     ),
   ];
 
-  List<Widget> _buildTaxInvoiceFields(StateSetter setStateRadio) => [
+  List<Widget> _buildTaxInvoiceFields(StateSetter setStateSheet) => [
     DropdownButtonFormField<String>(
       dropdownColor: Colors.white,
       value: invoiceeType,
@@ -1457,7 +1355,7 @@ class _BuyNowState extends State<BuyNow> {
             '외국인',
           ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
       onChanged: (val) {
-        setStateRadio(() => invoiceeType = val ?? '사업자');
+        setStateSheet(() => invoiceeType = val ?? '사업자');
       },
       decoration: const InputDecoration(
         border: UnderlineInputBorder(),
@@ -1466,7 +1364,7 @@ class _BuyNowState extends State<BuyNow> {
       ),
       icon: const Icon(Icons.keyboard_arrow_down),
     ),
-    SizedBox(height: 10),
+    const SizedBox(height: 10),
     UnderlineTextField(
       obscureText: false,
       controller: invoiceeCorpNumController,
@@ -1475,15 +1373,17 @@ class _BuyNowState extends State<BuyNow> {
       validator: (val) {
         if (val == null || val.trim().isEmpty) return '사업자번호를 입력해주세요';
         final cleaned = val.trim().replaceAll('-', '');
-        if (!RegExp(r'^[0-9]+$').hasMatch(cleaned))
+        if (!RegExp(r'^[0-9]+$').hasMatch(cleaned)) {
           return '사업자번호는 숫자만 입력 가능합니다';
-        if (cleaned.length != 10)
+        }
+        if (cleaned.length != 10) {
           return '사업자번호는 숫자 10자리여야 합니다 (예: 123-45-67890)';
+        }
         return null;
       },
       onChanged: (_) => null,
     ),
-    SizedBox(height: 10),
+    const SizedBox(height: 10),
     UnderlineTextField(
       obscureText: false,
       controller: invoiceeCorpNameController,
@@ -1496,7 +1396,7 @@ class _BuyNowState extends State<BuyNow> {
       },
       onChanged: (_) => null,
     ),
-    SizedBox(height: 10),
+    const SizedBox(height: 10),
     UnderlineTextField(
       obscureText: false,
       controller: invoiceeCEONameController,
@@ -1509,7 +1409,7 @@ class _BuyNowState extends State<BuyNow> {
       },
       onChanged: (_) => null,
     ),
-    SizedBox(height: 10),
+    const SizedBox(height: 10),
     UnderlineTextField(
       controller: emailController,
       hintText: '이메일',
@@ -1517,13 +1417,14 @@ class _BuyNowState extends State<BuyNow> {
       keyboardType: TextInputType.emailAddress,
       validator: (val) {
         if (val == null || val.trim().isEmpty) return '이메일을 입력해주세요';
-        if (!RegExp(r'^.+@.+\..+$').hasMatch(val.trim()))
+        if (!RegExp(r'^.+@.+\..+$').hasMatch(val.trim())) {
           return '유효한 이메일을 입력해주세요';
+        }
         return null;
       },
       onChanged: (_) => null,
     ),
-    SizedBox(height: 10),
+    const SizedBox(height: 10),
     UnderlineTextField(
       controller: phoneController,
       hintText: '전화번호',
@@ -1533,56 +1434,12 @@ class _BuyNowState extends State<BuyNow> {
         if (val == null || val.trim().isEmpty) return '전화번호를 입력해주세요';
         if (!RegExp(
           r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
-        ).hasMatch(val))
+        ).hasMatch(val)) {
           return '유효한 한국 전화번호를 입력하세요';
+        }
         return null;
       },
       onChanged: (_) => null,
     ),
   ];
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // PAYMENT URL LAUNCHERS
-  // ───────────────────────────────────────────────────────────────────────────
-
-  void _launchBankPaymentPage(
-    String amount,
-    String userId,
-    String phoneNo,
-    String paymentId,
-    String option,
-    String dm,
-  ) async {
-    final url = Uri.parse(
-      'https://pay.pang2chocolate.com/b-payment.html'
-      '?paymentId=$paymentId&amount=$amount&userId=$userId'
-      '&phoneNo=$phoneNo&option=$option&dm=$dm',
-    );
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
-
-  void _launchBankRpaymentPage(
-    String amount,
-    String userId,
-    String phoneNo,
-    String paymentId,
-    String payerId,
-    String option,
-    String dm,
-  ) async {
-    final url = Uri.parse(
-      'https://pay.pang2chocolate.com/r-b-payment.html'
-      '?paymentId=$paymentId&amount=$amount&userId=$userId'
-      '&phoneNo=$phoneNo&payerId=$payerId&option=$option&dm=$dm',
-    );
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
 }
