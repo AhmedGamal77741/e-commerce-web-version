@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
@@ -81,10 +80,6 @@ class _BuyNowState extends State<BuyNow> {
   bool isProcessing = false;
   String? currentPaymentId;
 
-  // ── Bank registration tracking ────────────────────────────────────────────
-  StreamSubscription<QuerySnapshot>? _bankRegSub;
-  String? _bankRegPaymentId;
-
   final formatCurrency = NumberFormat('#,###');
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -99,7 +94,6 @@ class _BuyNowState extends State<BuyNow> {
 
   @override
   void dispose() {
-    _bankRegSub?.cancel();
     invoiceeCorpNumController.dispose();
     invoiceeCorpNameController.dispose();
     invoiceeCEONameController.dispose();
@@ -115,6 +109,13 @@ class _BuyNowState extends State<BuyNow> {
     await _loadCachedUserValues();
     await _loadPendingBuynowData();
     await _ensureCachedAddressAndInstructions();
+  }
+
+  // ── Refresh bank accounts when returning via deep link ───────────────────
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _fetchBankAccounts();
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -386,50 +387,12 @@ class _BuyNowState extends State<BuyNow> {
     }
     return true;
   }
-
   // ───────────────────────────────────────────────────────────────────────────
-  // BANK REGISTRATION FLOW
+  // BANK REGISTRATION — launch browser, deep link does the rest
   // ───────────────────────────────────────────────────────────────────────────
 
   void _launchBankRegistration(String uid) {
     final regPaymentId = FirebaseFirestore.instance.collection('_tmp').doc().id;
-    _bankRegPaymentId = regPaymentId;
-
-    _bankRegSub?.cancel();
-    _bankRegSub = FirebaseFirestore.instance
-        .collection('pending_orders')
-        .where('userId', isEqualTo: uid)
-        .where('paymentId', isEqualTo: regPaymentId)
-        .snapshots()
-        .listen((snap) async {
-          if (snap.docs.isEmpty || !mounted) return;
-          final status = snap.docs.first['status'] as String?;
-
-          if (status == 'registered') {
-            _bankRegSub?.cancel();
-            _bankRegSub = null;
-            await _fetchBankAccounts();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('계좌가 등록되었습니다 ✓'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-          } else if (status == 'failed') {
-            _bankRegSub?.cancel();
-            _bankRegSub = null;
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('계좌 등록에 실패했습니다. 다시 시도해 주세요.'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          }
-        });
 
     launchUrl(
       Uri.parse(
@@ -505,9 +468,7 @@ class _BuyNowState extends State<BuyNow> {
 
       final result = jsonDecode(response.body) as Map<String, dynamic>;
 
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
       if (result['success'] == true) {
         if (mounted) context.go(Routes.orderCompleteScreen);

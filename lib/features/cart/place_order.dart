@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
@@ -73,10 +72,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
   bool isProcessing = false;
   String? currentPaymentId;
 
-  // ── Bank registration tracking ────────────────────────────────────────────
-  StreamSubscription<QuerySnapshot>? _bankRegSub;
-  String? _bankRegPaymentId;
-
   final formatCurrency = NumberFormat('#,###');
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -91,7 +86,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
 
   @override
   void dispose() {
-    _bankRegSub?.cancel();
     invoiceeCorpNumController.dispose();
     invoiceeCorpNameController.dispose();
     invoiceeCEONameController.dispose();
@@ -107,6 +101,15 @@ class _PlaceOrderState extends State<PlaceOrder> {
     if (uid.isNotEmpty) await refreshCartPrices(uid);
     await _fetchBankAccounts();
     await _loadCachedUserValues();
+  }
+
+  // ── Called by BankRegisteredScreen after deep link lands ─────────────────
+  // go_router pops back to PlaceOrder — initState won't re-fire,
+  // so we expose this to be called from didChangeDependencies on resume.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _fetchBankAccounts();
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -280,48 +283,13 @@ class _PlaceOrderState extends State<PlaceOrder> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // BANK REGISTRATION FLOW
+  // BANK REGISTRATION — launch browser, deep link does the rest
   // ───────────────────────────────────────────────────────────────────────────
 
   void _launchBankRegistration(String uid) {
+    // Generate a unique id just to satisfy bank-register.html's paymentId param.
+    // Not used for payment — registration result comes back via deep link.
     final regPaymentId = FirebaseFirestore.instance.collection('_tmp').doc().id;
-    _bankRegPaymentId = regPaymentId;
-
-    _bankRegSub?.cancel();
-    _bankRegSub = FirebaseFirestore.instance
-        .collection('pending_orders')
-        .where('userId', isEqualTo: uid)
-        .where('paymentId', isEqualTo: regPaymentId)
-        .snapshots()
-        .listen((snap) async {
-          if (snap.docs.isEmpty || !mounted) return;
-          final status = snap.docs.first['status'] as String?;
-
-          if (status == 'registered') {
-            _bankRegSub?.cancel();
-            _bankRegSub = null;
-            await _fetchBankAccounts();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('계좌가 등록되었습니다 ✓'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-          } else if (status == 'failed') {
-            _bankRegSub?.cancel();
-            _bankRegSub = null;
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('계좌 등록에 실패했습니다. 다시 시도해 주세요.'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          }
-        });
 
     launchUrl(
       Uri.parse(
@@ -336,7 +304,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // ORDER PLACEMENT — calls chargeBankBillingKey CF directly
+  // ORDER PLACEMENT
   // ───────────────────────────────────────────────────────────────────────────
 
   Future<void> _handlePlaceOrder(int totalPrice, String uid) async {
@@ -387,9 +355,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
 
       final result = jsonDecode(response.body) as Map<String, dynamic>;
 
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
       if (result['success'] == true) {
         if (mounted) context.go(Routes.orderCompleteScreen);
