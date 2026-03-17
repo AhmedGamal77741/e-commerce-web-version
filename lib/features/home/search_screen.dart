@@ -323,7 +323,6 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                       stream:
                           FirebaseFirestore.instance
                               .collection('posts')
-                              .orderBy('createdAt', descending: true)
                               .snapshots(),
                       builder: (context, postsSnapshot) {
                         if (postsSnapshot.hasError) {
@@ -442,7 +441,6 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                         stream:
                             FirebaseFirestore.instance
                                 .collection('posts')
-                                .orderBy('createdAt', descending: true)
                                 .snapshots(),
                         builder: (context, postsSnapshot) {
                           if (postsSnapshot.hasError) {

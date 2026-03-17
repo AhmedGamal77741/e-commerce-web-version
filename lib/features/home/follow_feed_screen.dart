@@ -6,7 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class FollowingTab extends StatefulWidget {
-  const FollowingTab({Key? key}) : super(key: key);
+  final User? firebaseUser;
+  const FollowingTab({Key? key, this.firebaseUser}) : super(key: key);
 
   @override
   State<FollowingTab> createState() => _FollowingTabState();
@@ -15,236 +16,271 @@ class FollowingTab extends StatefulWidget {
 class _FollowingTabState extends State<FollowingTab>
     with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
-  String? selectedUserId;
-  String? selectedCategoryId;
-
+  final ValueNotifier<String?> _selectedUserId = ValueNotifier(null);
+  final ValueNotifier<String?> _selectedCategoryId = ValueNotifier(null);
+  late final Stream<User?> _authStream;
+  late final Stream<DocumentSnapshot>? _userStream;
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _authStream = FirebaseAuth.instance.authStateChanges();
+    if (widget.firebaseUser != null) {
+      _userStream =
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(widget.firebaseUser!.uid)
+              .snapshots();
+    }
+  }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _selectedUserId.dispose();
+    _selectedCategoryId.dispose();
     super.dispose();
   }
 
   void _handleUserSelection(String userId) {
-    setState(() {
-      if (selectedUserId == userId) {
-        // Deselecting the same user
-        selectedUserId = null;
-        selectedCategoryId = null;
-      } else {
-        // Selecting a new user
-        selectedUserId = userId;
-        selectedCategoryId = null; // Reset category when switching users
-      }
-    });
+    _selectedUserId.value = (_selectedUserId.value == userId) ? null : userId;
+    _selectedCategoryId.value = null;
   }
 
   void _handleCategorySelection(String categoryId) {
-    setState(() {
-      if (categoryId.isEmpty) {
-        // "All" button clicked
-        selectedCategoryId = null;
-      } else if (selectedCategoryId == categoryId) {
-        // Deselecting the same category
-        selectedCategoryId = null;
-      } else {
-        // Selecting a new category
-        selectedCategoryId = categoryId;
-      }
-    });
+    if (categoryId.isEmpty) {
+      _selectedCategoryId.value = null;
+    } else {
+      _selectedCategoryId.value =
+          (_selectedCategoryId.value == categoryId) ? null : categoryId;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, authSnapshot) {
-        final user = authSnapshot.data;
+    return Padding(
+      padding: EdgeInsets.only(top: 10),
+      child: StreamBuilder<User?>(
+        stream: _authStream,
+        builder: (context, authSnapshot) {
+          final user = authSnapshot.data;
 
-        // Loading auth state
-        if (authSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+          // Loading auth state
+          if (authSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        // User not authenticated
-        if (user == null) {
-          return Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.person_outline, size: 64, color: Colors.grey[300]),
-                  SizedBox(height: 16),
-                  Text(
-                    '로그인이 필요합니다',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '내 페이지탭에서 회원가입 후 이용가능합니다',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        return StreamBuilder<DocumentSnapshot>(
-          stream:
-              FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .snapshots(),
-          builder: (context, snapshot) {
-            // Loading user data
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            // Error loading user data
-            if (snapshot.hasError) {
-              return Center(
+          // User not authenticated
+          if (user == null) {
+            return Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                    Icon(
+                      Icons.person_outline,
+                      size: 64,
+                      color: Colors.grey[300],
+                    ),
                     SizedBox(height: 16),
                     Text(
-                      '오류가 발생했습니다',
-                      style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                      '로그인이 필요합니다',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
                     ),
                     SizedBox(height: 8),
                     Text(
-                      '잠시 후 다시 시도해주세요',
-                      style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                      '내 페이지탭에서 회원가입 후 이용가능합니다',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                     ),
                   ],
                 ),
-              );
-            }
+              ),
+            );
+          }
+          if (_userStream == null) {
+            return SizedBox.shrink();
+          }
+          return StreamBuilder<DocumentSnapshot>(
+            stream: _userStream,
+            builder: (context, snapshot) {
+              // Loading user data
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            // No user data
-            if (!snapshot.hasData || snapshot.data?.data() == null) {
-              return const Center(child: Text('사용자 정보를 불러올 수 없습니다'));
-            }
+              // Error loading user data
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Colors.red[300],
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        '오류가 발생했습니다',
+                        style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '잠시 후 다시 시도해주세요',
+                        style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                );
+              }
 
-            final data = snapshot.data!.data() as Map<String, dynamic>?;
-            final isSub = data?['isSub'] == true;
-            final currentUserId = user.uid;
+              // No user data
+              if (!snapshot.hasData || snapshot.data?.data() == null) {
+                return const Center(child: Text('사용자 정보를 불러올 수 없습니다'));
+              }
 
-            return Column(
-              children: [
-                // Following users horizontal list
-                SizedBox(
-                  height: 80,
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream:
-                        FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(currentUserId)
-                            .collection('following')
-                            .orderBy('createdAt', descending: true)
-                            .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Text(
-                            '팔로우 목록을 불러올 수 없습니다',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.red[300],
+              final data = snapshot.data!.data() as Map<String, dynamic>?;
+              final isSub = data?['isSub'] == true;
+              final currentUserId = user.uid;
+
+              return Column(
+                children: [
+                  // Following users horizontal list
+                  SizedBox(
+                    height: 100,
+                    child: StreamBuilder<QuerySnapshot>(
+                      stream:
+                          FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(currentUserId)
+                              .collection('following')
+                              .snapshots(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text(
+                              '팔로우 목록을 불러올 수 없습니다',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.red[300],
+                              ),
                             ),
-                          ),
-                        );
-                      }
+                          );
+                        }
 
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        );
-                      }
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
 
-                      if (!snapshot.hasData) {
-                        return const Center(child: Text('팔로우 데이터를 불러올 수 없습니다'));
-                      }
+                        if (!snapshot.hasData) {
+                          return const Center(
+                            child: Text('팔로우 데이터를 불러올 수 없습니다'),
+                          );
+                        }
 
-                      final followingIds =
-                          snapshot.data!.docs.map((doc) => doc.id).toList();
+                        final followingIds =
+                            snapshot.data!.docs.map((doc) => doc.id).toList();
 
-                      if (followingIds.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.people_outline,
-                                size: 32,
-                                color: Colors.grey[300],
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                '팔로우한 사용자가 없습니다',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey[500],
+                        if (followingIds.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.people_outline,
+                                  size: 32,
+                                  color: Colors.grey[300],
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
+                                SizedBox(height: 8),
+                                Text(
+                                  '팔로우한 사용자가 없습니다',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey[500],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
 
-                      return FollowingUsersList(
-                        followingIds: followingIds,
-                        onUserTap: _handleUserSelection,
-                        selectedUserId: selectedUserId,
+                        return ValueListenableBuilder(
+                          valueListenable: _selectedUserId,
+                          builder: (context, selectedUserId, child) {
+                            return FollowingUsersList(
+                              followingIds: followingIds,
+                              onUserTap: _handleUserSelection,
+                              selectedUserId: selectedUserId,
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Categories row (only shown when a user is selected)
+                  ValueListenableBuilder<String?>(
+                    valueListenable: _selectedUserId,
+                    builder: (context, selectedUserId, _) {
+                      if (selectedUserId == null)
+                        return const SizedBox.shrink();
+                      return ValueListenableBuilder<String?>(
+                        valueListenable: _selectedCategoryId,
+                        builder: (context, selectedCategoryId, _) {
+                          return UserCategoriesBar(
+                            userId: selectedUserId,
+                            selectedCategoryId: selectedCategoryId,
+                            onCategorySelected: _handleCategorySelection,
+                          );
+                        },
                       );
                     },
                   ),
-                ),
-
-                // Categories row (only shown when a user is selected)
-                if (selectedUserId != null)
-                  UserCategoriesBar(
-                    userId: selectedUserId!,
-                    selectedCategoryId: selectedCategoryId,
-                    onCategorySelected: _handleCategorySelection,
+                  // Posts from following users
+                  ValueListenableBuilder<String?>(
+                    valueListenable: _selectedUserId,
+                    builder: (context, selectedUserId, _) {
+                      return ValueListenableBuilder<String?>(
+                        valueListenable: _selectedCategoryId,
+                        builder: (context, selectedCategoryId, _) {
+                          return FollowingPostsList(
+                            currentUserId: currentUserId,
+                            scrollController: _scrollController,
+                            selectedUserId: selectedUserId,
+                            selectedCategoryId: selectedCategoryId,
+                            useGuestPostItem: !isSub,
+                          );
+                        },
+                      );
+                    },
                   ),
-
-                // Posts from following users
-                Expanded(
-                  child: FollowingPostsList(
-                    currentUserId: currentUserId,
-                    scrollController: _scrollController,
-                    selectedUserId: selectedUserId,
-                    selectedCategoryId: selectedCategoryId,
-                    useGuestPostItem: !isSub,
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
+                ],
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
 
 // New widget to display user's categories
-class UserCategoriesBar extends StatelessWidget {
+class UserCategoriesBar extends StatefulWidget {
   final String userId;
   final String? selectedCategoryId;
   final Function(String) onCategorySelected;
@@ -257,15 +293,39 @@ class UserCategoriesBar extends StatelessWidget {
   });
 
   @override
+  State<UserCategoriesBar> createState() => _UserCategoriesBarState();
+}
+
+class _UserCategoriesBarState extends State<UserCategoriesBar> {
+  late Stream<QuerySnapshot> _categoriesStream;
+  @override
+  void initState() {
+    super.initState();
+    _categoriesStream = _buildStream(widget.userId);
+  }
+
+  @override
+  void didUpdateWidget(UserCategoriesBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only recreate stream if userId actually changed
+    if (oldWidget.userId != widget.userId) {
+      _categoriesStream = _buildStream(widget.userId);
+    }
+  }
+
+  Stream<QuerySnapshot> _buildStream(String userId) {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('categories')
+        .orderBy('order', descending: false)
+        .snapshots();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .collection('categories')
-              .orderBy('order', descending: false)
-              .snapshots(),
+      stream: _categoriesStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return SizedBox(
@@ -328,8 +388,8 @@ class UserCategoriesBar extends StatelessWidget {
                   // "All" category option
                   _buildCategoryPill(
                     '전체',
-                    selectedCategoryId == null,
-                    () => onCategorySelected(''),
+                    widget.selectedCategoryId == null,
+                    () => widget.onCategorySelected(''),
                   ),
 
                   // User's categories
@@ -337,14 +397,14 @@ class UserCategoriesBar extends StatelessWidget {
                     final categoryData =
                         category.data() as Map<String, dynamic>;
                     final categoryName = categoryData['name'] ?? '이름 없음';
-                    final isSelected = selectedCategoryId == category.id;
+                    final isSelected = widget.selectedCategoryId == category.id;
 
                     return Padding(
                       padding: EdgeInsets.only(left: 8),
                       child: _buildCategoryPill(
                         categoryName,
                         isSelected,
-                        () => onCategorySelected(category.id),
+                        () => widget.onCategorySelected(category.id),
                       ),
                     );
                   }).toList(),
@@ -370,16 +430,19 @@ class UserCategoriesBar extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.grey : Colors.transparent,
+          color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey),
+          border:
+              isSelected
+                  ? Border.all(color: Colors.grey)
+                  : Border.all(color: Colors.transparent),
         ),
         child: Center(
           child: Text(
             categoryName,
             style: TextStyle(
               fontSize: 13,
-              color: isSelected ? Colors.white : Colors.grey[600],
+              color: Colors.grey[600],
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
@@ -490,6 +553,7 @@ class FollowingPostsList extends StatelessWidget {
 
         // Success state with posts
         return ListView.builder(
+          shrinkWrap: true,
           controller: scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           itemCount: posts.length,
@@ -532,14 +596,9 @@ class FollowingPostsList extends StatelessWidget {
                         size: 20,
                       ),
                       SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '이 게시물을 표시할 수 없습니다',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.red[700],
-                          ),
-                        ),
+                      Text(
+                        '이 게시물을 표시할 수 없습니다',
+                        style: TextStyle(fontSize: 12, color: Colors.red[700]),
                       ),
                     ],
                   ),
@@ -628,7 +687,6 @@ class FollowingPostsList extends StatelessWidget {
                 return await FirebaseFirestore.instance
                     .collection('posts')
                     .where('userId', whereIn: followingIds)
-                    .orderBy('createdAt', descending: true)
                     .limit(50)
                     .get();
               } else {
@@ -640,7 +698,6 @@ class FollowingPostsList extends StatelessWidget {
                     FirebaseFirestore.instance
                         .collection('posts')
                         .where('userId', whereIn: batch)
-                        .orderBy('createdAt', descending: true)
                         .get(),
                   );
                 }

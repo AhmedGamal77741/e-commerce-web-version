@@ -6,7 +6,6 @@ import 'package:ecommerece_app/features/chat/services/chat_service.dart';
 import 'package:ecommerece_app/features/chat/services/contacts_service.dart';
 import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
 import 'package:ecommerece_app/features/chat/services/friends_service.dart';
-import 'package:ecommerece_app/features/chat/services/favorites_service.dart';
 import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,7 +24,6 @@ class _FriendsScreenState extends State<FriendsScreen>
   final ContactService _contactService = ContactService();
   final ChatService _chatService = ChatService();
   final FirebaseUserRepo _userRepo = FirebaseUserRepo();
-  final FavoritesService _favoritesService = FavoritesService();
 
   bool _isSyncing = false;
   bool editMode = false;
@@ -36,33 +34,13 @@ class _FriendsScreenState extends State<FriendsScreen>
   Map<String, String> _latestAliases = {};
 
   // ── Expansion state ──────────────────────────────────────────────────────
-  bool _favoritesExpanded = true;
   bool _subscribedExpanded = true;
   bool _friendsExpanded = true;
-  bool _brandsExpanded = true;
-
-  // ── Active overlay (only one menu open at a time) ────────────────────────
-  OverlayEntry? _activeMenuOverlay;
-
+  /*   bool _brandsExpanded = true;
+ */
   // ── Computed search query ────────────────────────────────────────────────
   String get _effectiveQuery => widget.searchQuery;
   bool get _isSearchActive => _effectiveQuery.isNotEmpty;
-
-  // ─── Favorites order stream ───────────────────────────────────────────────
-  Stream<Map<String, int>> _getFavoritesOrderStream() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return Stream.value({});
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .snapshots()
-        .map((snap) {
-          if (!snap.exists) return <String, int>{};
-          final raw = snap.data()?['favoritesOrder'];
-          if (raw == null) return <String, int>{};
-          return Map<String, int>.from(raw as Map);
-        });
-  }
 
   // ─── Hidden user IDs stream ───────────────────────────────────────────────
   Stream<Set<String>> _getHiddenIdsStream() {
@@ -121,17 +99,6 @@ class _FriendsScreenState extends State<FriendsScreen>
     super.initState();
     _loadCurrentUser();
     _syncContactsOnEnter();
-  }
-
-  @override
-  void dispose() {
-    _dismissActiveMenu();
-    super.dispose();
-  }
-
-  void _dismissActiveMenu() {
-    _activeMenuOverlay?.remove();
-    _activeMenuOverlay = null;
   }
 
   Future<void> _loadCurrentUser() async {
@@ -1413,15 +1380,14 @@ class _FriendsScreenState extends State<FriendsScreen>
                                       return InkWell(
                                         onTap:
                                             () => setDialogState(() {
-                                              if (isSelected) {
+                                              if (isSelected)
                                                 selectedUserIds.remove(
                                                   user.userId,
                                                 );
-                                              } else {
+                                              else
                                                 selectedUserIds.add(
                                                   user.userId,
                                                 );
-                                              }
                                             }),
                                         child: Padding(
                                           padding: EdgeInsets.symmetric(
@@ -1774,8 +1740,8 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildSearchResults(
     List<MyUser> allFriends,
-    List<MyUser> allBrands,
-    List<String> favoriteIds,
+    /*     List<MyUser> allBrands,
+    List<String> favoriteIds, */
     Map<String, String> aliases,
   ) {
     final query = _effectiveQuery.toLowerCase();
@@ -1787,10 +1753,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                   (aliases[u.userId]?.toLowerCase().contains(query) ?? false),
             )
             .toList();
-    final matchingBrands =
-        allBrands.where((u) => u.name.toLowerCase().contains(query)).toList();
+    /*     final matchingBrands =
+        allBrands.where((u) => u.name.toLowerCase().contains(query)).toList(); */
 
-    if (matchingFriends.isEmpty && matchingBrands.isEmpty) {
+    if (matchingFriends.isEmpty) {
       return Center(
         child: Padding(
           padding: EdgeInsets.only(top: 60),
@@ -1824,14 +1790,10 @@ class _FriendsScreenState extends State<FriendsScreen>
             ),
           ),
           ...matchingFriends.map(
-            (f) => _buildFriendItem(
-              friend: f,
-              favoriteIds: favoriteIds,
-              aliases: aliases,
-            ),
+            (f) => _buildFriendItem(friend: f, aliases: aliases),
           ),
         ],
-        if (matchingBrands.isNotEmpty) ...[
+        /*         if (matchingBrands.isNotEmpty) ...[
           Padding(
             padding: EdgeInsets.only(top: 16, bottom: 8),
             child: Text(
@@ -1851,7 +1813,7 @@ class _FriendsScreenState extends State<FriendsScreen>
               aliases: aliases,
             ),
           ),
-        ],
+        ], */
         SizedBox(height: 40),
       ],
     );
@@ -1863,293 +1825,140 @@ class _FriendsScreenState extends State<FriendsScreen>
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      child: StreamBuilder<Map<String, int>>(
-        stream: _getFavoritesOrderStream(),
-        builder: (context, orderSnapshot) {
-          final favoritesOrder = orderSnapshot.data ?? {};
+      child: StreamBuilder<Set<String>>(
+        // Stream 2: following IDs
+        stream: _getFollowingIdsStream(),
+        builder: (context, followingSnapshot) {
+          final followingIds = followingSnapshot.data ?? {};
 
-          return StreamBuilder<List<String>>(
-            stream: _favoritesService.getFavoriteIdsStream(),
-            builder: (context, favSnapshot) {
-              final favoriteIds = favSnapshot.data ?? [];
+          return StreamBuilder<Set<String>>(
+            // Stream 3: hidden IDs
+            stream: _getHiddenIdsStream(),
+            builder: (context, hiddenSnapshot) {
+              final hiddenIds = hiddenSnapshot.data ?? {};
 
-              return StreamBuilder<Set<String>>(
-                stream: _getFollowingIdsStream(),
-                builder: (context, followingSnapshot) {
-                  final followingIds = followingSnapshot.data ?? {};
+              return StreamBuilder<Map<String, String>>(
+                // Stream 4: aliases map
+                stream: _getAliasesStream(),
+                builder: (context, aliasSnapshot) {
+                  final aliases = aliasSnapshot.data ?? {};
+                  _latestAliases = aliases;
 
-                  return StreamBuilder<Set<String>>(
-                    stream: _getHiddenIdsStream(),
-                    builder: (context, hiddenSnapshot) {
-                      final hiddenIds = hiddenSnapshot.data ?? {};
+                  return StreamBuilder<List<MyUser>>(
+                    // Stream 5: friends list
+                    stream: _friendsService.getFriendsStream(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData || _isSyncing) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                      return StreamBuilder<Map<String, String>>(
-                        stream: _getAliasesStream(),
-                        builder: (context, aliasSnapshot) {
-                          final aliases = aliasSnapshot.data ?? {};
-                          _latestAliases = aliases;
+                      final allUsers = snapshot.data ?? [];
+                      final allFriends =
+                          allUsers
+                              .where(
+                                (u) =>
+                                    u.type == 'user' &&
+                                    !hiddenIds.contains(u.userId),
+                              )
+                              .toList();
 
-                          return StreamBuilder<List<MyUser>>(
-                            stream: _friendsService.getFriendsStream(),
-                            builder: (context, snapshot) {
-                              if (!snapshot.hasData || _isSyncing) {
-                                return const Center(
-                                  child: CircularProgressIndicator(),
-                                );
-                              }
+                      final subscribed =
+                          allFriends
+                              .where((u) => followingIds.contains(u.userId))
+                              .toList();
 
-                              final allUsers = snapshot.data ?? [];
-                              final allFriends =
-                                  allUsers
-                                      .where(
-                                        (u) =>
-                                            u.type == 'user' &&
-                                            !hiddenIds.contains(u.userId),
-                                      )
-                                      .toList();
+                      final friends = allFriends;
 
-                              final favorites =
-                                  allFriends
-                                      .where(
-                                        (u) => favoriteIds.contains(u.userId),
-                                      )
-                                      .toList()
-                                    ..sort((a, b) {
-                                      final aO =
-                                          favoritesOrder[a.userId] ?? 999999;
-                                      final bO =
-                                          favoritesOrder[b.userId] ?? 999999;
-                                      return aO.compareTo(bO);
-                                    });
+                      if (_isSearchActive) {
+                        return _buildSearchResults(allFriends, aliases);
+                      }
 
-                              final subscribed =
-                                  allFriends
-                                      .where(
-                                        (u) => followingIds.contains(u.userId),
-                                      )
-                                      .toList();
+                      return ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: [
+                          _buildCurrentUserCard(),
 
-                              final friends = allFriends;
+                          // ── 내가 구독한 친구 ──────────────────
+                          _buildSectionHeader(
+                            label: '서로 구독 친구',
+                            count: subscribed.length,
+                            expanded: _subscribedExpanded,
+                            onTap:
+                                () => setState(
+                                  () =>
+                                      _subscribedExpanded =
+                                          !_subscribedExpanded,
+                                ),
+                          ),
+                          AnimatedCrossFade(
+                            duration: const Duration(milliseconds: 200),
+                            crossFadeState:
+                                _subscribedExpanded
+                                    ? CrossFadeState.showFirst
+                                    : CrossFadeState.showSecond,
+                            firstChild:
+                                subscribed.isEmpty
+                                    ? Padding(
+                                      padding: EdgeInsets.only(
+                                        bottom: 12,
+                                        left: 4,
+                                      ),
+                                      child: Text(
+                                        '구독한 친구가 없습니다',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[400],
+                                        ),
+                                      ),
+                                    )
+                                    : Column(
+                                      children:
+                                          subscribed
+                                              .map(
+                                                (f) => _buildFriendItem(
+                                                  friend: f,
 
-                              return StreamBuilder(
-                                stream: _friendsService.getBrandsStream(),
-                                builder: (context, brandSnapshot) {
-                                  final allBrands =
-                                      (brandSnapshot.data ?? [])
-                                          as List<MyUser>;
-                                  final brands =
-                                      allBrands
-                                          .where(
-                                            (b) =>
-                                                !hiddenIds.contains(b.userId),
-                                          )
-                                          .toList();
-
-                                  if (_isSearchActive) {
-                                    return _buildSearchResults(
-                                      allFriends,
-                                      brands,
-                                      favoriteIds,
-                                      aliases,
-                                    );
-                                  }
-
-                                  return ListView(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
+                                                  aliases: aliases,
+                                                ),
+                                              )
+                                              .toList(),
                                     ),
-                                    children: [
-                                      _buildCurrentUserCard(),
+                            secondChild: const SizedBox.shrink(),
+                          ),
 
-                                      // ── 즐겨찾기 ──────────────────────────
-                                      _buildSectionHeader(
-                                        label: '즐겨찾기',
-                                        count: favorites.length,
-                                        expanded: _favoritesExpanded,
-                                        onTap:
-                                            () => setState(
-                                              () =>
-                                                  _favoritesExpanded =
-                                                      !_favoritesExpanded,
-                                            ),
-                                      ),
-                                      AnimatedCrossFade(
-                                        duration: const Duration(
-                                          milliseconds: 200,
+                          // ── 친구 ──────────────────────────────
+                          _buildSectionHeader(
+                            label: '친구',
+                            count: friends.length,
+                            expanded: _friendsExpanded,
+                            onTap:
+                                () => setState(
+                                  () => _friendsExpanded = !_friendsExpanded,
+                                ),
+                          ),
+                          AnimatedCrossFade(
+                            duration: const Duration(milliseconds: 200),
+                            crossFadeState:
+                                _friendsExpanded
+                                    ? CrossFadeState.showFirst
+                                    : CrossFadeState.showSecond,
+                            firstChild: Column(
+                              children:
+                                  friends
+                                      .map(
+                                        (friend) => _buildFriendItem(
+                                          friend: friend,
+                                          showCheckbox: editMode,
+                                          aliases: aliases,
                                         ),
-                                        crossFadeState:
-                                            _favoritesExpanded
-                                                ? CrossFadeState.showFirst
-                                                : CrossFadeState.showSecond,
-                                        firstChild:
-                                            favorites.isEmpty
-                                                ? Padding(
-                                                  padding: EdgeInsets.only(
-                                                    bottom: 12,
-                                                    left: 4,
-                                                  ),
-                                                  child: Text(
-                                                    '즐겨찾기한 친구가 없습니다',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey[400],
-                                                    ),
-                                                  ),
-                                                )
-                                                : Column(
-                                                  children:
-                                                      favorites
-                                                          .map(
-                                                            (
-                                                              f,
-                                                            ) => _buildFriendItem(
-                                                              friend: f,
-                                                              favoriteIds:
-                                                                  favoriteIds,
-                                                              aliases: aliases,
-                                                            ),
-                                                          )
-                                                          .toList(),
-                                                ),
-                                        secondChild: const SizedBox.shrink(),
-                                      ),
+                                      )
+                                      .toList(),
+                            ),
+                            secondChild: const SizedBox.shrink(),
+                          ),
 
-                                      // ── 내가 구독한 친구 ──────────────────
-                                      _buildSectionHeader(
-                                        label: '내가 구독한 친구',
-                                        count: subscribed.length,
-                                        expanded: _subscribedExpanded,
-                                        onTap:
-                                            () => setState(
-                                              () =>
-                                                  _subscribedExpanded =
-                                                      !_subscribedExpanded,
-                                            ),
-                                      ),
-                                      AnimatedCrossFade(
-                                        duration: const Duration(
-                                          milliseconds: 200,
-                                        ),
-                                        crossFadeState:
-                                            _subscribedExpanded
-                                                ? CrossFadeState.showFirst
-                                                : CrossFadeState.showSecond,
-                                        firstChild:
-                                            subscribed.isEmpty
-                                                ? Padding(
-                                                  padding: EdgeInsets.only(
-                                                    bottom: 12,
-                                                    left: 4,
-                                                  ),
-                                                  child: Text(
-                                                    '구독한 친구가 없습니다',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey[400],
-                                                    ),
-                                                  ),
-                                                )
-                                                : Column(
-                                                  children:
-                                                      subscribed
-                                                          .map(
-                                                            (
-                                                              f,
-                                                            ) => _buildFriendItem(
-                                                              friend: f,
-                                                              favoriteIds:
-                                                                  favoriteIds,
-                                                              aliases: aliases,
-                                                            ),
-                                                          )
-                                                          .toList(),
-                                                ),
-                                        secondChild: const SizedBox.shrink(),
-                                      ),
-
-                                      // ── 친구 ──────────────────────────────
-                                      _buildSectionHeader(
-                                        label: '친구',
-                                        count: friends.length,
-                                        expanded: _friendsExpanded,
-                                        onTap:
-                                            () => setState(
-                                              () =>
-                                                  _friendsExpanded =
-                                                      !_friendsExpanded,
-                                            ),
-                                      ),
-                                      AnimatedCrossFade(
-                                        duration: const Duration(
-                                          milliseconds: 200,
-                                        ),
-                                        crossFadeState:
-                                            _friendsExpanded
-                                                ? CrossFadeState.showFirst
-                                                : CrossFadeState.showSecond,
-                                        firstChild: Column(
-                                          children:
-                                              friends
-                                                  .map(
-                                                    (
-                                                      friend,
-                                                    ) => _buildFriendItem(
-                                                      friend: friend,
-                                                      showCheckbox: editMode,
-                                                      favoriteIds: favoriteIds,
-                                                      aliases: aliases,
-                                                    ),
-                                                  )
-                                                  .toList(),
-                                        ),
-                                        secondChild: const SizedBox.shrink(),
-                                      ),
-
-                                      // ── 브랜드 ────────────────────────────
-                                      _buildSectionHeader(
-                                        label: '브랜드',
-                                        count: brands.length,
-                                        expanded: _brandsExpanded,
-                                        onTap:
-                                            () => setState(
-                                              () =>
-                                                  _brandsExpanded =
-                                                      !_brandsExpanded,
-                                            ),
-                                      ),
-                                      AnimatedCrossFade(
-                                        duration: const Duration(
-                                          milliseconds: 200,
-                                        ),
-                                        crossFadeState:
-                                            _brandsExpanded
-                                                ? CrossFadeState.showFirst
-                                                : CrossFadeState.showSecond,
-                                        firstChild: Column(
-                                          children:
-                                              brands
-                                                  .map(
-                                                    (b) => _buildFriendItem(
-                                                      friend: b,
-                                                      isBrand: true,
-                                                      showCheckbox: editMode,
-                                                      favoriteIds: favoriteIds,
-                                                      aliases: aliases,
-                                                    ),
-                                                  )
-                                                  .toList(),
-                                        ),
-                                        secondChild: const SizedBox.shrink(),
-                                      ),
-
-                                      SizedBox(height: 40),
-                                    ],
-                                  );
-                                },
-                              );
-                            },
-                          );
-                        },
+                          SizedBox(height: 40),
+                        ],
                       );
                     },
                   );
@@ -2166,17 +1975,11 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildFriendItem({
     required MyUser friend,
-    required List<String> favoriteIds,
     required Map<String, String> aliases,
     bool showCheckbox = false,
     bool isBrand = false,
   }) {
-    // Each call gets its own LayerLink — safe because _buildFriendItem
-    // is only ever called from build(), so the link lives as long as
-    // the widget subtree does.
-    final LayerLink layerLink = LayerLink();
-
-    final bool isFav = favoriteIds.contains(friend.userId);
+    final GlobalKey itemKey = GlobalKey();
     final String displayName = aliases[friend.userId] ?? friend.name;
     final bool hasAlias =
         aliases.containsKey(friend.userId) &&
@@ -2184,292 +1987,244 @@ class _FriendsScreenState extends State<FriendsScreen>
 
     void showFriendMenu() {
       if (isBrand) return;
+      final RenderBox box =
+          itemKey.currentContext!.findRenderObject() as RenderBox;
+      final Offset offset = box.localToGlobal(Offset.zero);
+      final screenWidth = MediaQuery.of(context).size.width;
+      const double popupWidth = 220;
+      const double popupHeight = 380;
 
-      // Dismiss any menu that's already open
-      _dismissActiveMenu();
+      double left = offset.dx + 55;
+      double top = offset.dy - 60;
+      final screenHeight = MediaQuery.of(context).size.height;
 
-      _activeMenuOverlay = OverlayEntry(
-        builder: (overlayContext) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final screenHeight = MediaQuery.of(context).size.height;
-          const double popupWidth = 220;
-          const double popupHeight = 380;
+      if (left + popupWidth > screenWidth - 12) {
+        left = screenWidth - popupWidth - 12;
+      }
+      if (top + popupHeight > screenHeight - 20) {
+        top = offset.dy - popupHeight + 20;
+      }
+      if (top < 8) top = 8;
 
-          return Stack(
-            children: [
-              // ── Transparent dismiss barrier ──────────────────────────────
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: _dismissActiveMenu,
-                  child: const SizedBox.expand(),
+      showDialog(
+        context: context,
+        barrierColor: Colors.transparent,
+        barrierDismissible: false,
+        builder:
+            (_) => Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(color: Colors.transparent),
+                  ),
                 ),
-              ),
-
-              // ── Popup anchored to the list item ──────────────────────────
-              CompositedTransformFollower(
-                link: layerLink,
-                showWhenUnlinked: false,
-                // Nudge right 55, up 60 — same intent as original left/top math
-                offset: const Offset(55, -60),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: _ClampedMenu(
-                    popupWidth: popupWidth,
-                    popupHeight: popupHeight,
-                    screenWidth: screenWidth,
-                    screenHeight: screenHeight,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Container(
-                        width: popupWidth,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 4),
+                Positioned(
+                  left: left,
+                  top: top,
+                  width: popupWidth,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(height: 20),
+                          Text(
+                            displayName,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(height: 20),
+                          ),
+                          if (hasAlias) ...[
+                            SizedBox(height: 2),
                             Text(
-                              displayName,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.black,
+                              friend.name,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[400],
                               ),
                             ),
-                            if (hasAlias) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                friend.name,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[400],
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 4),
-                            Divider(
-                              color: Colors.grey[200],
-                              thickness: 1,
-                              height: 1,
-                            ),
-                            _buildMenuOption(
-                              label: isFav ? '즐겨찾기 해제' : '즐겨찾기 추가',
-                              labelColor:
-                                  isFav ? Colors.amber[800] : Colors.black,
-                              onTap: () async {
-                                _dismissActiveMenu();
-                                if (isFav) {
-                                  await _favoritesService.removeFavorite(
-                                    friend.userId,
-                                  );
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '$displayName님을 즐겨찾기에서 제거했습니다',
-                                        ),
-                                        duration: const Duration(seconds: 2),
-                                      ),
-                                    );
-                                  }
-                                } else {
-                                  await _favoritesService.addFavorite(
-                                    friend.userId,
-                                  );
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '$displayName님을 즐겨찾기에 추가했습니다',
-                                        ),
-                                        duration: const Duration(seconds: 2),
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                            ),
-                            _buildMenuOption(
-                              label: '이름 변경',
-                              onTap: () {
-                                _dismissActiveMenu();
-                                _showChangeNameDialog(
-                                  friend,
-                                  aliases[friend.userId],
-                                );
-                              },
-                            ),
-                            _buildMenuOption(
-                              label: '숨김',
-                              onTap: () {
-                                _dismissActiveMenu();
-                                _hideFriend(friend);
-                              },
-                            ),
-                            _buildMenuOption(
-                              label: '삭제',
-                              labelColor: Colors.red[600],
-                              onTap: () {
-                                _dismissActiveMenu();
-                                _deleteFriend(friend);
-                              },
-                            ),
-                            _buildMenuOption(
-                              label: '차단',
-                              labelColor: Colors.red[800],
-                              onTap: () {
-                                _dismissActiveMenu();
-                                _blockFriend(friend);
-                              },
-                              isLast: true,
-                            ),
-                            const SizedBox(height: 12),
                           ],
-                        ),
+                          SizedBox(height: 4),
+                          Divider(
+                            color: Colors.grey[200],
+                            thickness: 1,
+                            height: 1,
+                          ),
+
+                          _buildMenuOption(
+                            label: '이름 변경',
+                            onTap: () {
+                              Navigator.pop(context);
+                              _showChangeNameDialog(
+                                friend,
+                                aliases[friend.userId],
+                              );
+                            },
+                          ),
+                          _buildMenuOption(
+                            label: '숨김',
+                            onTap: () {
+                              Navigator.pop(context);
+                              _hideFriend(friend);
+                            },
+                          ),
+                          _buildMenuOption(
+                            label: '삭제',
+                            labelColor: Colors.red[600],
+                            onTap: () {
+                              Navigator.pop(context);
+                              _deleteFriend(friend);
+                            },
+                          ),
+                          _buildMenuOption(
+                            label: '차단',
+                            labelColor: Colors.red[800],
+                            onTap: () {
+                              Navigator.pop(context);
+                              _blockFriend(friend);
+                            },
+                            isLast: true,
+                          ),
+                          SizedBox(height: 12),
+                        ],
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            ),
       );
-
-      Overlay.of(context).insert(_activeMenuOverlay!);
     }
 
-    // CompositedTransformTarget replaces the old `key: itemKey` Container.
-    // Everything inside is byte-for-byte identical to the original.
-    return CompositedTransformTarget(
-      link: layerLink,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        child: InkWell(
-          onTap: () async {
-            try {
-              final chatRoomId = await _chatService.createDirectChatRoom(
-                friend.userId,
-                isBrand,
-              );
-              if (chatRoomId != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder:
-                        (context) => ChatScreen(
-                          chatRoomId: chatRoomId,
-                          chatRoomName: displayName,
-                        ),
-                  ),
-                );
-              }
-            } catch (e) {
-              ScaffoldMessenger.of(
+    return Container(
+      key: itemKey,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        onTap: () async {
+          try {
+            final chatRoomId = await _chatService.createDirectChatRoom(
+              friend.userId,
+              isBrand,
+            );
+            if (chatRoomId != null) {
+              Navigator.push(
                 context,
-              ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                MaterialPageRoute(
+                  builder:
+                      (context) => ChatScreen(
+                        chatRoomId: chatRoomId,
+                        chatRoomName: displayName,
+                      ),
+                ),
+              );
             }
-          },
-          onLongPress: showFriendMenu,
-          child: Row(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    radius: 25,
-                    backgroundImage: NetworkImage(friend.url),
-                  ),
-                  if (isFav)
-                    Positioned(
-                      bottom: -2,
-                      right: -2,
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.star_rounded,
-                          size: 14,
-                          color: Colors.amber,
-                        ),
+          } catch (e) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Error: $e')));
+          }
+        },
+        onLongPress: showFriendMenu,
+        child: Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CircleAvatar(
+                  radius: 25,
+                  backgroundImage: NetworkImage(friend.url),
+                ),
+                /*                 if (isFav)
+                  Positioned(
+                    bottom: -2,
+                    right: -2,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.star_rounded,
+                        size: 14,
+                        color: Colors.amber,
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _isSearchActive
-                        ? _buildHighlightedName(displayName, _effectiveQuery)
-                        : Row(
-                          children: [
+                  ), */
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _isSearchActive
+                      ? _buildHighlightedName(displayName, _effectiveQuery)
+                      : Row(
+                        children: [
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black,
+                            ),
+                          ),
+                          if (hasAlias) ...[
+                            const SizedBox(width: 4),
                             Text(
-                              displayName,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black,
+                              '(${friend.name})',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[400],
                               ),
                             ),
-                            if (hasAlias) ...[
-                              const SizedBox(width: 4),
-                              Text(
-                                '(${friend.name})',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey[400],
-                                ),
-                              ),
-                            ],
                           ],
-                        ),
-                    if (friend.bio != null && friend.bio!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        friend.bio ?? '',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey,
-                        ),
+                        ],
                       ),
-                    ],
+                  if (friend.bio != null && friend.bio!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      friend.bio ?? '',
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                   ],
-                ),
+                ],
               ),
-              if (showCheckbox)
-                StatefulBuilder(
-                  builder: (context, checkboxState) {
-                    return Checkbox(
-                      value: selectedChatIds.contains(friend.userId),
-                      onChanged:
-                          (checked) => checkboxState(() {
-                            if (checked ?? false)
-                              selectedChatIds.add(friend.userId);
-                            else
-                              selectedChatIds.remove(friend.userId);
-                          }),
-                    );
-                  },
-                ),
-            ],
-          ),
+            ),
+            if (showCheckbox)
+              StatefulBuilder(
+                builder: (context, checkboxState) {
+                  return Checkbox(
+                    value: selectedChatIds.contains(friend.userId),
+                    onChanged:
+                        (checked) => checkboxState(() {
+                          if (checked ?? false)
+                            selectedChatIds.add(friend.userId);
+                          else
+                            selectedChatIds.remove(friend.userId);
+                        }),
+                  );
+                },
+              ),
+          ],
         ),
       ),
     );
@@ -2546,75 +2301,5 @@ class _FriendsScreenState extends State<FriendsScreen>
         ],
       ),
     );
-  }
-}
-
-// ─── _ClampedMenu ─────────────────────────────────────────────────────────────
-//
-// Wraps the popup and, after the first frame, applies a translation to
-// keep it fully within the screen bounds — replicating the original
-// left/top clamping logic but done post-layout (the only correct way on web).
-
-class _ClampedMenu extends StatefulWidget {
-  const _ClampedMenu({
-    required this.child,
-    required this.popupWidth,
-    required this.popupHeight,
-    required this.screenWidth,
-    required this.screenHeight,
-  });
-
-  final Widget child;
-  final double popupWidth;
-  final double popupHeight;
-  final double screenWidth;
-  final double screenHeight;
-
-  @override
-  State<_ClampedMenu> createState() => _ClampedMenuState();
-}
-
-class _ClampedMenuState extends State<_ClampedMenu> {
-  double _dx = 0;
-  double _dy = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final box = context.findRenderObject() as RenderBox?;
-      if (box == null) return;
-      final pos = box.localToGlobal(Offset.zero);
-
-      double dx = 0;
-      double dy = 0;
-
-      // Right edge
-      if (pos.dx + widget.popupWidth > widget.screenWidth - 12) {
-        dx = (widget.screenWidth - 12) - (pos.dx + widget.popupWidth);
-      }
-      // Left edge
-      if (pos.dx + dx < 8) dx = 8 - pos.dx;
-
-      // Bottom edge
-      if (pos.dy + widget.popupHeight > widget.screenHeight - 20) {
-        dy = (widget.screenHeight - 20) - (pos.dy + widget.popupHeight);
-      }
-      // Top edge
-      if (pos.dy + dy < 8) dy = 8 - pos.dy;
-
-      if (dx != 0 || dy != 0) {
-        setState(() {
-          _dx = dx;
-          _dy = dy;
-        });
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Transform.translate(offset: Offset(_dx, _dy), child: widget.child);
   }
 }

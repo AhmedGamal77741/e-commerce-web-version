@@ -2,14 +2,13 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
-import 'package:ecommerece_app/core/theming/colors.dart';
-import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:ecommerece_app/features/home/follow_feed_screen.dart';
 import 'package:ecommerece_app/features/home/search_screen.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_item.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
+import 'package:ecommerece_app/features/mypage/ui/my_story.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -28,78 +27,215 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   bool get wantKeepAlive => true;
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, authSnapshot) {
-        final firebaseUser = authSnapshot.data;
+  User? _firebaseUser;
 
-        // If tabController is provided from parent, use it; otherwise create a new one
-        if (widget.tabController != null) {
-          return _buildScaffold(firebaseUser, widget.tabController!);
-        } else {
-          return DefaultTabController(
-            length: 2,
-            child: _buildScaffold(firebaseUser, null),
-          );
-        }
-      },
+  int _selectedIndex = 0;
+  late final _authSubscription;
+  @override
+  void initState() {
+    super.initState();
+    _firebaseUser = FirebaseAuth.instance.currentUser;
+
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (mounted) {
+        setState(() {
+          _firebaseUser = user;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
+
+  final List<Map<String, dynamic>> _tabs = [
+    {'label': '추천'},
+    {'label': '구독'},
+    {'label': 'MY'},
+  ];
+
+  Widget _buildPill(int index) {
+    final bool isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.grey[200],
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          _tabs[index]['label'],
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildScaffold(User? firebaseUser, TabController? tabController) {
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 130,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            InkWell(
-              onTap: () {
-                if (firebaseUser == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("검색은 회원가입 후 이용가능합니다")),
-                  );
-                  return;
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => HomeSearch()),
-                );
-              },
-              child: ImageIcon(
-                AssetImage('assets/search.png'),
-                color: Colors.black,
-                size: 25,
-              ),
+  Widget _buildNormalPillRow(User? firebaseUser) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(5, 0, 5, 5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        key: const ValueKey('pills'),
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (int i = 0; i < _tabs.length; i++) ...[
+                  _buildPill(i),
+                  if (i < _tabs.length - 1) SizedBox(width: 8),
+                ],
+              ],
             ),
-            TabBar(
-              controller: tabController,
-              labelStyle: TextStyle(
-                fontSize: 16,
-                decoration: TextDecoration.none,
-                fontFamily: 'NotoSans',
-                fontStyle: FontStyle.normal,
-                fontWeight: FontWeight.w400,
-                letterSpacing: 0,
-                color: ColorsManager.primaryblack,
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              InkWell(
+                onTap: () {
+                  if (firebaseUser == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("검색은 회원가입 후 이용가능합니다")),
+                    );
+                    return;
+                  }
+                  context.pushNamed(Routes.alertsScreen);
+                },
+                child:
+                    firebaseUser == null
+                        ? Image.asset(
+                          'assets/notification_bell_transparent.png',
+                          height: 35,
+                          width: 35,
+                        )
+                        : StreamBuilder<QuerySnapshot>(
+                          stream:
+                              FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(firebaseUser.uid)
+                                  .collection('notifications')
+                                  .where('isRead', isEqualTo: false)
+                                  .limit(1)
+                                  .snapshots(),
+                          builder: (context, notifSnapshot) {
+                            final hasUnread =
+                                notifSnapshot.hasData &&
+                                notifSnapshot.data!.docs.isNotEmpty;
+                            return Stack(
+                              clipBehavior: Clip.none, // Allow overflow
+
+                              children: [
+                                Image.asset(
+                                  'assets/notification_bell_transparent.png',
+                                  height: 35,
+                                  width: 35,
+                                ),
+                                if (hasUnread)
+                                  Positioned(
+                                    left: 0,
+                                    top: 0,
+                                    child: Image.asset(
+                                      'assets/notification_dot.png',
+                                      width: 18,
+                                      height: 18,
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
               ),
-              unselectedLabelColor: ColorsManager.primary600,
-              indicatorSize: TabBarIndicatorSize.tab,
-              indicatorColor: ColorsManager.primaryblack,
-              tabs: [Tab(text: '추천'), Tab(text: '구독')],
+              InkWell(
+                onTap: () {
+                  if (firebaseUser == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("검색은 회원가입 후 이용가능합니다")),
+                    );
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => HomeSearch()),
+                  );
+                },
+                child: ImageIcon(
+                  AssetImage('assets/search.png'),
+                  color: Colors.black,
+                  size: 35,
+                ),
+              ),
+              horizontalSpace(5),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    return _buildScaffold(_firebaseUser, widget.tabController, _selectedIndex);
+  }
+
+  Widget _buildScaffold(
+    User? firebaseUser,
+    TabController? tabController,
+    int floating,
+  ) {
+    return SafeArea(
+      child: Scaffold(
+        floatingActionButton:
+            floating == 0 || floating == 2
+                ? FloatingActionButton(
+                  heroTag: floating == 0 ? "home_feed_fab" : "MY_feed_fab",
+                  shape: CircleBorder(),
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  highlightElevation: 0,
+                  onPressed: () {
+                    context.go(Routes.addPostScreen);
+                  },
+                  child: ClipOval(
+                    child: Image.asset(
+                      "assets/add_post_transparent.png",
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                )
+                : null,
+
+        body: ListView(
+          children: [
+            _buildNormalPillRow(firebaseUser),
+            IndexedStack(
+              index: _selectedIndex,
+              children: [
+                _HomeFeedTab(),
+                FollowingTab(firebaseUser: firebaseUser),
+                MyStory(),
+              ],
             ),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: tabController,
-        children: [
-          _HomeFeedTab(scrollController: widget.scrollController),
-          FollowingTab(),
-        ],
+        /* TabBarView(
+          controller: tabController,
+          children: [
+            _HomeFeedTab(scrollController: widget.scrollController),
+            FollowingTab(),
+          ],
+        ), */
       ),
     );
   }
@@ -208,7 +344,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
   }) {
     // Always show user's own posts
     if (postAuthorId == currentUserId) {
-      return true;
+      return false;
     }
 
     // Get author's privacy setting (default to false if not set)
@@ -299,150 +435,33 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                         return (authorData['isPrivate'] ?? false) == false;
                       }).toList();
 
-                  return ListView.separated(
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+
                     controller: controller,
-                    itemCount: filteredPosts.length + 1, // +1 for user info row
+                    itemCount: filteredPosts.length,
                     itemBuilder: (context, index) {
-                      if (index == 0) {
-                        // User info row
-                        return Column(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                horizontalSpace(3),
-                                Flexible(
-                                  child: InkWell(
-                                    onTap: () {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            "내 페이지 탭에서 회원가입 후 이용가능합니다",
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    child: Container(
-                                      width: 65,
-                                      height: 65,
-                                      decoration: ShapeDecoration(
-                                        image: DecorationImage(
-                                          image: AssetImage(
-                                            'assets/avatar.png',
-                                          ),
-                                          fit: BoxFit.cover,
-                                        ),
-                                        shape: OvalBorder(),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 4,
-                                  child: InkWell(
-                                    onTap: () {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            "내 페이지 탭에서 회원가입 후 이용가능합니다",
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    child: Padding(
-                                      padding: EdgeInsets.only(right: 10),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          verticalSpace(8),
-                                          Text(
-                                            '게스트 사용자',
-                                            style: TextStyles
-                                                .abeezee16px400wPblack
-                                                .copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                          ),
-                                          verticalSpace(8),
-                                          FutureBuilder(
-                                            future:
-                                                FirebaseFirestore.instance
-                                                    .collection('widgets')
-                                                    .doc('placeholders')
-                                                    .get(),
-                                            builder: (context, snapshot) {
-                                              if (snapshot.connectionState ==
-                                                  ConnectionState.waiting) {
-                                                return const Center(
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        color: Colors.black,
-                                                      ),
-                                                );
-                                              }
-                                              if (snapshot.hasError) {
-                                                return const Center(
-                                                  child: Text('Error'),
-                                                );
-                                              }
-                                              return Text(
-                                                snapshot.data!
-                                                    .data()!['outerPlaceholderText'],
-                                                style: TextStyle(
-                                                  color: const Color(
-                                                    0xFF5F5F5F,
-                                                  ),
-                                                  fontSize: 13,
-                                                  fontFamily: 'NotoSans',
-                                                  fontWeight: FontWeight.w400,
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            verticalSpace(5),
-                            Divider(),
-                          ],
-                        );
-                      } else {
-                        final post =
-                            filteredPosts[index - 1].data()
-                                as Map<String, dynamic>;
-                        if (post['postId'] == null) {
-                          post['postId'] = filteredPosts[index - 1].id;
-                        }
-                        return Column(
-                          children: [
-                            GuestPostItem(post: post),
-                            verticalSpace(10),
-                          ],
-                        );
+                      final post =
+                          filteredPosts[index].data() as Map<String, dynamic>;
+                      if (post['postId'] == null) {
+                        post['postId'] = filteredPosts[index - 1].id;
                       }
+                      return Column(
+                        children: [
+                          GuestPostItem(post: post),
+                          verticalSpace(10),
+                        ],
+                      );
                     },
-                    separatorBuilder: (BuildContext context, int index) {
+                    /*                     separatorBuilder: (BuildContext context, int index) {
                       if (index < posts.length - 1 && index > 0) {
                         return Divider();
                       } else {
                         // For the very last item, return an empty widget
                         return SizedBox.shrink(); // A zero-sized box
                       }
-                    },
+                    }, */
                   );
                 },
               );
@@ -495,6 +514,9 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                   final authorIds = <String>{};
                   for (var post in posts) {
                     final data = post.data() as Map<String, dynamic>;
+                    if ((data['userId'] as String) == currentUser.userId) {
+                      continue;
+                    }
                     authorIds.add(data['userId'] as String);
                   }
 
@@ -517,159 +539,40 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                             final authorData =
                                 authorsMap[data['userId'] as String] ?? {};
                             // Only show if author's profile is public
-                            return (authorData['isPrivate'] ?? false) == false;
+                            return (authorData['isPrivate'] ?? false) ==
+                                    false ||
+                                data['userId'] != currentUser.userId;
                           }).toList();
 
-                      return ListView.separated(
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+
                         controller: controller,
-                        itemCount:
-                            filteredPosts.length + 1, // +1 for user info row
+                        itemCount: filteredPosts.length, // +1 for user info row
 
                         itemBuilder: (context, index) {
-                          if (index == 0) {
-                            // User info row for regular (non-premium) member
-                            return Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceAround,
-                                  children: [
-                                    horizontalSpace(3),
-                                    Flexible(
-                                      child: InkWell(
-                                        onTap: () {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                "프리미엄 가입 후 이용가능합니다",
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        child: Container(
-                                          width: 65,
-                                          height: 65,
-                                          decoration: ShapeDecoration(
-                                            image: DecorationImage(
-                                              image: NetworkImage(
-                                                currentUser.url,
-                                              ),
-                                              fit: BoxFit.cover,
-                                            ),
-                                            shape: OvalBorder(),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 4,
-                                      child: Padding(
-                                        padding: EdgeInsets.only(right: 10),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.start,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            verticalSpace(8),
-                                            Text(
-                                              currentUser.name,
-                                              style: TextStyles
-                                                  .abeezee16px400wPblack
-                                                  .copyWith(
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                            ),
-
-                                            verticalSpace(8),
-                                            FutureBuilder(
-                                              future:
-                                                  FirebaseFirestore.instance
-                                                      .collection('widgets')
-                                                      .doc('placeholders')
-                                                      .get(),
-                                              builder: (context, snapshot) {
-                                                if (snapshot.connectionState ==
-                                                    ConnectionState.waiting) {
-                                                  return const Center(
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          color: Colors.black,
-                                                        ),
-                                                  );
-                                                }
-                                                if (snapshot.hasError) {
-                                                  return const Center(
-                                                    child: Text('Error'),
-                                                  );
-                                                }
-                                                return InkWell(
-                                                  onTap: () {
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      const SnackBar(
-                                                        content: Text(
-                                                          "프리미엄 회원 가입 후 게시글 작성, 좋아요, 댓글 사용할 수 있습니다!",
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                  child: Text(
-                                                    snapshot.data!
-                                                        .data()!['outerPlaceholderText'],
-                                                    style: TextStyle(
-                                                      color: const Color(
-                                                        0xFF5F5F5F,
-                                                      ),
-                                                      fontSize: 13,
-                                                      fontFamily: 'NotoSans',
-                                                      fontWeight:
-                                                          FontWeight.w400,
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                verticalSpace(5),
-                                Divider(),
-                                verticalSpace(5),
-                              ],
-                            );
-                          } else {
-                            final post =
-                                filteredPosts[index - 1].data()
-                                    as Map<String, dynamic>;
-                            if (post['postId'] == null) {
-                              post['postId'] = filteredPosts[index - 1].id;
-                            }
-                            return Column(
-                              children: [
-                                GuestPostItem(post: post),
-                                verticalSpace(10),
-                              ],
-                            );
+                          final post =
+                              filteredPosts[index - 1].data()
+                                  as Map<String, dynamic>;
+                          if (post['postId'] == null) {
+                            post['postId'] = filteredPosts[index - 1].id;
                           }
+                          return Column(
+                            children: [
+                              GuestPostItem(post: post),
+                              verticalSpace(10),
+                            ],
+                          );
                         },
-                        separatorBuilder: (BuildContext context, int index) {
+                        /*                         separatorBuilder: (BuildContext context, int index) {
                           if (index < posts.length - 1 && index > 0) {
                             return Divider();
                           } else {
                             // For the very last item, return an empty widget
                             return SizedBox.shrink(); // A zero-sized box
                           }
-                        },
+                        }, */
                       );
                     },
                   );
@@ -729,6 +632,9 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                     final authorIds = <String>{};
                     for (var post in posts) {
                       final data = post.data() as Map<String, dynamic>;
+                      if ((data['userId'] as String) == currentUser.userId) {
+                        continue;
+                      }
                       authorIds.add(data['userId'] as String);
                     }
 
@@ -776,7 +682,10 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                 followingSet: followingSet,
                               );
                             }).toList();
-                        return ListView.separated(
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+
                           controller: controller,
                           itemCount:
                               filteredPosts.length + 1, // +1 for user info row
@@ -786,7 +695,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                               return Column(
                                 mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
-                                  Row(
+                                  /* Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     mainAxisAlignment:
@@ -862,7 +771,9 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                             context.go(Routes.addPostScreen);
                                           },
                                           child: Padding(
-                                            padding: EdgeInsets.only(right: 10),
+                                            padding: EdgeInsets.only(
+                                              right: 10,
+                                            ),
                                             child: Column(
                                               mainAxisSize: MainAxisSize.min,
                                               mainAxisAlignment:
@@ -930,7 +841,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                     ],
                                   ),
                                   verticalSpace(5),
-                                  Divider(),
+                                  Divider(), */
                                 ],
                               );
                             } else {
@@ -943,19 +854,19 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                                     postId: post['postId'],
                                     fromComments: false,
                                   ),
-                                  verticalSpace(16),
+                                  SizedBox(height: 16),
                                 ],
                               );
                             }
                           },
-                          separatorBuilder: (BuildContext context, int index) {
+                          /*                           separatorBuilder: (BuildContext context, int index) {
                             if (index < posts.length - 1 && index > 0) {
                               return Divider();
                             } else {
                               // For the very last item, return an empty widget
                               return SizedBox.shrink(); // A zero-sized box
                             }
-                          },
+                          }, */
                         );
                       },
                     );

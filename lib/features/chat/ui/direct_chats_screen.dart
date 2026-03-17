@@ -505,21 +505,10 @@ class _DirectChatsScreenState extends State<DirectChatsScreen> {
 
                   // ── Unread badge ──
                   if (unread > 0)
-                    Container(
-                      width: 20,
-                      height: 20,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.grey,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        unread.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
+                    Image.asset(
+                      'assets/notification_dot.png',
+                      width: 25,
+                      height: 25,
                     ),
                 ],
               ),

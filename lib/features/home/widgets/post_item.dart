@@ -5,6 +5,7 @@ import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_entity.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
+import 'package:ecommerece_app/features/chat/services/contacts_service.dart';
 import 'package:ecommerece_app/features/home/comments.dart';
 import 'package:ecommerece_app/features/home/data/follow_service.dart';
 import 'package:ecommerece_app/features/home/data/home_functions.dart';
@@ -15,7 +16,6 @@ import 'package:ecommerece_app/features/home/widgets/show_post_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:screenshot/screenshot.dart';
@@ -302,6 +302,27 @@ class PostItem extends StatelessWidget {
                                           .copyWith(
                                             fontWeight: FontWeight.bold,
                                           ),
+                                    ),
+                                    FutureBuilder<String?>(
+                                      future: ContactService()
+                                          .getContactNickname(
+                                            postData['userId'],
+                                          ),
+                                      builder: (context, snapshot) {
+                                        if (!snapshot.hasData)
+                                          return const SizedBox.shrink();
+                                        final nickname = snapshot.data;
+                                        if (nickname == null)
+                                          return const SizedBox.shrink();
+                                        return Text(
+                                          "@$nickname",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[500],
+                                            fontFamily: 'NotoSans',
+                                          ),
+                                        );
+                                      },
                                     ),
                                     if (!userMissing &&
                                         myuser!.userId.isNotEmpty)
@@ -701,7 +722,7 @@ class PostItem extends StatelessWidget {
                                         width: double.infinity,
                                       ),
                                     ),
-                                  verticalSpace(5),
+                                  /* verticalSpace(5),
                                   Row(
                                     children: [
                                       PostActions(
@@ -709,7 +730,7 @@ class PostItem extends StatelessWidget {
                                         postData: postData,
                                       ),
                                     ],
-                                  ),
+                                  ), */
                                 ],
                               ),
                             ),
@@ -830,86 +851,117 @@ class _OtherPostMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      onSelected: (value) async {
-        switch (value) {
-          case 'share':
-            showShareDialog(
-              context,
-              'post',
-              'https://app.pang2chocolate.com/comment?postId=$postId',
-              postId,
-              displayName,
-              profileUrl,
-              postData,
-            );
-            /*             ShareService.sharePost(postId); */
-            break;
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
 
-          case 'block':
-            await onRunWithLoading(
-              context,
-              () => blockUser(userIdToBlock: userId),
-              '차단되었습니다.',
-              '오류 발생',
-            );
-            break;
+    return StreamBuilder(
+      stream:
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUid)
+              .collection('following')
+              .doc(userId.isEmpty ? 's' : userId)
+              .snapshots(),
+      builder: (context, asyncSnapshot) {
+        final isFollowing = asyncSnapshot.hasData && asyncSnapshot.data!.exists;
 
-          case 'report_and_block':
-            await onRunWithLoading(
-              context,
-              () async {
-                await reportUser(reportedUserId: userId, postId: postId);
-                await blockUser(userIdToBlock: userId);
-              },
-              '신고가 접수되었습니다.',
-              '신고 처리 중 오류가 발생했습니다',
-            );
-            break;
-        }
+        return PopupMenuButton<String>(
+          onSelected: (value) async {
+            switch (value) {
+              case 'share':
+                showShareDialog(
+                  context,
+                  'post',
+                  'https://app.pang2chocolate.com/comment?postId=$postId',
+                  postId,
+                  displayName,
+                  profileUrl,
+                  postData,
+                );
+                /*             ShareService.sharePost(postId); */
+                break;
+              case 'follow_unfollow':
+                await FollowService().toggleFollow(userId);
+                break;
+              case 'block':
+                await onRunWithLoading(
+                  context,
+                  () => blockUser(userIdToBlock: userId),
+                  '차단되었습니다.',
+                  '오류 발생',
+                );
+                break;
+
+              case 'report':
+                await onRunWithLoading(
+                  context,
+                  () async {
+                    await reportUser(reportedUserId: userId, postId: postId);
+                    /*                     await blockUser(userIdToBlock: userId);
+ */
+                  },
+                  '신고가 접수되었습니다.',
+                  '신고 처리 중 오류가 발생했습니다',
+                );
+                break;
+            }
+          },
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          itemBuilder:
+              (_) => [
+                // Share
+                PopupMenuItem<String>(
+                  value: 'share',
+                  child: Text(
+                    '공유',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'NotoSans',
+                    ),
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'follow_unfollow',
+                  child: Text(
+                    isFollowing ? '구독취소' : '구독하기',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'NotoSans',
+                    ),
+                  ),
+                ),
+                // Block only
+                PopupMenuItem<String>(
+                  value: 'block',
+                  child: Text(
+                    '차단',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'NotoSans',
+                    ),
+                  ),
+                ),
+                // Report + Block combined
+                PopupMenuItem<String>(
+                  value: 'report',
+                  child: Text(
+                    '신고하기',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'NotoSans',
+                    ),
+                  ),
+                ),
+              ],
+          child: Icon(Icons.more_horiz, color: Colors.black, size: 22),
+        );
       },
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      itemBuilder:
-          (_) => [
-            // Share
-            PopupMenuItem<String>(
-              value: 'share',
-              child: Text(
-                '공유',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 14,
-                  fontFamily: 'NotoSans',
-                ),
-              ),
-            ),
-            // Block only
-            PopupMenuItem<String>(
-              value: 'block',
-              child: Text(
-                '차단',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 14,
-                  fontFamily: 'NotoSans',
-                ),
-              ),
-            ),
-            // Report + Block combined
-            PopupMenuItem<String>(
-              value: 'report_and_block',
-              child: Text(
-                '신고 및 차단',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 14,
-                  fontFamily: 'NotoSans',
-                ),
-              ),
-            ),
-          ],
-      child: Icon(Icons.more_horiz, color: Colors.black, size: 22),
     );
   }
 }

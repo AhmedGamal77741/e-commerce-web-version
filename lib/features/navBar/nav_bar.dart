@@ -4,6 +4,7 @@ import 'package:ecommerece_app/features/cart/cart.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/add_address_screen.dart';
 import 'package:ecommerece_app/features/chat/models/chat_room_model.dart';
 import 'package:ecommerece_app/features/chat/ui/chats_navbar.dart';
+import 'package:ecommerece_app/features/chat/ui/friends_screen.dart';
 import 'package:ecommerece_app/features/home/home_screen.dart';
 import 'package:ecommerece_app/features/mypage/ui/my_page_screen.dart';
 import 'package:ecommerece_app/features/review/ui/review_screen.dart';
@@ -34,8 +35,6 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
     super.initState();
     homeTabController = TabController(length: 2, vsync: this);
     widgetOptions = [
-      _buildMainWidget(() => Center(child: Text('home'))),
-      _buildMainWidget(() => Shop(key: shopKey)),
       _buildMainWidget(
         () => HomeScreen(
           scrollController: homeScrollController,
@@ -43,6 +42,8 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
         ),
       ),
       _buildMainWidget(() => ChatsNavbar()),
+      _buildMainWidget(() => Center(child: Text('home'))),
+      _buildMainWidget(() => Shop(key: shopKey)),
       _buildMainWidget(() => LandingScreen()),
     ];
   }
@@ -195,30 +196,6 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
             label: '상점',
           ),
           BottomNavigationBarItem(
-            icon: ImageIcon(
-              AssetImage(
-                _selectedIndex == 1
-                    ? 'assets/002m.png'
-                    : 'assets/grey_002m.png',
-              ),
-              size: 30,
-            ),
-            label: '장바구니',
-          ),
-          BottomNavigationBarItem(
-            icon: CircleAvatar(
-              radius: 30,
-              backgroundColor: Colors.transparent,
-              backgroundImage: AssetImage('assets/mypage_avatar_grey.png'),
-            ),
-            activeIcon: CircleAvatar(
-              radius: 30,
-              backgroundColor: Colors.transparent,
-              backgroundImage: AssetImage('assets/mypage_avatar.png'),
-            ),
-            label: '홈',
-          ),
-          BottomNavigationBarItem(
             icon: StreamBuilder<User?>(
               stream: FirebaseAuth.instance.authStateChanges(),
               builder: (context, authSnapshot) {
@@ -339,6 +316,31 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
             ),
             label: '채팅',
           ),
+          BottomNavigationBarItem(
+            icon: CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.transparent,
+              backgroundImage: AssetImage('assets/mypage_avatar_grey.png'),
+            ),
+            activeIcon: CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.transparent,
+              backgroundImage: AssetImage('assets/mypage_avatar.png'),
+            ),
+            label: '홈',
+          ),
+          BottomNavigationBarItem(
+            icon: ImageIcon(
+              AssetImage(
+                _selectedIndex == 1
+                    ? 'assets/002m.png'
+                    : 'assets/grey_002m.png',
+              ),
+              size: 30,
+            ),
+            label: '장바구니',
+          ),
+
           BottomNavigationBarItem(
             icon: ImageIcon(
               AssetImage(
