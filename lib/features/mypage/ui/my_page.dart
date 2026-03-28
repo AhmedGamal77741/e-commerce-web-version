@@ -36,98 +36,101 @@ class MyPage extends StatelessWidget {
         final userData = snapshot.data!.data() as Map<String, dynamic>;
         final bool isSub = userData['isSub'] == true;
         final myuser = MyUser.fromDocument(userData);
-        return SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-            child: Column(
-              children: [
-                isSub
-                    ? Text('프리미엄 회원', style: TextStyles.abeezee17px800wPblack)
-                    : Text('일반 회원', style: TextStyles.abeezee17px800wPblack),
-                verticalSpace(20),
-                UserOptionsContainer(isSub: isSub),
-                verticalSpace(20),
-                ProfileType(isPrivate: myuser.isPrivate, userId: userId),
-                verticalSpace(20),
-                Text('개인정보', style: TextStyles.abeezee17px800wPblack),
-                verticalSpace(20),
-                UserInfoContainer(),
-                verticalSpace(20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        _launchTermsPage();
-                      },
-                      child: Text(
-                        '이용약관',
-                        style: TextStyles.abeezee13px400wP600,
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+              child: Column(
+                children: [
+                  isSub
+                      ? Text('프리미엄 회원', style: TextStyles.abeezee17px800wPblack)
+                      : Text('일반 회원', style: TextStyles.abeezee17px800wPblack),
+                  verticalSpace(20),
+                  UserOptionsContainer(isSub: isSub),
+                  verticalSpace(20),
+                  ProfileType(isPrivate: myuser.isPrivate, userId: userId),
+                  verticalSpace(20),
+                  Text('개인정보', style: TextStyles.abeezee17px800wPblack),
+                  verticalSpace(20),
+                  UserInfoContainer(),
+                  verticalSpace(20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          _launchTermsPage();
+                        },
+                        child: Text(
+                          '이용약관',
+                          style: TextStyles.abeezee13px400wP600,
+                        ),
                       ),
-                    ),
-                    horizontalSpace(5),
-                    Text('/', style: TextStyles.abeezee13px400wP600),
-                    horizontalSpace(5),
-                    GestureDetector(
-                      onTap: () async {
-                        final shouldSignOut = await showDialog<bool>(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (dialogContext) {
-                            return AlertDialog(
-                              backgroundColor: Colors.white,
-                              title: Text(
-                                '로그아웃 확인',
-                                style: TextStyle(color: Colors.black),
-                              ),
-                              content: Text(
-                                '정말 로그아웃 하시겠습니까?',
-                                style: TextStyle(color: Colors.black),
-                              ),
-                              actions: [
-                                TextButton(
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    backgroundColor: Colors.black,
-                                  ),
-                                  onPressed:
-                                      () => Navigator.of(
-                                        dialogContext,
-                                      ).pop(false),
-                                  child: Text(
-                                    '취소',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
+                      horizontalSpace(5),
+                      Text('/', style: TextStyles.abeezee13px400wP600),
+                      horizontalSpace(5),
+                      GestureDetector(
+                        onTap: () async {
+                          final shouldSignOut = await showDialog<bool>(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (dialogContext) {
+                              return AlertDialog(
+                                backgroundColor: Colors.white,
+                                title: Text(
+                                  '로그아웃 확인',
+                                  style: TextStyle(color: Colors.black),
                                 ),
-                                TextButton(
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    backgroundColor: Colors.black,
-                                  ),
-                                  onPressed:
-                                      () =>
-                                          Navigator.of(dialogContext).pop(true),
-                                  child: Text(
-                                    '로그아웃',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
+                                content: Text(
+                                  '정말 로그아웃 하시겠습니까?',
+                                  style: TextStyle(color: Colors.black),
                                 ),
-                              ],
-                            );
-                          },
-                        );
-                        if (shouldSignOut == true) {
-                          await signOut();
-                        }
-                      },
-                      child: Text(
-                        '로그아웃',
-                        style: TextStyles.abeezee13px400wP600,
+                                actions: [
+                                  TextButton(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      backgroundColor: Colors.black,
+                                    ),
+                                    onPressed:
+                                        () => Navigator.of(
+                                          dialogContext,
+                                        ).pop(false),
+                                    child: Text(
+                                      '취소',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      backgroundColor: Colors.black,
+                                    ),
+                                    onPressed:
+                                        () => Navigator.of(
+                                          dialogContext,
+                                        ).pop(true),
+                                    child: Text(
+                                      '로그아웃',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                          if (shouldSignOut == true) {
+                            await signOut();
+                          }
+                        },
+                        child: Text(
+                          '로그아웃',
+                          style: TextStyles.abeezee13px400wP600,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );

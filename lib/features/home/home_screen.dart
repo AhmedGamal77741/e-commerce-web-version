@@ -444,8 +444,9 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                     itemBuilder: (context, index) {
                       final post =
                           filteredPosts[index].data() as Map<String, dynamic>;
+                      final postId = filteredPosts[index].id;
                       if (post['postId'] == null) {
-                        post['postId'] = filteredPosts[index - 1].id;
+                        post['postId'] = postId;
                       }
                       return Column(
                         children: [
@@ -549,14 +550,15 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                         physics: NeverScrollableScrollPhysics(),
 
                         controller: controller,
-                        itemCount: filteredPosts.length, // +1 for user info row
+                        itemCount: filteredPosts.length,
 
                         itemBuilder: (context, index) {
                           final post =
-                              filteredPosts[index - 1].data()
+                              filteredPosts[index].data()
                                   as Map<String, dynamic>;
+                          final postId = filteredPosts[index].id;
                           if (post['postId'] == null) {
-                            post['postId'] = filteredPosts[index - 1].id;
+                            post['postId'] = postId;
                           }
                           return Column(
                             children: [

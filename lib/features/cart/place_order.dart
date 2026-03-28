@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
-import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
@@ -9,6 +8,7 @@ import 'package:ecommerece_app/core/widgets/underline_text_filed.dart';
 import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/cart/models/address.dart';
 import 'package:ecommerece_app/features/cart/services/cart_service.dart';
+import 'package:ecommerece_app/features/cart/slide_button.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -72,6 +72,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
   bool isProcessing = false;
   String? currentPaymentId;
 
+  // ── Guards ────────────────────────────────────────────────────────────────
+  bool _bankAccountsFetched = false;
+
   final formatCurrency = NumberFormat('#,###');
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -98,18 +101,23 @@ class _PlaceOrderState extends State<PlaceOrder> {
 
   Future<void> _init() async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    if (uid.isNotEmpty) await refreshCartPrices(uid);
-    await _fetchBankAccounts();
-    await _loadCachedUserValues();
+    if (uid.isEmpty) return;
+
+    refreshCartPrices(uid);
+
+    await Future.wait([_fetchBankAccounts(), _loadCachedUserValues()]);
+
+    await _ensureCachedAddressAndInstructions(uid);
   }
 
-  // ── Called by BankRegisteredScreen after deep link lands ─────────────────
-  // go_router pops back to PlaceOrder — initState won't re-fire,
-  // so we expose this to be called from didChangeDependencies on resume.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _fetchBankAccounts();
+    if (!_bankAccountsFetched) {
+      _bankAccountsFetched = true;
+    } else {
+      _fetchBankAccounts();
+    }
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -119,24 +127,22 @@ class _PlaceOrderState extends State<PlaceOrder> {
   Future<void> _fetchBankAccounts() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final userDoc =
+    final snap =
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    final data = userDoc.data();
+    final data = snap.data();
     if (data != null && data['bankAccounts'] != null) {
       final accounts = List<Map<String, dynamic>>.from(data['bankAccounts']);
-      if (mounted) {
+      if (mounted)
         setState(() {
           bankAccounts = accounts;
           selectedBankIndex = accounts.isNotEmpty ? 0 : -1;
         });
-      }
     } else {
-      if (mounted) {
+      if (mounted)
         setState(() {
           bankAccounts = [];
           selectedBankIndex = -1;
         });
-      }
     }
   }
 
@@ -151,19 +157,25 @@ class _PlaceOrderState extends State<PlaceOrder> {
     if (!doc.exists || !mounted) return;
     final data = doc.data();
     if (data == null) return;
+
     setState(() {
       nameController.text = data['name'] ?? '';
       emailController.text = data['email'] ?? '';
       phoneController.text = data['phone'] ?? '';
+
       invoiceeType = data['invoiceeType'] ?? '사업자';
       invoiceeCorpNumController.text = data['invoiceeCorpNum'] ?? '';
       invoiceeCorpNameController.text = data['invoiceeCorpName'] ?? '';
       invoiceeCEONameController.text = data['invoiceeCEOName'] ?? '';
       selectedOption = data['selectedOption'] ?? 1;
 
-      final cachedRequest = data['deliveryInstructions'] as String?;
-      if (cachedRequest != null && deliveryRequests.contains(cachedRequest)) {
-        selectedRequest = cachedRequest;
+      final cachedInstr = data['deliveryInstructions'] as String? ?? '';
+      if (deliveryRequests.contains(cachedInstr)) {
+        selectedRequest = cachedInstr;
+        manualRequest = null;
+      } else if (cachedInstr.isNotEmpty) {
+        selectedRequest = '직접입력';
+        manualRequest = cachedInstr;
       }
 
       final cachedAddressId = (data['deliveryAddressId'] ?? '') as String;
@@ -180,6 +192,73 @@ class _PlaceOrderState extends State<PlaceOrder> {
         deliveryAddressController.text = data['deliveryAddress'] ?? '';
       }
     });
+  }
+
+  Future<void> _ensureCachedAddressAndInstructions(String uid) async {
+    if (address.id.isNotEmpty) return;
+
+    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    final userSnap = await userRef.get();
+    if (!userSnap.exists) return;
+
+    final userData = userSnap.data() as Map<String, dynamic>;
+    final defaultAddressId = userData['defaultAddressId'] as String?;
+    if (defaultAddressId == null || defaultAddressId.isEmpty) return;
+
+    final addrSnap =
+        await userRef.collection('addresses').doc(defaultAddressId).get();
+    if (!addrSnap.exists) return;
+
+    final addr = addrSnap.data() as Map<String, dynamic>;
+    final resolved = Address(
+      id: addr['id'] ?? defaultAddressId,
+      name: addr['name'] ?? '',
+      phone: addr['phone'] ?? '',
+      address: addr['address'] ?? '',
+      detailAddress: addr['detailAddress'] ?? '',
+      isDefault: addr['isDefault'] ?? false,
+      addressMap: addr['addressMap'] ?? {},
+    );
+
+    if (mounted)
+      setState(() {
+        address = resolved;
+        deliveryAddressController.text = resolved.address;
+      });
+
+    await FirebaseFirestore.instance
+        .collection('usercached_values')
+        .doc(uid)
+        .set({
+          'deliveryAddressId': resolved.id,
+          'deliveryAddress': resolved.address,
+          'deliveryAddressDetail': resolved.detailAddress,
+          'recipientName': resolved.name,
+          'recipientPhone': resolved.phone,
+        }, SetOptions(merge: true));
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // BANK ACCOUNT DELETE
+  // ───────────────────────────────────────────────────────────────────────────
+
+  Future<void> _deleteBankAccount(String uid, String payerId) async {
+    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    final snap = await userRef.get();
+    final data = snap.data();
+    if (data == null) return;
+
+    final accounts = List<Map<String, dynamic>>.from(
+      data['bankAccounts'] ?? [],
+    );
+    accounts.removeWhere((b) => b['payerId'] == payerId);
+    await userRef.update({'bankAccounts': accounts});
+
+    if (mounted)
+      setState(() {
+        bankAccounts = accounts;
+        selectedBankIndex = accounts.isNotEmpty ? 0 : -1;
+      });
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -213,6 +292,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
             'recipientName': address.name,
             'recipientPhone': address.phone,
           }, SetOptions(merge: true));
+
       if (showFeedback && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -283,12 +363,10 @@ class _PlaceOrderState extends State<PlaceOrder> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // BANK REGISTRATION — launch browser, deep link does the rest
+  // BANK REGISTRATION
   // ───────────────────────────────────────────────────────────────────────────
 
   void _launchBankRegistration(String uid) {
-    // Generate a unique id just to satisfy bank-register.html's paymentId param.
-    // Not used for payment — registration result comes back via deep link.
     final regPaymentId = FirebaseFirestore.instance.collection('_tmp').doc().id;
 
     launchUrl(
@@ -335,10 +413,12 @@ class _PlaceOrderState extends State<PlaceOrder> {
       return;
     }
 
+    await _saveCachedUserValues();
+
     final docRef = FirebaseFirestore.instance.collection('orders').doc();
     final paymentId = docRef.id;
     currentPaymentId = paymentId;
-
+    setState(() => isProcessing = true);
     _showLoadingModal();
 
     try {
@@ -354,7 +434,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
       );
 
       final result = jsonDecode(response.body) as Map<String, dynamic>;
-
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
       if (result['success'] == true) {
@@ -362,6 +441,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
       } else {
         final msg = result['message'] as String? ?? '결제에 실패했습니다. 다시 시도해 주세요.';
         if (mounted) {
+          setState(() => isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(msg), backgroundColor: Colors.red),
           );
@@ -370,6 +450,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
     } catch (e) {
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
       if (mounted) {
+        setState(() => isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('결제 중 오류가 발생했습니다. 다시 시도해 주세요.'),
@@ -380,7 +461,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
     }
   }
 
-  // ── Non-dismissible loading modal ─────────────────────────────────────────
   void _showLoadingModal() {
     showDialog(
       context: context,
@@ -483,6 +563,59 @@ class _PlaceOrderState extends State<PlaceOrder> {
                             setStateDialog(() {});
                             Navigator.of(context).pop();
                           },
+                          trailing: IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.black,
+                            ),
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder:
+                                    (ctx) => AlertDialog(
+                                      backgroundColor: Colors.white,
+                                      title: const Text('계좌 삭제'),
+                                      content: Text(
+                                        '${bank['bankName']} (${bank['bankNum']}) '
+                                        '계좌를 삭제하시겠습니까?',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed:
+                                              () => Navigator.pop(ctx, false),
+                                          child: const Text(
+                                            '취소',
+                                            style: TextStyle(
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed:
+                                              () => Navigator.pop(ctx, true),
+                                          style: TextButton.styleFrom(
+                                            backgroundColor: Colors.black,
+                                          ),
+                                          child: const Text(
+                                            '삭제',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                              );
+                              if (confirm != true) return;
+                              await _deleteBankAccount(
+                                uid,
+                                bank['payerId'] as String,
+                              );
+                              setStateDialog(() {});
+                              if (!mounted) return;
+                              Navigator.of(context).pop();
+                            },
+                          ),
                         ),
                         verticalSpace(5),
                       ],
@@ -542,7 +675,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
               padding: const EdgeInsets.only(left: 15, top: 10, right: 15),
               child: ListView(
                 children: [
-                  // ── Cart items ────────────────────────────────────────
+                  // ── Cart items ──────────────────────────────────────────
                   _buildSectionCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -637,11 +770,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                                   cartData['product_id'],
                                                   cartData['pricePointIndex'],
                                                 ),
-                                                builder: (context, snapshot) {
-                                                  final quan =
-                                                      snapshot.data ?? 0;
+                                                builder: (context, snap) {
                                                   return Text(
-                                                    '$quan 개',
+                                                    '${snap.data ?? 0} 개',
                                                     style: const TextStyle(
                                                       color: Colors.black,
                                                       fontSize: 16,
@@ -660,11 +791,9 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                                   cartData['pricePointIndex'],
                                                   isSub,
                                                 ),
-                                                builder: (context, snapshot) {
-                                                  final price =
-                                                      snapshot.data ?? 0.0;
+                                                builder: (context, snap) {
                                                   return Text(
-                                                    '${formatCurrency.format(price)} 원',
+                                                    '${formatCurrency.format(snap.data ?? 0.0)} 원',
                                                     style: const TextStyle(
                                                       color: Colors.black,
                                                       fontSize: 16,
@@ -692,7 +821,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                   ),
                   verticalSpace(10),
 
-                  // ── Address ───────────────────────────────────────────
+                  // ── Address ─────────────────────────────────────────────
                   _buildSectionCard(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -782,7 +911,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                   ),
                   verticalSpace(10),
 
-                  // ── Delivery request ──────────────────────────────────
+                  // ── Delivery request ─────────────────────────────────────
                   _buildSectionCard(
                     child: StatefulBuilder(
                       builder: (context, setStateLocal) {
@@ -800,7 +929,11 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                   ),
                                   verticalSpace(5),
                                   Text(
-                                    selectedRequest,
+                                    selectedRequest == '직접입력' &&
+                                            manualRequest != null &&
+                                            manualRequest!.isNotEmpty
+                                        ? manualRequest!
+                                        : selectedRequest,
                                     style: TextStyle(
                                       color: Colors.grey[800],
                                       fontSize: 16,
@@ -814,7 +947,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                       initialValue: manualRequest,
                                       onChanged: (text) {
                                         setState(() => manualRequest = text);
-                                        _saveCachedUserValues();
                                       },
                                       decoration: const InputDecoration(
                                         labelText: '직접 입력',
@@ -848,7 +980,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                   ),
                   verticalSpace(10),
 
-                  // ── Bank account ──────────────────────────────────────
+                  // ── Bank account ─────────────────────────────────────────
                   _buildSectionCard(
                     child: Row(
                       children: [
@@ -856,7 +988,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 '결제 계좌',
                                 style: TextStyle(
                                   color: Colors.black,
@@ -899,7 +1031,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                   ),
                   verticalSpace(10),
 
-                  // ── Receipt / invoice ─────────────────────────────────
+                  // ── Receipt / invoice ────────────────────────────────────
                   _buildSectionCard(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -908,7 +1040,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 '현금영수증 · 세금계산서',
                                 style: TextStyle(
                                   color: Colors.black,
@@ -981,7 +1113,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                   color: Colors.black,
                                   fontSize: 18,
                                   fontFamily: 'NotoSans',
-                                  fontWeight: FontWeight.w400,
+                                  fontWeight: FontWeight.w700,
                                   height: 1.40,
                                 ),
                               ),
@@ -992,7 +1124,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                       color: Colors.black,
                                       fontSize: 18,
                                       fontFamily: 'NotoSans',
-                                      fontWeight: FontWeight.w400,
+                                      fontWeight: FontWeight.w700,
                                       height: 1.40,
                                     ),
                                   )
@@ -1000,28 +1132,44 @@ class _PlaceOrderState extends State<PlaceOrder> {
                             ],
                           ),
                           verticalSpace(8),
-                          WideTextButton(
-                            txt: '주문',
-                            func:
-                                isProcessing
-                                    ? () {}
-                                    : () => _handlePlaceOrder(totalPrice, uid),
-                            color: Colors.black,
-                            txtColor: Colors.white,
+                          SlideToPayButton(
+                            isProcessing: isProcessing,
+                            onValidate: () async {
+                              if (selectedOption != 1 && selectedOption != 2) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('현금 영수증 또는 세금 계산서를 선택해주세요'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return false;
+                              }
+                              if (!_validateReceiptTypeFields()) return false;
+                              if (bankAccounts.isEmpty ||
+                                  selectedBankIndex < 0) {
+                                _showBankAccountBottomSheet(uid);
+                                return false;
+                              }
+                              final payerId =
+                                  bankAccounts[selectedBankIndex]['payerId']
+                                      as String? ??
+                                  '';
+                              if (payerId.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      '계좌 정보가 올바르지 않습니다. 계좌를 다시 등록해주세요.',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return false;
+                              }
+                              return true;
+                            },
+                            onSlideComplete:
+                                () => _handlePlaceOrder(totalPrice, uid),
                           ),
-                          if (bankAccounts.isEmpty) ...[
-                            verticalSpace(8),
-                            const Text(
-                              '* 계좌 등록 후 결제가 진행됩니다',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 14,
-                                fontFamily: 'NotoSans',
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     );
@@ -1054,10 +1202,10 @@ class _PlaceOrderState extends State<PlaceOrder> {
   }
 
   Widget _buildNoAddress() {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           '배송지 미설정',
           style: TextStyle(
             color: Colors.black,
@@ -1067,8 +1215,8 @@ class _PlaceOrderState extends State<PlaceOrder> {
             height: 1.40,
           ),
         ),
-        const SizedBox(height: 8),
-        const Text(
+        SizedBox(height: 8),
+        Text(
           '배송지를 설정해주세요',
           style: TextStyle(
             fontSize: 15,
@@ -1139,7 +1287,6 @@ class _PlaceOrderState extends State<PlaceOrder> {
                             if (req != '직접입력') manualRequest = null;
                           });
                           setState(() {});
-                          _saveCachedUserValues();
                           Navigator.pop(context);
                         },
                       ),
@@ -1201,9 +1348,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                           final success = await _saveCachedUserValues(
                             showFeedback: true,
                           );
-                          if (success && mounted) {
-                            Navigator.pop(context);
-                          }
+                          if (success && mounted) Navigator.pop(context);
                         },
                         color: Colors.black,
                         txtColor: Colors.white,
