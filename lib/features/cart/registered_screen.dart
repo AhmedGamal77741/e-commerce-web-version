@@ -1,24 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BankRegisteredScreen
-//
-// Shown when the OS intercepts app.pang2chocolate.com/bank-registered after
-// Payple bank account registration. Reads success/failure from query params:
-//   • success=true  → snackbar "계좌가 등록되었습니다 ✓" → back to place-order
-//   • success=false → snackbar with error message → back to place-order
-//
-// Intentionally minimal — exists only to catch the deep link, show feedback,
-// and get the user back to checkout immediately.
-// ─────────────────────────────────────────────────────────────────────────────
 
 class BankRegisteredScreen extends StatefulWidget {
   final bool success;
   final String userId;
   final String paymentId;
   final String message;
+  final String source; // 'shop' or 'sub'
 
   const BankRegisteredScreen({
     super.key,
@@ -26,6 +16,7 @@ class BankRegisteredScreen extends StatefulWidget {
     required this.userId,
     required this.paymentId,
     required this.message,
+    this.source = 'shop',
   });
 
   @override
@@ -39,7 +30,7 @@ class _BankRegisteredScreenState extends State<BankRegisteredScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleResult());
   }
 
-  void _handleResult() {
+  Future<void> _handleResult() async {
     if (!mounted) return;
 
     if (widget.success) {
@@ -50,6 +41,9 @@ class _BankRegisteredScreenState extends State<BankRegisteredScreen> {
           duration: Duration(seconds: 3),
         ),
       );
+      // Save pending source so NavBar knows where to resume after redirect
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('pending_nav_source', widget.source);
     } else {
       final errorMsg =
           widget.message.isNotEmpty
@@ -64,15 +58,14 @@ class _BankRegisteredScreenState extends State<BankRegisteredScreen> {
       );
     }
 
-    // go() replaces stack so user can't back-navigate to this screen
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) context.go(Routes.placeOrderScreen);
-    });
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    // Always go to NavBar — gates will re-run from there
+    context.go(Routes.navBar);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Visible for ~300ms before redirect
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(

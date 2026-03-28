@@ -1,5 +1,6 @@
 import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
+import 'package:ecommerece_app/core/widgets/subscription_screen.dart';
 import 'package:ecommerece_app/features/cart/order_complete.dart';
 import 'package:ecommerece_app/features/cart/place_order.dart';
 import 'package:ecommerece_app/features/cart/buy_now.dart';
@@ -69,11 +70,13 @@ class AppRouter {
           final userId = state.uri.queryParameters['userId'] ?? '';
           final paymentId = state.uri.queryParameters['paymentId'] ?? '';
           final message = state.uri.queryParameters['message'] ?? '';
+
           return BankRegisteredScreen(
             success: success == 'true',
             userId: userId,
             paymentId: paymentId,
             message: message,
+            source: state.uri.queryParameters['source'] ?? 'shop',
           );
         },
       ),
@@ -170,6 +173,11 @@ class AppRouter {
             },
           ),
         ],
+      ),
+      GoRoute(
+        path: Routes.subscriptionScreen,
+        name: 'subscriptionScreen',
+        builder: (context, state) => const SubscriptionScreen(),
       ),
 
       GoRoute(

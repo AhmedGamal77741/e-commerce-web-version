@@ -5,6 +5,8 @@ import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/core/widgets/black_text_button.dart';
+import 'package:ecommerece_app/core/widgets/no_account_screen.dart';
+import 'package:ecommerece_app/core/widgets/receipt_setup_screen.dart';
 import 'package:flutter/material.dart';
 
 import 'package:go_router/go_router.dart';
@@ -428,9 +430,7 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
                         '프리미엄 멤버십 가입',
                         style: TextStyles.abeezee17px800wPblack,
                       ),
-                      onTap: () async {
-                        _launchPaymentPage('10000', user!.uid);
-                      },
+                      onTap: () => _navigateToSubscription(context),
                     ),
                   if (isSub == true && nextBillingDate != null)
                     Padding(
@@ -535,5 +535,67 @@ void _launchPartnerPage() async {
     await launchUrl(url);
   } else {
     throw 'Could not launch $url';
+  }
+}
+
+Future<void> _navigateToSubscription(BuildContext context) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
+
+  // ── Gate 1: bank account ──────────────────────────────────────────────
+  final userDoc =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+  final data = userDoc.data();
+
+  final accounts = data?['bankAccounts'];
+  final hasBankAccount =
+      accounts != null && accounts is List && accounts.isNotEmpty;
+
+  if (!hasBankAccount) {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const NoBankAccountScreen(source: 'sub'),
+      ),
+    );
+    // Re-check after returning
+    final refreshed =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+    final refreshedAccounts = refreshed.data()?['bankAccounts'];
+    final nowHasAccount =
+        refreshedAccounts != null &&
+        refreshedAccounts is List &&
+        refreshedAccounts.isNotEmpty;
+    if (!nowHasAccount) return;
+  }
+
+  // ── Gate 2: receipt / invoice data ───────────────────────────────────
+  final cacheDoc =
+      await FirebaseFirestore.instance
+          .collection('usercached_values')
+          .doc(user.uid)
+          .get();
+  final cacheData = cacheDoc.data();
+  final hasReceiptData =
+      cacheData != null &&
+      (cacheData['selectedOption'] == 1 || cacheData['selectedOption'] == 2) &&
+      (cacheData['name'] as String? ?? '').isNotEmpty &&
+      (cacheData['email'] as String? ?? '').isNotEmpty &&
+      (cacheData['phone'] as String? ?? '').isNotEmpty;
+
+  if (!hasReceiptData) {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const ReceiptSetupScreen(source: 'sub'),
+      ),
+    );
+    if (result != true) return;
+  }
+
+  // ── All gates passed → go to subscription screen ──────────────────────
+  if (context.mounted) {
+    context.push(Routes.subscriptionScreen);
   }
 }
