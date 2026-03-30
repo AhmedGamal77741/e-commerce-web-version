@@ -220,7 +220,7 @@ class _ItemDetailsState extends State<ItemDetails> {
               width: double.infinity,
               height: 500,
               color: Colors.black,
-              child: Center(child: _ShiningPremiumBanner()),
+              child: Center(child: ShiningPremiumBanner()),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
@@ -401,7 +401,7 @@ class _ItemDetailsState extends State<ItemDetails> {
                       width: double.infinity,
                       height: 500,
                       color: Colors.black,
-                      child: Center(child: _ShiningPremiumBanner()),
+                      child: Center(child: ShiningPremiumBanner()),
                     ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
@@ -909,7 +909,7 @@ void _launchPaymentPage(String amount, String userId) async {
   }
 }
 
-class _ShiningPremiumBanner extends StatelessWidget {
+class ShiningPremiumBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(

@@ -44,7 +44,7 @@ class MessageModel {
       senderId: map['senderId'] ?? '',
       senderName: map['senderName'] ?? '',
       content: map['content'] ?? '',
-      imageUrl: map['imageUrl'] ?? '', // <-- add this
+      imageUrl: map['imageUrl'] ?? '',
       timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] ?? 0),
       readBy: List<String>.from(map['readBy'] ?? []),
       replyToMessageId: map['replyToMessageId'],
@@ -71,7 +71,7 @@ class MessageModel {
       'senderId': senderId,
       'senderName': senderName,
       'content': content,
-      'imageUrl': imageUrl, // <-- add this
+      'imageUrl': imageUrl,
       'timestamp': timestamp.millisecondsSinceEpoch,
       'readBy': readBy,
       'replyToMessageId': replyToMessageId,

@@ -1,17 +1,14 @@
 // features/chat/ui/chats_navbar.dart
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
-import 'package:ecommerece_app/features/chat/models/story_model.dart';
 import 'package:ecommerece_app/features/chat/services/friends_service.dart';
 import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/direct_chats_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/edit_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/friends_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/group_chats_screen.dart';
-import 'package:ecommerece_app/features/chat/widgets/story_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import '../services/chat_service.dart';
 
 class ChatsNavbar extends StatefulWidget {
@@ -20,12 +17,15 @@ class ChatsNavbar extends StatefulWidget {
   State<ChatsNavbar> createState() => _ChatsNavbarState();
 }
 
-class _ChatsNavbarState extends State<ChatsNavbar> {
+class _ChatsNavbarState extends State<ChatsNavbar>
+    with AutomaticKeepAliveClientMixin {
+  bool get wantKeepAlive => true;
   int _selectedIndex = 1;
   bool _searchMode = false;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
+  final PageController _pageController = PageController(initialPage: 1);
 
   final String supportUserId = 'JuxEfED9YSc2XyHRFgkPcNCFUSJ3';
   final FriendsService _friendsService = FriendsService();
@@ -44,6 +44,7 @@ class _ChatsNavbarState extends State<ChatsNavbar> {
 
   @override
   void dispose() {
+    _pageController.dispose();
     _searchController.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -72,6 +73,9 @@ class _ChatsNavbarState extends State<ChatsNavbar> {
     _directChatsScreen,
     _groupChatsScreen,
   ];
+  void _onPageChanged(int index) {
+    setState(() => _selectedIndex = index);
+  }
 
   void _onSettingsTapped() {
     Navigator.push(
@@ -143,7 +147,14 @@ class _ChatsNavbarState extends State<ChatsNavbar> {
   Widget _buildPill(int index) {
     final bool isSelected = _selectedIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () {
+        setState(() => _selectedIndex = index);
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -325,8 +336,9 @@ class _ChatsNavbarState extends State<ChatsNavbar> {
               ),
             ),
             Expanded(
-              child: IndexedStack(
-                index: _selectedIndex,
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: _onPageChanged,
                 children: _widgetOptions,
               ),
             ),

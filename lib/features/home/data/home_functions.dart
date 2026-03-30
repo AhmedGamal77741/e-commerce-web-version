@@ -148,7 +148,7 @@ Future<void> reportUser({
 
 Future<void> uploadPost({
   required String text,
-  required String imgUrl,
+  required List<String> imgUrls,
   String? categoryId,
 }) async {
   try {
@@ -164,7 +164,8 @@ Future<void> uploadPost({
       'userId': currentUser.uid,
       'postId': newPostRef.id,
       'text': text,
-      'imgUrl': imgUrl,
+      'imgUrl': imgUrls.isNotEmpty ? imgUrls[0] : null,
+      'imgUrls': imgUrls,
       'categoryId': categoryId,
       'likes': 0,
       'comments': 0,
@@ -213,5 +214,43 @@ Future<String> uploadImageToFirebaseStorageHome() async {
   } catch (e) {
     print('Error uploading image: $e');
     throw Exception('Failed to upload image: $e');
+  }
+}
+
+Future<List<String>> uploadMultipleImagesToFirebaseHome() async {
+  try {
+    final List<XFile> images = await ImagePicker().pickMultiImage();
+
+    if (images.isEmpty) return [];
+
+    List<String> downloadUrls = await Future.wait(
+      images.map((image) async {
+        final String uid = FirebaseAuth.instance.currentUser!.uid;
+        final String timestamp =
+            DateTime.now().millisecondsSinceEpoch.toString();
+        final String fileName =
+            '${timestamp}_${images.indexOf(image)}_$uid.jpg';
+
+        final Reference storageRef = FirebaseStorage.instance
+            .ref()
+            .child('uploads')
+            .child(fileName);
+
+        final bytes = await image.readAsBytes();
+
+        final UploadTask uploadTask = storageRef.putData(
+          bytes,
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
+
+        final TaskSnapshot snapshot = await uploadTask;
+        return await snapshot.ref.getDownloadURL();
+      }),
+    );
+
+    return downloadUrls;
+  } catch (e) {
+    print('Error uploading multiple images: $e');
+    throw Exception('Failed to upload images: $e');
   }
 }

@@ -28,17 +28,29 @@ class _HomeScreenState extends State<HomeScreen>
   bool get wantKeepAlive => true;
 
   User? _firebaseUser;
-
+  late Stream<DocumentSnapshot>? _userStream;
   int _selectedIndex = 0;
+  bool isSub = false;
   late final _authSubscription;
   @override
   void initState() {
     super.initState();
     _firebaseUser = FirebaseAuth.instance.currentUser;
-
+    _userStream =
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(_firebaseUser!.uid)
+            .snapshots();
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (mounted) {
         setState(() {
+          if (_firebaseUser != null) {
+            _userStream =
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(_firebaseUser!.uid)
+                    .snapshots();
+          }
           _firebaseUser = user;
         });
       }
@@ -51,10 +63,14 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
-  final List<Map<String, dynamic>> _tabs = [
+  final List<Map<String, dynamic>> _userTabs = [
     {'label': '추천'},
     {'label': '구독'},
     {'label': 'MY'},
+  ];
+
+  final List<Map<String, dynamic>> _nonUserTabs = [
+    {'label': '추천'},
   ];
 
   Widget _buildPill(int index) {
@@ -69,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen>
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
-          _tabs[index]['label'],
+          _userTabs[index]['label'],
           style: TextStyle(
             fontSize: 12,
             color: Colors.grey[600],
@@ -87,17 +103,29 @@ class _HomeScreenState extends State<HomeScreen>
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         key: const ValueKey('pills'),
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (int i = 0; i < _tabs.length; i++) ...[
-                  _buildPill(i),
-                  if (i < _tabs.length - 1) SizedBox(width: 8),
-                ],
-              ],
-            ),
-          ),
+          firebaseUser == null
+              ? SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (int i = 0; i < _nonUserTabs.length; i++) ...[
+                      _buildPill(i),
+                      if (i < _nonUserTabs.length - 1) SizedBox(width: 8),
+                    ],
+                  ],
+                ),
+              )
+              : SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (int i = 0; i < _userTabs.length; i++) ...[
+                      _buildPill(i),
+                      if (i < _userTabs.length - 1) SizedBox(width: 8),
+                    ],
+                  ],
+                ),
+              ),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -197,22 +225,39 @@ class _HomeScreenState extends State<HomeScreen>
     return SafeArea(
       child: Scaffold(
         floatingActionButton:
-            floating == 0 || floating == 2
-                ? FloatingActionButton(
-                  heroTag: floating == 0 ? "home_feed_fab" : "MY_feed_fab",
-                  shape: CircleBorder(),
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  highlightElevation: 0,
-                  onPressed: () {
-                    context.go(Routes.addPostScreen);
+            (floating == 0 || floating == 2) && firebaseUser != null
+                ? StreamBuilder(
+                  stream: _userStream,
+                  builder: (context, asyncSnapshot) {
+                    if (!asyncSnapshot.hasData) {
+                      return SizedBox.shrink();
+                    }
+                    final userData =
+                        asyncSnapshot.data!.data() as Map<String, dynamic>?;
+                    if (userData == null) {
+                      return SizedBox.shrink();
+                    }
+                    final currentUser = MyUser.fromDocument(userData);
+                    if (!currentUser.isSub) {
+                      return SizedBox.shrink();
+                    }
+                    return FloatingActionButton(
+                      heroTag: floating == 0 ? "home_feed_fab" : "MY_feed_fab",
+                      shape: CircleBorder(),
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      highlightElevation: 0,
+                      onPressed: () {
+                        context.go(Routes.addPostScreen);
+                      },
+                      child: ClipOval(
+                        child: Image.asset(
+                          "assets/add_post_transparent.png",
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    );
                   },
-                  child: ClipOval(
-                    child: Image.asset(
-                      "assets/add_post_transparent.png",
-                      fit: BoxFit.cover,
-                    ),
-                  ),
                 )
                 : null,
 

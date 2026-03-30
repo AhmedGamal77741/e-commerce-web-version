@@ -8,6 +8,7 @@ import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
 import 'package:ecommerece_app/features/chat/services/friends_service.dart';
 import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/features/home/follow_feed_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -19,7 +20,8 @@ class FriendsScreen extends StatefulWidget {
 }
 
 class _FriendsScreenState extends State<FriendsScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  bool get wantKeepAlive => true;
   final FriendsService _friendsService = FriendsService();
   final ContactService _contactService = ContactService();
   final ChatService _chatService = ChatService();
@@ -1876,8 +1878,6 @@ class _FriendsScreenState extends State<FriendsScreen>
                       return ListView(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
-                          _buildCurrentUserCard(),
-
                           // ── 내가 구독한 친구 ──────────────────
                           _buildSectionHeader(
                             label: '서로 구독 친구',
@@ -2115,69 +2115,111 @@ class _FriendsScreenState extends State<FriendsScreen>
     return Container(
       key: itemKey,
       margin: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        onTap: () async {
-          try {
-            final chatRoomId = await _chatService.createDirectChatRoom(
-              friend.userId,
-              isBrand,
-            );
-            if (chatRoomId != null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder:
-                      (context) => ChatScreen(
-                        chatRoomId: chatRoomId,
-                        chatRoomName: displayName,
-                      ),
-                ),
-              );
-            }
-          } catch (e) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Error: $e')));
-          }
-        },
-        onLongPress: showFriendMenu,
-        child: Row(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                CircleAvatar(
+      child: Row(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) => SafeArea(
+                            child: Scaffold(
+                              body: FollowingTab(
+                                firebaseUser: FirebaseAuth.instance.currentUser,
+                                preselectedUser: friend.userId,
+                              ),
+                            ),
+                          ),
+                    ),
+                  );
+                },
+                child: CircleAvatar(
                   radius: 25,
                   backgroundImage: NetworkImage(friend.url),
                 ),
-                /*                 if (isFav)
-                  Positioned(
-                    bottom: -2,
-                    right: -2,
-                    child: Container(
-                      width: 16,
-                      height: 16,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.star_rounded,
-                        size: 14,
-                        color: Colors.amber,
-                      ),
+              ),
+              /*                 if (isFav)
+                Positioned(
+                  bottom: -2,
+                  right: -2,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
                     ),
-                  ), */
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _isSearchActive
-                      ? _buildHighlightedName(displayName, _effectiveQuery)
-                      : Row(
+                    child: const Icon(
+                      Icons.star_rounded,
+                      size: 14,
+                      color: Colors.amber,
+                    ),
+                  ),
+                ), */
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _isSearchActive
+                    ? InkWell(
+                      onTap: () async {
+                        try {
+                          final chatRoomId = await _chatService
+                              .createDirectChatRoom(friend.userId, isBrand);
+                          if (chatRoomId != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => ChatScreen(
+                                      chatRoomId: chatRoomId,
+                                      chatRoomName: displayName,
+                                    ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        }
+                      },
+                      child: _buildHighlightedName(
+                        displayName,
+                        _effectiveQuery,
+                      ),
+                    )
+                    : InkWell(
+                      onTap: () async {
+                        try {
+                          final chatRoomId = await _chatService
+                              .createDirectChatRoom(friend.userId, isBrand);
+                          if (chatRoomId != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => ChatScreen(
+                                      chatRoomId: chatRoomId,
+                                      chatRoomName: displayName,
+                                    ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        }
+                      },
+                      child: Row(
                         children: [
                           Text(
                             displayName,
@@ -2199,33 +2241,62 @@ class _FriendsScreenState extends State<FriendsScreen>
                           ],
                         ],
                       ),
-                  if (friend.bio != null && friend.bio!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      friend.bio ?? '',
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
-                  ],
-                ],
-              ),
+                FutureBuilder<String?>(
+                  future: _contactService.getContactNickname(friend.userId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const SizedBox.shrink(); // Or a small CircularProgressIndicator
+                    }
+
+                    if (snapshot.hasError ||
+                        !snapshot.hasData ||
+                        snapshot.data == null) {
+                      return const SizedBox.shrink();
+                    }
+
+                    final nickname = snapshot.data!;
+                    return Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Text(
+                        '@$nickname',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  },
+                ),
+                /*                 if (friend.bio != null && friend.bio!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    friend.bio ?? '',
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                ], */
+              ],
             ),
-            if (showCheckbox)
-              StatefulBuilder(
-                builder: (context, checkboxState) {
-                  return Checkbox(
-                    value: selectedChatIds.contains(friend.userId),
-                    onChanged:
-                        (checked) => checkboxState(() {
-                          if (checked ?? false)
-                            selectedChatIds.add(friend.userId);
-                          else
-                            selectedChatIds.remove(friend.userId);
-                        }),
-                  );
-                },
-              ),
-          ],
-        ),
+          ),
+          if (showCheckbox)
+            StatefulBuilder(
+              builder: (context, checkboxState) {
+                return Checkbox(
+                  value: selectedChatIds.contains(friend.userId),
+                  onChanged:
+                      (checked) => checkboxState(() {
+                        if (checked ?? false)
+                          selectedChatIds.add(friend.userId);
+                        else
+                          selectedChatIds.remove(friend.userId);
+                      }),
+                );
+              },
+            ),
+        ],
       ),
     );
   }

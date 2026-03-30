@@ -2,22 +2,20 @@
 import 'dart:io';
 import 'package:ecommerece_app/core/cache/user_cache.dart';
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
-import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/features/cart/services/cart_service.dart';
 import 'package:ecommerece_app/features/chat/models/chat_room_model.dart';
 import 'package:ecommerece_app/features/chat/models/story_model.dart';
 import 'package:ecommerece_app/features/chat/services/story_service.dart';
 import 'package:ecommerece_app/features/chat/ui/story_player_screen.dart';
+import 'package:ecommerece_app/features/chat/widgets/chat_input_bar.dart';
 import 'package:ecommerece_app/features/chat/widgets/chat_post_share.dart';
 import 'package:ecommerece_app/features/home/comments.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import 'package:image_picker/image_picker.dart';
 import '../services/chat_service.dart';
 import '../models/message_model.dart';
@@ -723,7 +721,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           onUnblock: _unblockUser,
                           onCheckState: _checkBlockState,
                         )
-                        : _InputBar(
+                        : InputBar(
                           controller: _messageController,
                           pickedImage: _pickedImage,
                           onPickImage: _pickImage,
@@ -736,7 +734,6 @@ class _ChatScreenState extends State<ChatScreen> {
                               await _sendMessage();
                             }
                           },
-                          onChanged: () => setState(() {}),
                         ),
                 ],
               ),
@@ -781,117 +778,6 @@ class _DateSeparator extends StatelessWidget {
 }
 
 // ─── Input bar ────────────────────────────────────────────────────────────────
-
-class _InputBar extends StatelessWidget {
-  final TextEditingController controller;
-  final XFile? pickedImage;
-  final VoidCallback onPickImage;
-  final VoidCallback onSend;
-  final VoidCallback onChanged;
-
-  const _InputBar({
-    required this.controller,
-    required this.pickedImage,
-    required this.onPickImage,
-    required this.onSend,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bool hasContent = controller.text.isNotEmpty || pickedImage != null;
-
-    return SafeArea(
-      top: false,
-      child: Container(
-        color: _kBgColor,
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Container(
-                constraints: BoxConstraints(minHeight: 40),
-                decoration: BoxDecoration(
-                  color: _kInputBg,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    GestureDetector(
-                      onTap: onPickImage,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 10,
-                        ),
-                        child: Icon(
-                          Icons.add,
-                          size: 20,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: controller,
-                        onChanged: (_) => onChanged(),
-                        maxLines: 4,
-                        minLines: 1,
-                        style: TextStyle(fontSize: 14, color: Colors.black),
-                        decoration: InputDecoration(
-                          hintText: '메시지 입력',
-                          hintStyle: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[400],
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.only(
-                            right: 12,
-                            top: 10,
-                            bottom: 10,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeInOut,
-              child:
-                  hasContent
-                      ? Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: GestureDetector(
-                          onTap: onSend,
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: const BoxDecoration(
-                              color: _kSendActive,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.arrow_upward_rounded,
-                              size: 20,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      )
-                      : const SizedBox.shrink(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ─── Blocked bar ──────────────────────────────────────────────────────────────
 
@@ -1178,6 +1064,7 @@ class _BubbleContent extends StatelessWidget {
           if (message.postData != null) ...[
             if (message.content.isNotEmpty) SizedBox(height: 6),
             ChatPostShareWidget(
+              type: 'post',
               imageUrl: message.postData!['imgUrl'],
               authorName: message.postData!['authorName'],
               postTitle: message.postData!['text'],
@@ -1194,6 +1081,7 @@ class _BubbleContent extends StatelessWidget {
           if (message.productData != null) ...[
             if (message.content.isNotEmpty) SizedBox(height: 6),
             ChatPostShareWidget(
+              type: 'product',
               imageUrl: message.productData!.imgUrl!,
               postTitle:
                   '${message.productData!.pricePoints[0].price.toString()} 원',

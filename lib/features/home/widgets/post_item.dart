@@ -10,6 +10,7 @@ import 'package:ecommerece_app/features/home/comments.dart';
 import 'package:ecommerece_app/features/home/data/follow_service.dart';
 import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
+import 'package:ecommerece_app/features/home/follow_feed_screen.dart';
 import 'package:ecommerece_app/features/home/widgets/post_actions.dart';
 import 'package:ecommerece_app/features/home/widgets/share_dialog.dart';
 import 'package:ecommerece_app/features/home/widgets/show_post_options.dart';
@@ -20,18 +21,19 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 class PostItem extends StatelessWidget {
   final String postId;
   final bool fromComments;
   final bool showMoreButton;
-  const PostItem({
+  PostItem({
     Key? key,
     required this.postId,
     required this.fromComments,
     this.showMoreButton = true,
   }) : super(key: key);
-
+  PageController _pageController = PageController();
   // ── helpers ────────────────────────────────────────────────────────────────
 
   /// Shows the edit dialog for the current user's post.
@@ -168,9 +170,9 @@ class PostItem extends StatelessWidget {
                               .doc(postId)
                               .delete();
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          /*                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('게시물이 삭제되었습니다.')),
-                          );
+                          ); */
                         },
                         child: Text('삭제'),
                       ),
@@ -183,7 +185,6 @@ class PostItem extends StatelessWidget {
     );
   }
 
-  /// Runs [action] while showing a loading dialog, then cleans up safely.
   Future<void> _runWithLoading(
     BuildContext context,
     Future<void> Function() action,
@@ -275,19 +276,40 @@ class PostItem extends StatelessWidget {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: ShapeDecoration(
-                                  image: DecorationImage(
-                                    image:
-                                        profileUrl.isNotEmpty
-                                            ? NetworkImage(profileUrl)
-                                            : AssetImage('assets/avatar.png')
-                                                as ImageProvider,
-                                    fit: BoxFit.cover,
+                              InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => SafeArea(
+                                            child: Scaffold(
+                                              body: FollowingTab(
+                                                firebaseUser:
+                                                    FirebaseAuth
+                                                        .instance
+                                                        .currentUser,
+                                                preselectedUser: myuser?.userId,
+                                              ),
+                                            ),
+                                          ),
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: ShapeDecoration(
+                                    image: DecorationImage(
+                                      image:
+                                          profileUrl.isNotEmpty
+                                              ? NetworkImage(profileUrl)
+                                              : AssetImage('assets/avatar.png')
+                                                  as ImageProvider,
+                                      fit: BoxFit.cover,
+                                    ),
+                                    shape: OvalBorder(),
                                   ),
-                                  shape: OvalBorder(),
                                 ),
                               ),
                               horizontalSpace(5),
@@ -306,20 +328,32 @@ class PostItem extends StatelessWidget {
                                     FutureBuilder<String?>(
                                       future: ContactService()
                                           .getContactNickname(
-                                            postData['userId'],
+                                            myuser == null ? "" : myuser.userId,
                                           ),
                                       builder: (context, snapshot) {
-                                        if (!snapshot.hasData)
+                                        if (snapshot.connectionState ==
+                                            ConnectionState.waiting) {
+                                          return const SizedBox.shrink(); // Or a small CircularProgressIndicator
+                                        }
+
+                                        if (snapshot.hasError ||
+                                            !snapshot.hasData ||
+                                            snapshot.data == null) {
                                           return const SizedBox.shrink();
-                                        final nickname = snapshot.data;
-                                        if (nickname == null)
-                                          return const SizedBox.shrink();
-                                        return Text(
-                                          "@$nickname",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[500],
-                                            fontFamily: 'NotoSans',
+                                        }
+
+                                        final nickname = snapshot.data!;
+                                        return Padding(
+                                          padding: EdgeInsets.only(top: 2),
+                                          child: Text(
+                                            '@$nickname',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey[600],
+                                              fontWeight: FontWeight.w400,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         );
                                       },
@@ -614,15 +648,63 @@ class PostItem extends StatelessWidget {
                               ),
                             ),
                           verticalSpace(5),
-                          if (postData['imgUrl'].isNotEmpty)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(30),
-                              child: Image.network(
-                                postData['imgUrl'],
-                                fit: BoxFit.fitWidth,
-                                width: double.infinity,
+                          if (postData['imgUrls'] != null &&
+                              postData['imgUrls'].isNotEmpty)
+                            SizedBox(
+                              height: 428,
+                              child: Stack(
+                                children: [
+                                  PageView.builder(
+                                    controller: _pageController,
+                                    itemCount:
+                                        (postData['imgUrls'] as List).length,
+                                    physics: const BouncingScrollPhysics(),
+                                    itemBuilder:
+                                        (context, index) => Image.network(
+                                          (postData['imgUrls'] as List)[index],
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (_, __, ___) =>
+                                                  const Placeholder(),
+                                        ),
+                                  ),
+                                  if (postData['imgUrls'].length > 1)
+                                    Positioned.fill(
+                                      bottom: 0,
+                                      child: Align(
+                                        alignment: Alignment.bottomCenter,
+                                        child: SizedBox(
+                                          height: 60,
+                                          child: Center(
+                                            child: SmoothPageIndicator(
+                                              controller: _pageController,
+                                              count:
+                                                  (postData['imgUrls'] as List)
+                                                      .length,
+                                              effect: const ScrollingDotsEffect(
+                                                activeDotColor: Colors.black,
+                                                dotColor: Colors.grey,
+                                                dotHeight: 10,
+                                                dotWidth: 10,
+                                              ),
+                                              onDotClicked: (index) {
+                                                _pageController.animateToPage(
+                                                  index,
+                                                  duration: const Duration(
+                                                    milliseconds: 400,
+                                                  ),
+                                                  curve: Curves.easeInOut,
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
+
                           verticalSpace(30),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -655,20 +737,27 @@ class PostItem extends StatelessWidget {
                         horizontal: 12,
                         vertical: 8,
                       ),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => Comments(postId: postId),
-                            ),
-                          );
-                        },
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Avatar
-                            Container(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Avatar
+                          InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => Scaffold(
+                                        body: FollowingTab(
+                                          firebaseUser:
+                                              FirebaseAuth.instance.currentUser,
+                                          preselectedUser: myuser?.userId,
+                                        ),
+                                      ),
+                                ),
+                              );
+                            },
+                            child: Container(
                               width: 65,
                               height: 65,
                               decoration: ShapeDecoration(
@@ -684,10 +773,19 @@ class PostItem extends StatelessWidget {
                                 shape: OvalBorder(),
                               ),
                             ),
-                            horizontalSpace(8),
+                          ),
+                          horizontalSpace(8),
 
-                            // Body
-                            Expanded(
+                          // Body
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => Comments(postId: postId),
+                                  ),
+                                );
+                              },
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -696,6 +794,38 @@ class PostItem extends StatelessWidget {
                                     displayName,
                                     style: TextStyles.abeezee16px400wPblack
                                         .copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  FutureBuilder<String?>(
+                                    future: ContactService().getContactNickname(
+                                      myuser == null ? "" : myuser.userId,
+                                    ),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const SizedBox.shrink(); // Or a small CircularProgressIndicator
+                                      }
+
+                                      if (snapshot.hasError ||
+                                          !snapshot.hasData ||
+                                          snapshot.data == null) {
+                                        return const SizedBox.shrink();
+                                      }
+
+                                      final nickname = snapshot.data!;
+                                      return Padding(
+                                        padding: EdgeInsets.only(top: 2),
+                                        child: Text(
+                                          '@$nickname',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey[600],
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    },
                                   ),
                                   if (postData['text'].toString().isNotEmpty)
                                     Padding(
@@ -714,14 +844,85 @@ class PostItem extends StatelessWidget {
                                     ),
                                   verticalSpace(5),
                                   if (postData['imgUrl'].isNotEmpty)
-                                    ClipRRect(
+                                    SizedBox(
+                                      height: 428,
+                                      child: Stack(
+                                        children: [
+                                          PageView.builder(
+                                            controller: _pageController,
+                                            itemCount:
+                                                (postData['imgUrls'] as List)
+                                                    .length,
+                                            physics:
+                                                const BouncingScrollPhysics(),
+                                            itemBuilder:
+                                                (
+                                                  context,
+                                                  index,
+                                                ) => Image.network(
+                                                  (postData['imgUrls']
+                                                      as List)[index],
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder:
+                                                      (_, __, ___) =>
+                                                          const Placeholder(),
+                                                ),
+                                          ),
+                                          if (postData['imgUrls'].length > 1)
+                                            Positioned.fill(
+                                              bottom: 0,
+                                              child: Align(
+                                                alignment:
+                                                    Alignment.bottomCenter,
+                                                child: SizedBox(
+                                                  height: 60,
+                                                  child: Center(
+                                                    child: SmoothPageIndicator(
+                                                      controller:
+                                                          _pageController,
+                                                      count:
+                                                          (postData['imgUrls']
+                                                                  as List)
+                                                              .length,
+                                                      effect:
+                                                          const ScrollingDotsEffect(
+                                                            activeDotColor:
+                                                                Colors.black,
+                                                            dotColor:
+                                                                Colors.grey,
+                                                            dotHeight: 10,
+                                                            dotWidth: 10,
+                                                          ),
+                                                      onDotClicked: (index) {
+                                                        _pageController
+                                                            .animateToPage(
+                                                              index,
+                                                              duration:
+                                                                  const Duration(
+                                                                    milliseconds:
+                                                                        400,
+                                                                  ),
+                                                              curve:
+                                                                  Curves
+                                                                      .easeInOut,
+                                                            );
+                                                      },
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  /*                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(20),
                                       child: Image.network(
                                         postData['imgUrl'],
                                         fit: BoxFit.fitWidth,
                                         width: double.infinity,
                                       ),
-                                    ),
+                                    ), */
                                   /* verticalSpace(5),
                                   Row(
                                     children: [
@@ -734,30 +935,30 @@ class PostItem extends StatelessWidget {
                                 ],
                               ),
                             ),
+                          ),
 
-                            // ── More button (popup menu) ──────────────────
-                            if (showMoreButton)
-                              isMyPost
-                                  ? _OwnPostMenu(
-                                    postId: postId,
-                                    currentText: postData['text'] ?? '',
-                                    onEdit:
-                                        () => _showEditDialog(
-                                          context,
-                                          postData['text'] ?? '',
-                                        ),
-                                    onDelete: () => _showDeleteDialog(context),
-                                  )
-                                  : _OtherPostMenu(
-                                    postId: postId,
-                                    userId: myuser?.userId ?? '',
-                                    onRunWithLoading: _runWithLoading,
-                                    displayName: displayName,
-                                    profileUrl: profileUrl,
-                                    postData: postData,
-                                  ),
-                          ],
-                        ),
+                          // ── More button (popup menu) ──────────────────
+                          if (showMoreButton)
+                            isMyPost
+                                ? _OwnPostMenu(
+                                  postId: postId,
+                                  currentText: postData['text'] ?? '',
+                                  onEdit:
+                                      () => _showEditDialog(
+                                        context,
+                                        postData['text'] ?? '',
+                                      ),
+                                  onDelete: () => _showDeleteDialog(context),
+                                )
+                                : _OtherPostMenu(
+                                  postId: postId,
+                                  userId: myuser?.userId ?? '',
+                                  onRunWithLoading: _runWithLoading,
+                                  displayName: displayName,
+                                  profileUrl: profileUrl,
+                                  postData: postData,
+                                ),
+                        ],
                       ),
                     ),
                   ),

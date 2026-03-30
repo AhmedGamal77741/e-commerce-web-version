@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_entity.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/home/models/comment_model.dart';
@@ -243,7 +244,11 @@ class PostsProvider extends ChangeNotifier {
 
   // Add a comment to a post
   // Add a comment to a post
-  Future<void> addComment(String postId, String text) async {
+  Future<void> addComment(
+    String postId,
+    String text, {
+    String? imageUrl,
+  }) async {
     final currentUser = _auth.currentUser;
     if (currentUser == null) return;
 
@@ -258,6 +263,20 @@ class PostsProvider extends ChangeNotifier {
       }
     }
 
+    Map<String, dynamic>? productData;
+    Map<String, dynamic>? postData;
+    final urlRegExp = RegExp(r'(https?://[^\s]+)');
+    final match = urlRegExp.firstMatch(text);
+
+    if (match != null) {
+      String url = match.group(0)!;
+
+      if (url.contains('pang2chocolate.com/product/')) {
+        productData = await _fetchProductFromUrl(url);
+      } else if (url.contains('/comment') || url.contains('/post/')) {
+        postData = await _fetchPostFromUrl(url);
+      }
+    }
     // Create a batch for atomic operations
     final batch = _firestore.batch();
 
@@ -266,15 +285,22 @@ class PostsProvider extends ChangeNotifier {
         _firestore.collection('posts').doc(postId).collection('comments').doc();
 
     // Set comment data
-    batch.set(commentRef, {
-      'userId': currentUser.uid,
-      'text': text,
-      'createdAt': FieldValue.serverTimestamp(),
-      'likes': 0,
-      'userImage': userData?.url ?? currentUser.photoURL,
-      'userName': userData?.name ?? currentUser.displayName,
-      'likedBy': [],
-    });
+    batch.set(
+      commentRef,
+      Comment(
+        id: commentRef.id,
+        userId: currentUser.uid,
+        text: text,
+        createdAt: FieldValue.serverTimestamp(),
+        imageUrl: imageUrl,
+        likes: 0,
+        userImage: userData?.url ?? currentUser.photoURL,
+        userName: userData?.name ?? currentUser.displayName,
+        likedBy: [],
+        postData: postData,
+        productData: productData != null ? Product.fromMap(productData) : null,
+      ).toMap(),
+    );
 
     // Update post comment count
     final postRef = _firestore.collection('posts').doc(postId);
@@ -288,6 +314,54 @@ class PostsProvider extends ChangeNotifier {
       print('Error adding comment: $e');
       throw e;
     }
+  }
+
+  Future<Map<String, dynamic>?> _fetchProductFromUrl(String urlString) async {
+    try {
+      final uri = Uri.parse(urlString);
+      if (uri.pathSegments.length < 2) return null;
+
+      String productId = uri.pathSegments[1];
+      DocumentSnapshot doc =
+          await _firestore.collection('products').doc(productId).get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }
+    } catch (e) {
+      print("Error fetching linked product: $e");
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _fetchPostFromUrl(String urlString) async {
+    try {
+      final uri = Uri.parse(urlString);
+
+      // 1. Try to get ID from Query Parameters (?postId=...)
+      String? linkedPostId = uri.queryParameters['postId'];
+
+      // 2. Fallback: Try to get ID from Path Segments (/post/ID)
+      if (linkedPostId == null && uri.pathSegments.length >= 2) {
+        linkedPostId = uri.pathSegments[1];
+      }
+
+      if (linkedPostId == null) return null;
+
+      DocumentSnapshot doc =
+          await _firestore.collection('posts').doc(linkedPostId).get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }
+    } catch (e) {
+      print("Error fetching linked post: $e");
+    }
+    return null;
   }
 
   // Toggle like on a post

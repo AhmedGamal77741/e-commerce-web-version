@@ -1,8 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
+import 'package:ecommerece_app/features/cart/services/cart_service.dart';
+import 'package:ecommerece_app/features/chat/services/contacts_service.dart';
+import 'package:ecommerece_app/features/chat/widgets/chat_post_share.dart';
+import 'package:ecommerece_app/features/home/comments.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
+import 'package:ecommerece_app/features/home/follow_feed_screen.dart';
 import 'package:ecommerece_app/features/home/models/comment_model.dart';
+import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -37,15 +43,33 @@ class _CommentItemState extends State<CommentItem> {
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: ShapeDecoration(
-                image: DecorationImage(
-                  image: NetworkImage(widget.comment.userImage.toString()),
-                  fit: BoxFit.cover,
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (context) => SafeArea(
+                          child: Scaffold(
+                            body: FollowingTab(
+                              firebaseUser: FirebaseAuth.instance.currentUser,
+                              preselectedUser: widget.comment.userId,
+                            ),
+                          ),
+                        ),
+                  ),
+                );
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: ShapeDecoration(
+                  image: DecorationImage(
+                    image: NetworkImage(widget.comment.userImage.toString()),
+                    fit: BoxFit.cover,
+                  ),
+                  shape: OvalBorder(),
                 ),
-                shape: OvalBorder(),
               ),
             ),
             horizontalSpace(4),
@@ -62,35 +86,141 @@ class _CommentItemState extends State<CommentItem> {
                       widget.comment.userName ?? '',
                       style: TextStyles.abeezee16px400wPblack,
                     ),
+                    FutureBuilder<String?>(
+                      future: ContactService().getContactNickname(
+                        widget.comment.userId,
+                      ),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const SizedBox.shrink(); // Or a small CircularProgressIndicator
+                        }
+
+                        if (snapshot.hasError ||
+                            !snapshot.hasData ||
+                            snapshot.data == null) {
+                          return const SizedBox.shrink();
+                        }
+
+                        final nickname = snapshot.data!;
+                        return Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Text(
+                            '@$nickname',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      },
+                    ),
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       spacing: 4,
                       children: [
                         Flexible(
                           fit: FlexFit.loose,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(6),
-                              color: Colors.white,
-                            ),
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 2,
-                              ),
-                              child: Text(
-                                widget.comment.text,
-                                style: TextStyle(
-                                  color: const Color(0xFF343434),
-                                  fontSize: 16,
-                                  fontFamily: 'NotoSans',
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.40,
-                                  letterSpacing: -0.09,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (widget.comment.text.isNotEmpty) ...[
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(6),
+                                    color: Colors.white,
+                                  ),
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 2,
+                                    ),
+                                    child: Text(
+                                      widget.comment.text,
+                                      style: TextStyle(
+                                        color: const Color(0xFF343434),
+                                        fontSize: 16,
+                                        fontFamily: 'NotoSans',
+                                        fontWeight: FontWeight.w400,
+                                        height: 1.40,
+                                        letterSpacing: -0.09,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
+                              ],
+                              if (widget.comment.postData != null) ...[
+                                if (widget.comment.text.isNotEmpty)
+                                  SizedBox(height: 6),
+                                ChatPostShareWidget(
+                                  type: 'post',
+                                  imageUrl: widget.comment.postData!['imgUrl'],
+                                  authorName:
+                                      widget.comment.postData!['userId'],
+                                  postTitle: widget.comment.postData!['text'],
+                                  onTap:
+                                      () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (_) => Comments(
+                                                postId:
+                                                    widget
+                                                        .comment
+                                                        .postData!['postId'],
+                                              ),
+                                        ),
+                                      ),
+                                ),
+                              ],
+                              if (widget.comment.productData != null) ...[
+                                if (widget.comment.text.isNotEmpty)
+                                  SizedBox(height: 6),
+                                ChatPostShareWidget(
+                                  type: 'product',
+                                  imageUrl: widget.comment.productData!.imgUrl!,
+                                  postTitle:
+                                      '${widget.comment.productData!.pricePoints[0].price.toString()} 원',
+                                  authorName:
+                                      widget.comment.productData!.productName,
+                                  onTap: () async {
+                                    bool isSub = await isUserSubscribed();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (_) => ItemDetails(
+                                              product:
+                                                  widget.comment.productData!,
+                                              isSub: isSub,
+                                              arrivalDay:
+                                                  widget
+                                                      .comment
+                                                      .productData!
+                                                      .arrivalDate!,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                              if (widget.comment.imageUrl != null &&
+                                  widget.comment.imageUrl!.isNotEmpty) ...[
+                                if (widget.comment.text.isNotEmpty)
+                                  SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.network(
+                                    widget.comment.imageUrl!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         Row(

@@ -61,7 +61,7 @@ class _HomeSearchState extends State<HomeSearch> {
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: '검색...',
+                        hintText: '게시글/프로필',
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 5,

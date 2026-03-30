@@ -13,7 +13,9 @@ class DirectChatsScreen extends StatefulWidget {
   State<DirectChatsScreen> createState() => _DirectChatsScreenState();
 }
 
-class _DirectChatsScreenState extends State<DirectChatsScreen> {
+class _DirectChatsScreenState extends State<DirectChatsScreen>
+    with AutomaticKeepAliveClientMixin {
+  bool get wantKeepAlive => true;
   final ChatService chatService = ChatService();
   String get currentUserId => FirebaseAuth.instance.currentUser!.uid;
   final FriendsService _friendsService = FriendsService();

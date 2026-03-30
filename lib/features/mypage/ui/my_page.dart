@@ -3,12 +3,12 @@ import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/mypage/data/firebas_funcs.dart';
+import 'package:ecommerece_app/features/mypage/ui/widgets/profile_type.dart';
 import 'package:ecommerece_app/features/mypage/ui/widgets/user_info_container.dart';
 import 'package:ecommerece_app/features/mypage/ui/widgets/user_options_container.dart';
+import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:ecommerece_app/features/mypage/ui/widgets/profile_type.dart';
-
 import 'package:url_launcher/url_launcher.dart';
 
 class MyPage extends StatelessWidget {
@@ -42,6 +42,15 @@ class MyPage extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
               child: Column(
                 children: [
+                  if (!isSub) ...[
+                    Container(
+                      width: double.infinity,
+                      height: 500,
+                      color: Colors.black,
+                      child: Center(child: ShiningPremiumBanner()),
+                    ),
+                    verticalSpace(20),
+                  ],
                   isSub
                       ? Text('프리미엄 회원', style: TextStyles.abeezee17px800wPblack)
                       : Text('일반 회원', style: TextStyles.abeezee17px800wPblack),

@@ -12,7 +12,9 @@ class GroupChatsScreen extends StatefulWidget {
   State<GroupChatsScreen> createState() => _GroupChatsScreenState();
 }
 
-class _GroupChatsScreenState extends State<GroupChatsScreen> {
+class _GroupChatsScreenState extends State<GroupChatsScreen>
+    with AutomaticKeepAliveClientMixin {
+  bool get wantKeepAlive => true;
   final ChatService chatService = ChatService();
   String get currentUserId => FirebaseAuth.instance.currentUser!.uid;
 

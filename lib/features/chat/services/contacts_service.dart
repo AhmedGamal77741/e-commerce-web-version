@@ -28,7 +28,7 @@ class ContactService {
       throw Exception('Contact permission denied');
     }
 
-    final contacts = await FlutterContacts.getContacts();
+    final contacts = await FlutterContacts.getContacts(withProperties: true);
     return contacts
         .where((contact) => contact.phones.isNotEmpty == true)
         .toList();
@@ -41,10 +41,10 @@ class ContactService {
     for (final contact in contacts) {
       if (contact.phones.isNotEmpty) {
         for (final phone in contact.phones) {
-          final normalizedNumber = _normalizePhoneNumber(phone.number);
-          if (normalizedNumber.isNotEmpty &&
-              !phoneNumbers.contains(normalizedNumber)) {
-            phoneNumbers.add(normalizedNumber);
+          final normalizedNumber = expandEgKrNumber(phone.number);
+          if (phone.number.isNotEmpty &&
+              !phoneNumbers.contains(normalizedNumber.first)) {
+            phoneNumbers.addAll(normalizedNumber);
           }
         }
       }
@@ -53,51 +53,10 @@ class ContactService {
     return phoneNumbers;
   }
 
-  // Normalize phone number
-  String _normalizePhoneNumber(String phoneNumber) {
-    String normalized = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
-
-    if (normalized.startsWith('0')) {
-      normalized = '+82${normalized.substring(1)}';
-    } else if (normalized.startsWith('1') && normalized.length == 10) {
-      normalized = '+1$normalized';
-    } else if (!normalized.startsWith('+')) {
-      normalized = '+1$normalized';
-    }
-
-    return normalized;
-  }
-
-  // Find users by phone numbers
-  Future<List<MyUser>> findUsersByPhoneNumbers(
-    List<String> phoneNumbers,
-  ) async {
-    if (phoneNumbers.isEmpty) return [];
-
-    final List<MyUser> allUsers = [];
-
-    for (int i = 0; i < phoneNumbers.length; i += 10) {
-      final batch = phoneNumbers.skip(i).take(10).toList();
-
-      final querySnapshot =
-          await _firestore
-              .collection('users')
-              .where('phoneNumber', whereIn: batch)
-              .where('phoneVerified', isEqualTo: true)
-              .get();
-
-      final users =
-          querySnapshot.docs
-              .map((doc) => MyUser.fromDocument(doc.data()))
-              .where((user) => user.userId != currentUserId)
-              .toList();
-
-      allUsers.addAll(users);
-    }
-
-    return allUsers;
-  }
-
+  /// Normalizes a phone number to E.164 format
+  /// Example:
+  ///   normalizeNumber("01062675821", "EG") -> +201062675821
+  ///   normalizeNumber("01012345678", "KR") -> +821012345678
   List<String> expandEgKrNumber(String input) {
     final List<String> results = [];
     final cleaned = input.replaceAll(
@@ -130,6 +89,35 @@ class ContactService {
     }
 
     return results.toSet().toList(); // remove duplicates
+  }
+
+  // Find users by phone numbers
+  Future<List<MyUser>> findUsersByPhoneNumbers(
+    List<String> phoneNumbers,
+  ) async {
+    if (phoneNumbers.isEmpty) return [];
+
+    final List<MyUser> allUsers = [];
+
+    for (int i = 0; i < phoneNumbers.length; i += 10) {
+      final batch = phoneNumbers.skip(i).take(10).toList();
+
+      final querySnapshot =
+          await _firestore
+              .collection('users')
+              .where('phoneNumber', whereIn: batch)
+              .get();
+
+      final users =
+          querySnapshot.docs
+              .map((doc) => MyUser.fromDocument(doc.data()))
+              .where((user) => user.userId != currentUserId)
+              .toList();
+
+      allUsers.addAll(users);
+    }
+
+    return allUsers;
   }
 
   Future<Map<String, String>> buildContactNameMap(
@@ -174,7 +162,7 @@ class ContactService {
 
   Future<String?> getContactNickname(String userId) async {
     final map = await loadContactNameMap();
-    return map[userId]; // null if not in contacts
+    return map[userId];
   }
 
   // Auto-add friends from contacts

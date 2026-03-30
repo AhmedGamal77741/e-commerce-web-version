@@ -1,10 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class ChatPostShareWidget extends StatelessWidget {
   final String imageUrl;
   final String postTitle;
   final String authorName;
-  final VoidCallback onTap; // Pass your redirection logic here
+  final VoidCallback onTap;
+  final String type;
 
   const ChatPostShareWidget({
     super.key,
@@ -12,7 +14,27 @@ class ChatPostShareWidget extends StatelessWidget {
     required this.postTitle,
     required this.authorName,
     required this.onTap,
+    required this.type,
   });
+
+  Future<String> fetchUserName(String userId) async {
+    try {
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .get();
+
+      if (userDoc.exists && userDoc.data() != null) {
+        Map<String, dynamic> data = userDoc.data() as Map<String, dynamic>;
+        return data['name'] ?? 'Unknown User';
+      }
+      return 'User not found';
+    } catch (e) {
+      print("Error fetching user name: $e");
+      return 'Error';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,14 +79,31 @@ class ChatPostShareWidget extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    authorName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: Colors.black87,
-                    ),
-                  ),
+                  type == 'post'
+                      ? FutureBuilder<String>(
+                        future: fetchUserName(authorName),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Text("Loading...");
+                          }
+
+                          final name = snapshot.data ?? 'Unknown';
+
+                          return Text(
+                            name,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          );
+                        },
+                      )
+                      : Text(
+                        authorName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: Colors.black87,
+                        ),
+                      ),
                   const SizedBox(height: 4),
                   Text(
                     postTitle,

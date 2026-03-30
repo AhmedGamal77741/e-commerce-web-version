@@ -33,7 +33,20 @@ class _FollowingUsersListState extends State<FollowingUsersList> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.15);
+
+    // 1. Find the initial index of the preselected user
+    int initialPage = 0;
+    if (widget.selectedUserId != null) {
+      initialPage = widget.followingIds.indexOf(widget.selectedUserId!);
+      // If not found (index -1), default back to 0
+      if (initialPage == -1) initialPage = 0;
+    }
+
+    // 2. Initialize controller at that specific page
+    _pageController = PageController(
+      viewportFraction: 0.15,
+      initialPage: initialPage,
+    );
   }
 
   @override
@@ -49,8 +62,10 @@ class _FollowingUsersListState extends State<FollowingUsersList> {
       itemCount: widget.followingIds.length,
       onPageChanged: (index) {
         if (widget.onUserTap != null) {
-          // auto-select user when swiped to
-          widget.onUserTap!(widget.followingIds[index]);
+          final userId = widget.followingIds[index];
+          if (widget.onUserTap != null && userId != widget.selectedUserId) {
+            widget.onUserTap!(userId);
+          }
         }
       },
       itemBuilder: (context, index) {

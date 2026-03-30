@@ -1,24 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/core/models/product_model.dart';
 
 class Comment {
   final String id;
   final String userId;
   final String text;
-  final Timestamp createdAt;
+  final dynamic createdAt;
+  final String? imageUrl;
   final int likes;
   final String? userImage;
   final String? userName;
   final List<String> likedBy;
-
+  final Map<String, dynamic>? postData;
+  final Product? productData;
   Comment({
     required this.id,
     required this.userId,
     required this.text,
     required this.createdAt,
+    this.imageUrl,
     this.likes = 0,
     this.userImage,
     this.userName,
     this.likedBy = const [],
+    this.postData,
+    this.productData,
   });
 
   factory Comment.fromFirestore(DocumentSnapshot doc) {
@@ -30,8 +36,17 @@ class Comment {
       createdAt: data['createdAt'] ?? Timestamp.now(),
       likes: data['likes'] ?? 0,
       userImage: data['userImage'],
+      imageUrl: data['imageUrl'] ?? '',
       userName: data['userName'],
       likedBy: List<String>.from(data['likedBy'] ?? []),
+      postData:
+          data['postData'] != null
+              ? Map<String, dynamic>.from(data['postData'])
+              : null,
+      productData:
+          data['productData'] != null
+              ? Product.fromMap(Map<String, dynamic>.from(data['productData']))
+              : null,
     );
   }
 
@@ -40,10 +55,13 @@ class Comment {
       'userId': userId,
       'text': text,
       'createdAt': createdAt,
+      'imageUrl': imageUrl,
       'likes': likes,
       'userImage': userImage,
       'userName': userName,
       'likedBy': likedBy,
+      'postData': postData,
+      'productData': productData?.toMap(),
     };
   }
 }

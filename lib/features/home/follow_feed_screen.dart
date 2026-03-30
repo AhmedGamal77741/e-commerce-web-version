@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 
 class FollowingTab extends StatefulWidget {
   final User? firebaseUser;
-  const FollowingTab({Key? key, this.firebaseUser}) : super(key: key);
+  final String? preselectedUser;
+  const FollowingTab({Key? key, this.firebaseUser, this.preselectedUser})
+    : super(key: key);
 
   @override
   State<FollowingTab> createState() => _FollowingTabState();
@@ -22,16 +24,49 @@ class _FollowingTabState extends State<FollowingTab>
   late final Stream<DocumentSnapshot>? _userStream;
   bool get wantKeepAlive => true;
 
+  final Map<String, GlobalKey> _userKeys = {};
+
+  void _scrollToSelectedUser() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final selectedId = _selectedUserId.value;
+      if (selectedId != null && _userKeys.containsKey(selectedId)) {
+        final context = _userKeys[selectedId]!.currentContext;
+        if (context != null) {
+          Scrollable.ensureVisible(
+            context,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+            alignment: 0.5, // Centers the item in the viewport
+          );
+        }
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _authStream = FirebaseAuth.instance.authStateChanges();
+    _selectedUserId.value = widget.preselectedUser;
+    if (widget.preselectedUser != null) {
+      _scrollToSelectedUser();
+    }
     if (widget.firebaseUser != null) {
       _userStream =
           FirebaseFirestore.instance
               .collection('users')
               .doc(widget.firebaseUser!.uid)
               .snapshots();
+    }
+  }
+
+  @override
+  void didUpdateWidget(FollowingTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.preselectedUser != oldWidget.preselectedUser &&
+        widget.preselectedUser != null) {
+      _selectedUserId.value = widget.preselectedUser;
+      _selectedCategoryId.value = null;
     }
   }
 
