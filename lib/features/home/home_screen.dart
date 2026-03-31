@@ -36,11 +36,13 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     _firebaseUser = FirebaseAuth.instance.currentUser;
-    _userStream =
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(_firebaseUser!.uid)
-            .snapshots();
+    if (_firebaseUser != null) {
+      _userStream =
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(_firebaseUser!.uid)
+              .snapshots();
+    }
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (mounted) {
         setState(() {

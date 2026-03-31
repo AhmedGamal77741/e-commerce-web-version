@@ -704,7 +704,6 @@ class PostItem extends StatelessWidget {
                                 ],
                               ),
                             ),
-
                           verticalSpace(30),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
