@@ -842,7 +842,8 @@ class PostItem extends StatelessWidget {
                                       ),
                                     ),
                                   verticalSpace(5),
-                                  if (postData['imgUrl'].isNotEmpty)
+                                  if (postData['imgUrls'] != null &&
+                                      postData['imgUrls'].isNotEmpty)
                                     SizedBox(
                                       height: 428,
                                       child: Stack(
