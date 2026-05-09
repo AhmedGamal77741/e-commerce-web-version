@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class NoBankAccountScreen extends StatefulWidget {
-  final String source; // 'shop' or 'sub'
+  final String source; // 'shop', 'sub', or 'signup'
+  // Skip button only appears for 'shop' — other sources use the back arrow
   const NoBankAccountScreen({super.key, this.source = 'shop'});
 
   @override
@@ -43,6 +44,10 @@ class _NoBankAccountScreenState extends State<NoBankAccountScreen> {
     }
   }
 
+  // Skip is only meaningful for 'shop' — user is being gated from something
+  // they want. For 'signup' and 'sub', back arrow is the natural exit.
+  bool get _canSkip => widget.source == 'shop';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -50,8 +55,8 @@ class _NoBankAccountScreenState extends State<NoBankAccountScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(false),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
         ),
       ),
       body: const Center(
@@ -70,38 +75,69 @@ class _NoBankAccountScreenState extends State<NoBankAccountScreen> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: TextButton(
-              onPressed: _isLaunching ? null : _launchBankRegistration,
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey[300],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Register bank account button ──────────────────────────
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: TextButton(
+                  onPressed: _isLaunching ? null : _launchBankRegistration,
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[300],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child:
+                      _isLaunching
+                          ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.black,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                          : Text(
+                            '계좌 등록하기',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 18,
+                              fontFamily: 'NotoSans',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                 ),
               ),
-              child:
-                  _isLaunching
-                      ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          color: Colors.black,
-                          strokeWidth: 2.5,
-                        ),
-                      )
-                      : Text(
-                        '계좌 등록하기',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 18,
-                          fontFamily: 'NotoSans',
-                          fontWeight: FontWeight.w600,
-                        ),
+
+              // ── Skip button — only shown for 'shop' source ───────────
+              if (_canSkip) ...[
+                SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: TextButton(
+                    // Pops true → NavBar sees the skip and lets user into shop
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: TextButton.styleFrom(foregroundColor: Colors.white),
+                    child: Text(
+                      '나중에 등록하기',
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 15,
+                        fontFamily: 'NotoSans',
+                        fontWeight: FontWeight.w400,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Colors.white60,
                       ),
-            ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

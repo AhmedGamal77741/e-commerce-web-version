@@ -368,7 +368,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                         ),
                         verticalSpace(40),
                         const Text(
-                          '월회비 10,000원\n모든 제품 20% 할인',
+                          '월회비 8,000원\n모든 제품 20% 할인',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
@@ -395,7 +395,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   ),
                   verticalSpace(12),
                   Text(
-                    '*등록된 계좌에서 매월 10,000원이 자동 결제됩니다.',
+                    '*등록된 계좌에서 매월 8,000원이 자동 결제됩니다.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.grey[400],
@@ -487,7 +487,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     ),
                   ),
                   const Text(
-                    '10,000원',
+                    '8,000원',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,

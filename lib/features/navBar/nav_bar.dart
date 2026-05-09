@@ -43,11 +43,12 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
         ),
       ),
       _buildMainWidget(() => ChatsNavbar()),
-      _buildMainWidget(() => Center(child: Text('home'))),
+      _buildMainWidget(() => const Center(child: Text('home'))),
       _buildMainWidget(() => Shop(key: shopKey)),
       _buildMainWidget(() => LandingScreen()),
     ];
 
+    // Check if we need to resume a pending navigation after bank registration
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPendingNavigation();
     });
@@ -60,6 +61,7 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  // ── Resume navigation after bank registration deep link ───────────────────
   Future<void> _checkPendingNavigation() async {
     final prefs = await SharedPreferences.getInstance();
     final pendingSource = prefs.getString('pending_nav_source');
@@ -74,6 +76,7 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
     }
   }
 
+  // ── Subscription gate helper ──────────────────────────────────────────────
   Future<void> _navigateToSubscription(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -108,6 +111,7 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
       if (!nowHasAccount) return;
     }
 
+    // ── Gate 2: receipt / invoice data ──────────────────────────────────
     final cacheDoc =
         await FirebaseFirestore.instance
             .collection('usercached_values')
@@ -213,33 +217,39 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
                 .get();
         final data = userDoc.data();
 
+        // Deleted account — just navigate
         if (data != null && data['deleted'] == true) {
           setState(() => _selectedIndex = index);
           return;
         }
 
+        // ── Gate 1: bank account ────────────────────────────────────────
         final accounts = data?['bankAccounts'];
         final hasBankAccount =
             accounts != null && accounts is List && accounts.isNotEmpty;
+
         if (!hasBankAccount) {
-          await Navigator.of(context).push(
+          final result = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
               builder: (_) => const NoBankAccountScreen(source: 'shop'),
             ),
           );
-          final refreshed =
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .get();
-          final refreshedAccounts = refreshed.data()?['bankAccounts'];
-          final nowHasAccount =
-              refreshedAccounts != null &&
-              refreshedAccounts is List &&
-              refreshedAccounts.isNotEmpty;
-          if (!nowHasAccount) return;
+          if (result != true) {
+            final refreshed =
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .get();
+            final refreshedAccounts = refreshed.data()?['bankAccounts'];
+            final nowHasAccount =
+                refreshedAccounts != null &&
+                refreshedAccounts is List &&
+                refreshedAccounts.isNotEmpty;
+            if (!nowHasAccount) return;
+          }
         }
 
+        // ── Gate 2: receipt / invoice data ──────────────────────────────
         final cacheDoc =
             await FirebaseFirestore.instance
                 .collection('usercached_values')
@@ -255,14 +265,15 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
             (cacheData['phone'] as String? ?? '').isNotEmpty;
 
         if (!hasReceiptData) {
-          final result = await Navigator.of(context).push<bool>(
+          final result = await Navigator.of(context).push<dynamic>(
             MaterialPageRoute(
               builder: (_) => const ReceiptSetupScreen(source: 'shop'),
             ),
           );
-          if (result != true) return;
+          if (result != true && result != 'skip') return;
         }
 
+        // ── Gate 3: default address ─────────────────────────────────────
         final freshDoc =
             await FirebaseFirestore.instance
                 .collection('users')
@@ -272,13 +283,11 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
         if (freshData == null ||
             (freshData['defaultAddressId'] == null ||
                 freshData['defaultAddressId'] == '')) {
-          final result = await Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => AddAddressScreen()));
-          if (result == true) {
-            setState(() => _selectedIndex = index);
-          }
-          return;
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const AddAddressScreen(showSkip: true),
+            ),
+          );
         }
       }
       setState(() => _selectedIndex = index);
@@ -318,10 +327,10 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
               builder: (context, authSnapshot) {
                 final user = authSnapshot.data;
                 if (user == null) {
-                  return const CircleAvatar(
+                  return CircleAvatar(
                     radius: 20,
                     backgroundColor: Colors.transparent,
-                    backgroundImage: AssetImage(
+                    backgroundImage: const AssetImage(
                       'assets/chat_with_seller_grey.png',
                     ),
                   );
@@ -350,10 +359,10 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        const CircleAvatar(
+                        CircleAvatar(
                           radius: 20,
                           backgroundColor: Colors.transparent,
-                          backgroundImage: AssetImage(
+                          backgroundImage: const AssetImage(
                             'assets/chat_with_seller_grey.png',
                           ),
                         ),
@@ -378,10 +387,12 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
               builder: (context, authSnapshot) {
                 final user = authSnapshot.data;
                 if (user == null) {
-                  return const CircleAvatar(
+                  return CircleAvatar(
                     radius: 20,
                     backgroundColor: Colors.transparent,
-                    backgroundImage: AssetImage('assets/chat_with_seller.png'),
+                    backgroundImage: const AssetImage(
+                      'assets/chat_with_seller.png',
+                    ),
                   );
                 }
                 return StreamBuilder(
@@ -408,10 +419,10 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        const CircleAvatar(
+                        CircleAvatar(
                           radius: 20,
                           backgroundColor: Colors.transparent,
-                          backgroundImage: AssetImage(
+                          backgroundImage: const AssetImage(
                             'assets/chat_with_seller.png',
                           ),
                         ),
@@ -433,16 +444,18 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
             ),
             label: '채팅',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: CircleAvatar(
               radius: 30,
               backgroundColor: Colors.transparent,
-              backgroundImage: AssetImage('assets/mypage_avatar_grey.png'),
+              backgroundImage: const AssetImage(
+                'assets/mypage_avatar_grey.png',
+              ),
             ),
             activeIcon: CircleAvatar(
               radius: 30,
               backgroundColor: Colors.transparent,
-              backgroundImage: AssetImage('assets/mypage_avatar.png'),
+              backgroundImage: const AssetImage('assets/mypage_avatar.png'),
             ),
             label: '홈',
           ),
@@ -470,7 +483,7 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
           ),
         ],
         currentIndex: _selectedIndex,
-        onTap: (_onItemTapped),
+        onTap: _onItemTapped,
       ),
     );
   }

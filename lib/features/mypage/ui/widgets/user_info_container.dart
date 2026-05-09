@@ -1,7 +1,5 @@
-import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
-import 'package:ecommerece_app/core/widgets/black_text_button.dart';
 import 'package:ecommerece_app/core/widgets/underline_text_filed.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/auth/signup/data/signup_functions.dart';
@@ -31,6 +29,100 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
 
   MyUser? currentUser;
   bool _isLoading = true;
+
+  Future<void> performUpdate({String? newNickname}) async {
+    if (!_formKey.currentState!.validate()) return;
+    if (currentUser == null) return;
+    // Check which fields are being updated
+    final isUpdatingName =
+        newNickname != null &&
+        newNickname.isNotEmpty &&
+        newNickname != currentUser!.name;
+    final isUpdatingPassword = passwordController.text.isNotEmpty;
+    final isUpdatingPhone =
+        phoneController.text.isNotEmpty &&
+        phoneController.text != (currentUser!.phoneNumber ?? '');
+
+    if (!isUpdatingName && !isUpdatingPassword && !isUpdatingPhone) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("변경된 내용이 없습니다", style: TextStyle(fontSize: 14))),
+      );
+      return;
+    }
+
+    // Check for unique nickname if updating name
+    if (isUpdatingName) {
+      final name = newNickname.trim();
+      final existing = await fireBaseRepo.checkNameExists(name);
+      // Only block if the name exists and is not the current user's name
+      if (existing && name != currentUser!.name) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미 사용 중인 닉네임입니다', style: TextStyle(fontSize: 14)),
+          ),
+        );
+        return;
+      }
+    }
+
+    // Prepare updated user
+    final updatedUser = MyUser(
+      userId: currentUser!.userId,
+      email: currentUser!.email,
+      name: isUpdatingName ? newNickname : currentUser!.name,
+      url: imgUrl.isEmpty ? currentUser!.url : imgUrl,
+      isSub: currentUser!.isSub,
+      defaultAddressId: currentUser!.defaultAddressId,
+      blocked: currentUser!.blocked,
+      payerId: currentUser!.payerId,
+      isOnline: currentUser!.isOnline,
+      lastSeen: currentUser!.lastSeen,
+      chatRooms: currentUser!.chatRooms,
+      friends: currentUser!.friends,
+      friendRequestsSent: currentUser!.friendRequestsSent,
+      friendRequestsReceived: currentUser!.friendRequestsReceived,
+      phoneNumber:
+          isUpdatingPhone ? phoneController.text : currentUser!.phoneNumber,
+    );
+    try {
+      if (isUpdatingPassword) {
+        final reauth = await _reauthenticateUser(context);
+        if (!reauth) return;
+      }
+      await fireBaseRepo.updateUser(
+        updatedUser,
+        isUpdatingPassword ? passwordController.text : "",
+      );
+      if (!mounted) return;
+      setState(() {
+        currentUser = updatedUser;
+      });
+      // Clear only updated fields
+      if (isUpdatingPassword) passwordController.clear();
+      if (isUpdatingPhone) phoneController.clear();
+
+      String successMessage = "";
+      List<String> updated = [];
+      if (isUpdatingName) updated.add("닉네임");
+      if (isUpdatingPassword) updated.add("비밀번호");
+      if (isUpdatingPhone) updated.add("전화번호");
+      if (updated.isNotEmpty) {
+        successMessage = updated.join(", ") + "가 성공적으로 업데이트되었습니다";
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(successMessage, style: TextStyle(fontSize: 14))),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "업데이트 중 오류가 발생했습니다: " + e.toString(),
+            style: TextStyle(fontSize: 14),
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -202,68 +294,14 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // userId combo
-              // Text(
-              //   '아이디', // Translated to Korean
-              //   style: TextStyles.abeezee16px400wPblack.copyWith(
-              //     fontSize: 16,
-              //   ),
-              // ),
-              // SizedBox(height: 5),
-              // Container(
-              //   width: double.infinity,
-              //   padding: EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              //   decoration: BoxDecoration(
-              //     border: Border(
-              //       bottom: BorderSide(
-              //         color: ColorsManager.primary100,
-              //         width: 1,
-              //       ),
-              //     ),
-              //   ),
-              //   child: Text(
-              //     (currentUser?.tag != null && currentUser!.tag!.isNotEmpty)
-              //         ? currentUser!.tag!
-              //         : '지정되지 않음',
-              //     style: TextStyles.abeezee16px400wPblack.copyWith(
-              //       color: Colors.grey[700],
-              //       fontSize: 16,
-              //     ),
-              //   ),
-              // ),
-              // SizedBox(height: 20),
-
-              // 닉네임 combo
               Text(
-                '닉네임',
-                style: TextStyles.abeezee16px400wPblack.copyWith(fontSize: 16),
-              ),
-              SizedBox(height: 5),
-              UnderlineTextField(
-                controller: nameController,
-                hintText:
-                    (currentUser?.name.isNotEmpty ?? false)
-                        ? currentUser!.name
-                        : '지정되지 않음',
-                obscureText: false,
-                keyboardType: TextInputType.name,
-                validator: (val) {
-                  if (val!.isEmpty) return null;
-                  if (val.length > 30) return '이름이 너무 깁니다';
-                  return null;
-                },
-              ),
-              SizedBox(height: 20),
-
-              // User bio combo
-              Text(
-                '소개', // Translated to Korean
+                '아이디', // Translated to Korean
                 style: TextStyles.abeezee16px400wPblack.copyWith(fontSize: 16),
               ),
               SizedBox(height: 5),
@@ -314,144 +352,12 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
               SizedBox(height: 5),
               Builder(
                 builder: (context) {
-                  // Use a local stateful widget to persist the obscure/icon state
                   return _PasswordFieldWithVisibility(
                     controller: passwordController,
                   );
                 },
               ),
               SizedBox(height: 20),
-
-              // Submit button row as a combo
-              Row(
-                children: [
-                  const Spacer(),
-                  BlackTextButton(
-                    txt: '완료',
-                    func: () async {
-                      if (!_formKey.currentState!.validate()) return;
-                      if (currentUser == null) return;
-                      // Check which fields are being updated
-                      final isUpdatingName =
-                          nameController.text.isNotEmpty &&
-                          nameController.text != currentUser!.name;
-                      final isUpdatingPassword =
-                          passwordController.text.isNotEmpty;
-                      final isUpdatingPhone =
-                          phoneController.text.isNotEmpty &&
-                          phoneController.text !=
-                              (currentUser!.phoneNumber ?? '');
-
-                      if (!isUpdatingName &&
-                          !isUpdatingPassword &&
-                          !isUpdatingPhone) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "변경된 내용이 없습니다",
-                              style: TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-
-                      // Check for unique nickname if updating name
-                      if (isUpdatingName) {
-                        final name = nameController.text.trim();
-                        final existing = await fireBaseRepo.checkNameExists(
-                          name,
-                        );
-                        // Only block if the name exists and is not the current user's name
-                        if (existing && name != currentUser!.name) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '이미 사용 중인 닉네임입니다',
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-                      }
-
-                      // Prepare updated user
-                      final updatedUser = MyUser(
-                        userId: currentUser!.userId,
-                        email: currentUser!.email,
-                        name:
-                            isUpdatingName
-                                ? nameController.text
-                                : currentUser!.name,
-                        url: imgUrl.isEmpty ? currentUser!.url : imgUrl,
-                        isSub: currentUser!.isSub,
-                        defaultAddressId: currentUser!.defaultAddressId,
-                        blocked: currentUser!.blocked,
-                        payerId: currentUser!.payerId,
-                        isOnline: currentUser!.isOnline,
-                        lastSeen: currentUser!.lastSeen,
-                        chatRooms: currentUser!.chatRooms,
-                        friends: currentUser!.friends,
-                        friendRequestsSent: currentUser!.friendRequestsSent,
-                        friendRequestsReceived:
-                            currentUser!.friendRequestsReceived,
-
-                        phoneNumber:
-                            isUpdatingPhone
-                                ? phoneController.text
-                                : currentUser!.phoneNumber,
-                      );
-                      try {
-                        if (isUpdatingPassword) {
-                          final reauth = await _reauthenticateUser(context);
-                          if (!reauth) return;
-                        }
-                        await fireBaseRepo.updateUser(
-                          updatedUser,
-                          isUpdatingPassword ? passwordController.text : "",
-                        );
-                        if (!mounted) return;
-                        setState(() {
-                          currentUser = updatedUser;
-                        });
-                        // Clear only updated fields
-                        if (isUpdatingName) nameController.clear();
-                        if (isUpdatingPassword) passwordController.clear();
-                        if (isUpdatingPhone) phoneController.clear();
-
-                        String successMessage = "";
-                        List<String> updated = [];
-                        if (isUpdatingName) updated.add("닉네임");
-                        if (isUpdatingPassword) updated.add("비밀번호");
-                        if (isUpdatingPhone) updated.add("전화번호");
-                        if (updated.isNotEmpty) {
-                          successMessage =
-                              updated.join(", ") + "가 성공적으로 업데이트되었습니다";
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              successMessage,
-                              style: TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        );
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "업데이트 중 오류가 발생했습니다: " + e.toString(),
-                              style: TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    style: TextStyles.abeezee14px400wW.copyWith(fontSize: 14),
-                  ),
-                ],
-              ),
               if (error.isNotEmpty)
                 Padding(
                   padding: EdgeInsets.only(top: 8),
@@ -468,7 +374,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
   }
 }
 
-// Add this widget at the bottom of the file (or above the class if you prefer)
+// Add this widget at the bottom of the file
 class _PasswordFieldWithVisibility extends StatefulWidget {
   final TextEditingController controller;
   const _PasswordFieldWithVisibility({Key? key, required this.controller})

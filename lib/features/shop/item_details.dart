@@ -57,6 +57,14 @@ class _ItemDetailsState extends State<ItemDetails> {
     if (currentUser != null) {
       liked = isFavoritedByUser(p: widget.product, userId: currentUser.uid);
     }
+    final defaultIndex = widget.product.pricePoints.indexWhere(
+      (pricePoint) => pricePoint.quantity == 1,
+    );
+    if (defaultIndex != -1) {
+      _selectedOption = defaultIndex.toString();
+    } else if (widget.product.pricePoints.isNotEmpty) {
+      _selectedOption = '0';
+    }
   }
 
   final PageController _pageController = PageController();
@@ -940,7 +948,7 @@ class ShiningPremiumBanner extends StatelessWidget {
                   ),
                   verticalSpace(50),
                   Text(
-                    '월회비 10,000원\n모든 제품 20% 할인',
+                    '월회비 8,000원\n모든 제품 20% 할인',
                     textAlign: TextAlign.center,
                     style: TextStyles.abeezee18px400wPblack.copyWith(
                       color: Colors.white,

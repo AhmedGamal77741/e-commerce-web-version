@@ -1,6 +1,7 @@
 import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/widgets/subscription_screen.dart';
+import 'package:ecommerece_app/core/widgets/no_account_screen.dart';
 import 'package:ecommerece_app/features/cart/order_complete.dart';
 import 'package:ecommerece_app/features/cart/place_order.dart';
 import 'package:ecommerece_app/features/cart/buy_now.dart';
@@ -76,6 +77,15 @@ class AppRouter {
             userId: userId,
             paymentId: paymentId,
             message: message,
+            source: state.uri.queryParameters['source'] ?? 'shop',
+          );
+        },
+      ),
+      GoRoute(
+        name: Routes.noBankAccountScreen,
+        path: Routes.noBankAccountScreen,
+        builder: (context, state) {
+          return NoBankAccountScreen(
             source: state.uri.queryParameters['source'] ?? 'shop',
           );
         },

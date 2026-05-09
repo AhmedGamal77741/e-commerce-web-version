@@ -94,6 +94,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
           }, SetOptions(merge: true));
 
       if (mounted) {
+        // Return true so the caller knows setup is complete
         Navigator.of(context).pop(true);
       }
     } catch (e) {
@@ -119,7 +120,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
           onPressed: () => Navigator.of(context).pop(false),
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
         ),
-        title: const Text(
+        title: Text(
           '현금영수증 · 세금계산서',
           style: TextStyle(
             fontFamily: 'NotoSans',
@@ -130,7 +131,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        padding: EdgeInsets.fromLTRB(20, 16, 20, 32),
         child: Form(
           key: _formKey,
           child: Column(
@@ -139,7 +140,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
               // ── Info text ───────────────────────────────────────────────
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding: EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(10),
@@ -155,7 +156,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
                   textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
 
               // ── Option selector ─────────────────────────────────────────
               Row(
@@ -165,7 +166,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
                   _buildRadioOption(value: 2, label: '세금 계산서'),
                 ],
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
 
               // ── Fields ──────────────────────────────────────────────────
               if (selectedOption == 1)
@@ -173,46 +174,76 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
               else
                 ..._buildTaxInvoiceFields(),
 
-              const SizedBox(height: 32),
+              SizedBox(height: 32),
             ],
           ),
         ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: TextButton(
-              onPressed: _isSaving ? null : _save,
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.black,
-                disabledBackgroundColor: Colors.grey[400],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Save button ───────────────────────────────────────────
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: TextButton(
+                  onPressed: _isSaving ? null : _save,
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    disabledBackgroundColor: Colors.grey[400],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child:
+                      _isSaving
+                          ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                          : Text(
+                            '저장하고 계속하기',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontFamily: 'NotoSans',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                 ),
               ),
-              child:
-                  _isSaving
-                      ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2.5,
-                        ),
-                      )
-                      : const Text(
-                        '저장하고 계속하기',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontFamily: 'NotoSans',
-                          fontWeight: FontWeight.w600,
-                        ),
+
+              // ── Skip button — only for 'shop' source ─────────────────
+              if (widget.source == 'shop') ...[
+                SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop('skip'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.black),
+                    child: Text(
+                      '나중에 등록하기',
+                      style: TextStyle(
+                        color: Colors.black54,
+                        fontSize: 15,
+                        fontFamily: 'NotoSans',
+                        fontWeight: FontWeight.w400,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Colors.black54,
                       ),
-            ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -223,16 +254,19 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
   Widget _buildRadioOption({required int value, required String label}) {
     return Row(
       children: [
-        Radio<int>(
-          value: value,
-          groupValue: selectedOption,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-          onChanged: (v) => setState(() => selectedOption = v!),
+        Transform.scale(
+          scale: 20 / 15,
+          child: Radio<int>(
+            value: value,
+            groupValue: selectedOption,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+            onChanged: (v) => setState(() => selectedOption = v!),
+          ),
         ),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontFamily: 'NotoSans',
             fontWeight: FontWeight.w700,
@@ -254,7 +288,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
           (val) => (val == null || val.trim().isEmpty) ? '이름을 입력해주세요' : null,
       onChanged: (_) => null,
     ),
-    const SizedBox(height: 16),
+    SizedBox(height: 16),
     UnderlineTextField(
       controller: emailController,
       hintText: '이메일',
@@ -269,7 +303,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
       },
       onChanged: (_) => null,
     ),
-    const SizedBox(height: 16),
+    SizedBox(height: 16),
     UnderlineTextField(
       controller: phoneController,
       hintText: '전화번호',
@@ -307,7 +341,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
       ),
       icon: const Icon(Icons.keyboard_arrow_down),
     ),
-    const SizedBox(height: 16),
+    SizedBox(height: 16),
     UnderlineTextField(
       obscureText: false,
       controller: invoiceeCorpNumController,
@@ -326,7 +360,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
       },
       onChanged: (_) => null,
     ),
-    const SizedBox(height: 16),
+    SizedBox(height: 16),
     UnderlineTextField(
       obscureText: false,
       controller: invoiceeCorpNameController,
@@ -339,7 +373,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
       },
       onChanged: (_) => null,
     ),
-    const SizedBox(height: 16),
+    SizedBox(height: 16),
     UnderlineTextField(
       obscureText: false,
       controller: invoiceeCEONameController,
@@ -352,7 +386,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
       },
       onChanged: (_) => null,
     ),
-    const SizedBox(height: 16),
+    SizedBox(height: 16),
     UnderlineTextField(
       controller: emailController,
       hintText: '이메일',
@@ -367,7 +401,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
       },
       onChanged: (_) => null,
     ),
-    const SizedBox(height: 16),
+    SizedBox(height: 16),
     UnderlineTextField(
       controller: phoneController,
       hintText: '전화번호',

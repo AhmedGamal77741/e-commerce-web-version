@@ -9,6 +9,7 @@ import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/cart/models/address.dart';
 import 'package:ecommerece_app/features/cart/services/cart_service.dart';
 import 'package:ecommerece_app/features/cart/slide_button.dart';
+import 'package:ecommerece_app/features/cart/sub_screens/add_address_screen.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -396,7 +397,15 @@ class _PlaceOrderState extends State<PlaceOrder> {
       return;
     }
     if (!_validateReceiptTypeFields()) return;
-
+    if (address.id.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('배송지를 먼저 등록해주세요'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     if (bankAccounts.isEmpty || selectedBankIndex < 0) {
       _showBankAccountBottomSheet(uid);
       return;
@@ -1145,6 +1154,20 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                 return false;
                               }
                               if (!_validateReceiptTypeFields()) return false;
+                              // ── Gate: address required before payment ────────────────────────
+                              if (address.id.isEmpty) {
+                                final result = await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => AddAddressScreen(),
+                                  ),
+                                );
+                                if (result != true) {
+                                  return false; // user didn't add one, block payment
+                                }
+                                // Address was added — re-fetch it into state so the UI reflects it
+                                await _ensureCachedAddressAndInstructions(uid);
+                                return false; // return false here so the slider resets; user slides again
+                              }
                               if (bankAccounts.isEmpty ||
                                   selectedBankIndex < 0) {
                                 _showBankAccountBottomSheet(uid);
