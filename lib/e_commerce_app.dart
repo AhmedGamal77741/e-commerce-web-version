@@ -34,6 +34,9 @@ class EcommerceApp extends StatelessWidget {
                       (states) => Colors.black,
                     ),
                   ),
+                  progressIndicatorTheme: const ProgressIndicatorThemeData(
+                    color: Colors.black,
+                  ),
                 ),
                 debugShowCheckedModeBanner: false,
                 routerConfig: AppRouter.router,

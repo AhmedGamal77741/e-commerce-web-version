@@ -75,7 +75,8 @@ class _FollowingUsersListState extends State<FollowingUsersList> {
             if (!snapshot.hasData) {
               return const SizedBox(
                 width: 70,
-                child: Center(child: CircularProgressIndicator()),
+                /*                 child: Center(child: CircularProgressIndicator()),
+ */
               );
             }
 
@@ -85,7 +86,14 @@ class _FollowingUsersListState extends State<FollowingUsersList> {
             final isSelected = widget.selectedUserId == user.userId;
 
             return GestureDetector(
-              onTap: () => widget.onUserTap?.call(user.userId),
+              onTap: () {
+                widget.onUserTap?.call(user.userId);
+                _pageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                );
+              },
               child: AnimatedScale(
                 scale: isSelected ? 1.0 : 0.8,
                 duration: const Duration(milliseconds: 200),

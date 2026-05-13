@@ -44,6 +44,7 @@ class _CommentsState extends State<Comments> {
     super.dispose();
   }
 
+  @override
   void initState() {
     super.initState();
     Provider.of<PostsProvider>(context, listen: false).startListening();
@@ -57,7 +58,6 @@ class _CommentsState extends State<Comments> {
   }
 
   Future<void> _getPostAuthorId() async {
-    // Get the post's authorId from Firestore
     final doc =
         await FirebaseFirestore.instance
             .collection('posts')
@@ -70,16 +70,11 @@ class _CommentsState extends State<Comments> {
     }
   }
 
-  // Async function that uses await
   Future<void> _loadData() async {
     try {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
       print(e);
       throw e;
     }
@@ -104,46 +99,50 @@ class _CommentsState extends State<Comments> {
       listen: false,
     ).addComment(widget.postId, text, imageUrl: url);
     _commentController.clear();
-    setState(() {
-      _pickedImage = null;
-    });
+    setState(() => _pickedImage = null);
   }
 
   Future<void> _submitComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
+    setState(() => _isSubmitting = true);
     try {
       await Provider.of<PostsProvider>(
         context,
         listen: false,
       ).addComment(widget.postId, text);
-
       _commentController.clear();
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('댓글 추가에 실패했습니다: $e')));
     } finally {
-      setState(() {
-        _isSubmitting = false;
-      });
+      setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final postsProvider = Provider.of<PostsProvider>(context, listen: false);
-    // Load comments if not already loaded
     if (postsProvider.getComments(widget.postId).isEmpty &&
         !postsProvider.isLoadingComments(widget.postId)) {
-      // Start listening to comments for this post
       postsProvider.listenToComments(widget.postId);
     }
+
+    // ── THE FIX ──────────────────────────────────────────────────────────────
+    // PostItem (fromComments: true) applies its own internal padding:
+    //   left: 10  +  right: 10
+    // NaturalAspectPageView sits inside that padded area, so the true
+    // available image width = screen width minus those two values.
+    //
+    // We read from MediaQuery here (not LayoutBuilder) because this widget
+    // lives inside a ListView which gives LayoutBuilder an infinite maxWidth,
+    // making ratio calculations completely wrong.
+    final double imageWidth = MediaQuery.of(context).size.width - 10 - 10;
+    debugPrint(
+      '🖼️ imageWidth=$imageWidth  screenWidth=${MediaQuery.of(context).size.width}  10w=${10}',
+    );
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -151,28 +150,14 @@ class _CommentsState extends State<Comments> {
             Expanded(
               child: ListView(
                 children: [
-                  Padding(
-                    padding: EdgeInsets.only(right: 10, bottom: 10),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Selector<PostsProvider, List<Comment>>(
-                            selector:
-                                (_, provider) =>
-                                    provider.getComments(widget.postId),
-                            builder: (context, comments, child) {
-                              // Only pass commentCount, do not change any styling/layout
-                              return PostItem(
-                                postId: widget.postId,
-                                fromComments: true,
-                                showMoreButton: false,
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
+                  // imageWidth tells NaturalAspectPageView the exact pixel
+                  // width it has available, so 16:9 images render as 16:9
+                  // instead of being stretched portrait.
+                  PostItem(
+                    postId: widget.postId,
+                    fromComments: true,
+                    showMoreButton: false,
+                    imageWidth: imageWidth,
                   ),
 
                   Selector<PostsProvider, List<Comment>>(
@@ -199,6 +184,7 @@ class _CommentsState extends State<Comments> {
                           ),
                         );
                       }
+
                       if (_pickedImage != null) {
                         return Padding(
                           padding: const EdgeInsets.all(12),
@@ -233,9 +219,10 @@ class _CommentsState extends State<Comments> {
                           ),
                         );
                       }
+
                       return ListView.builder(
                         shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
+                        physics: const NeverScrollableScrollPhysics(),
                         itemCount: comments.length,
                         itemBuilder: (context, index) {
                           final comment = comments[index];
@@ -269,62 +256,7 @@ class _CommentsState extends State<Comments> {
                     await _submitComment();
                   }
                 },
-              ) /* 
-            Container(
-              height: 60,
-              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-              child: Row(
-                children: [
-                  // Comment icon
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: ShapeDecoration(
-                      image: DecorationImage(
-                        image: NetworkImage(currentUser!.photoURL.toString()),
-                        fit: BoxFit.cover,
-                      ),
-                      shape: OvalBorder(),
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  // Comment input field
-                  Expanded(
-                    flex: 4,
-                    child: TextFormField(
-                      controller: _commentController,
-                      decoration: InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        labelText: "댓글 추가",
-                        labelStyle: TextStyles.abeezee16px400wP600,
-                        border: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: ColorsManager.primary600,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: ColorsManager.primary600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(),
-                    icon: Icon(Icons.send),
-                    color: ColorsManager.primary600,
-                    iconSize: 25,
-                    onPressed: _isSubmitting ? null : _submitComment,
-                  ),
-                ],
               ),
-            ), */,
           ],
         ),
       ),

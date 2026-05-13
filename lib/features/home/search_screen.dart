@@ -1,14 +1,21 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/core/helpers/basetime.dart';
+import 'package:ecommerece_app/core/helpers/spacing.dart';
+import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
+import 'package:ecommerece_app/features/cart/services/cart_service.dart';
+import 'package:ecommerece_app/features/cart/services/favorites_service.dart';
 import 'package:ecommerece_app/features/home/data/follow_service.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_item.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
+import 'package:ecommerece_app/features/shop/item_details.dart';
+import 'package:ecommerece_app/features/shop/shop_search.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class HomeSearch extends StatefulWidget {
@@ -22,7 +29,12 @@ class HomeSearch extends StatefulWidget {
 class _HomeSearchState extends State<HomeSearch> {
   final TextEditingController _searchController = TextEditingController();
   String searchQuery = '';
-
+  int _selectedIndex = 0;
+  final List<Map<String, dynamic>> _userTabs = [
+    {'label': '프로필'},
+    {'label': '게시글'},
+    {'label': '쇼핑'},
+  ];
   @override
   void initState() {
     super.initState();
@@ -39,9 +51,111 @@ class _HomeSearchState extends State<HomeSearch> {
     super.dispose();
   }
 
+  Widget _buildPill(int index) {
+    final bool isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.grey[200],
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          _userTabs[index]['label'],
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNormalPillRow() {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(5, 0, 5, 5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        key: const ValueKey('pills'),
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (int i = 0; i < _userTabs.length; i++) ...[
+                  _buildPill(i),
+                  if (i < _userTabs.length - 1) SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
+    return SafeArea(
+      child: Scaffold(
+        body: Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    borderRadius: BorderRadius.circular(30),
+                    child: Icon(Icons.arrow_back, size: 36),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 42,
+                      alignment:
+                          Alignment.center, // Vertically centers the text
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        textAlignVertical: TextAlignVertical.center,
+                        decoration: InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(horizontal: 20),
+                          border:
+                              InputBorder.none, // Removes the default underline
+                          isDense:
+                              true, // Reduces vertical height to fit the container
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _buildNormalPillRow(),
+            Expanded(
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: [
+                  FollowingSearchTab(searchQuery: searchQuery),
+                  _HomeFeedSearchTab(
+                    searchQuery: searchQuery,
+                    useGuestPostItem: widget.useGuestPostItem,
+                  ),
+                  ShopSearchScreen(searchQuery: searchQuery),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    /* DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
@@ -115,7 +229,7 @@ class _HomeSearchState extends State<HomeSearch> {
           ],
         ),
       ),
-    );
+    ); */
   }
 }
 
@@ -253,7 +367,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
       builder: (context, authSnapshot) {
         if (authSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            child: CircularProgressIndicator(color: Colors.black),
+            /* child: CircularProgressIndicator(color: Colors.black), */
           );
         }
 
@@ -291,7 +405,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                 builder: (context, userSnapshot) {
                   if (userSnapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
-                      child: CircularProgressIndicator(color: Colors.black),
+                      /* child: CircularProgressIndicator(color: Colors.black), */
                     );
                   }
 
@@ -330,8 +444,10 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                         }
                         if (postsSnapshot.connectionState ==
                             ConnectionState.waiting) {
-                          return const CircularProgressIndicator(
-                            color: Colors.black,
+                          return Center(
+                            /* child: const CircularProgressIndicator(
+                              color: Colors.black,
+                            ), */
                           );
                         }
 
@@ -350,9 +466,9 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                           builder: (context, authorsSnapshot) {
                             if (!authorsSnapshot.hasData) {
                               return const Center(
-                                child: CircularProgressIndicator(
+                                /*  child: CircularProgressIndicator(
                                   color: Colors.black,
-                                ),
+                                ), */
                               );
                             }
 
@@ -449,8 +565,10 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
 
                           if (postsSnapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return const CircularProgressIndicator(
-                              color: Colors.black,
+                            return const Center(
+                              /* child: CircularProgressIndicator(
+                                color: Colors.black,
+                              ), */
                             );
                           }
 
@@ -473,9 +591,9 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                             builder: (context, authorsSnapshot) {
                               if (!authorsSnapshot.hasData) {
                                 return const Center(
-                                  child: CircularProgressIndicator(
+                                  /* child: CircularProgressIndicator(
                                     color: Colors.black,
-                                  ),
+                                  ), */
                                 );
                               }
 
@@ -573,7 +691,7 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(/* child: CircularProgressIndicator() */);
         }
         final docs = snapshot.data?.docs ?? [];
 
@@ -793,6 +911,103 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
                     ),
                   ],
                 ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class ShopSearchScreen extends StatefulWidget {
+  final String? searchQuery;
+  const ShopSearchScreen({super.key, this.searchQuery});
+
+  @override
+  State<ShopSearchScreen> createState() => _ShopSearchScreenState();
+}
+
+class _ShopSearchScreenState extends State<ShopSearchScreen> {
+  List<Product> _allProducts = [];
+  List<Product> _filteredProducts = [];
+  bool _isSub = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProducts();
+    _checkSubscriptionStatus();
+  }
+
+  Future<void> _checkSubscriptionStatus() async {
+    bool isSub = await isUserSubscribed();
+    setState(() {
+      _isSub = isSub;
+    });
+  }
+
+  // Fetch all products from Firestore
+  void _fetchProducts() async {
+    final querySnapshot =
+        await FirebaseFirestore.instance.collection('products').get();
+    setState(() {
+      _allProducts =
+          querySnapshot.docs.map((doc) {
+            return Product.fromMap(doc.data());
+          }).toList();
+
+      _filteredProducts =
+          _allProducts; // Initialize filtered list with all products
+    });
+  }
+
+  final formatCurrency = NumberFormat('#,###');
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: _filteredProducts.length,
+      itemBuilder: (context, index) {
+        final product = _filteredProducts[index];
+        if (widget.searchQuery != null &&
+            !product.productName.toString().toLowerCase().contains(
+              widget.searchQuery!.toLowerCase(),
+            )) {
+          return const SizedBox.shrink(); // Skip non-matching products
+        }
+        return ListTile(
+          title: Text(product.productName),
+          subtitle:
+              _isSub
+                  ? Text('${formatCurrency.format(product.price)} 원')
+                  : Text('${formatCurrency.format(product.price / 0.8)} 원'),
+          leading: Image.network(
+            product.imgUrl!,
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+          ),
+          onTap: () async {
+            bool isSub = await isUserSubscribed();
+            bool liked = isFavoritedByUser(
+              p: product,
+              userId: FirebaseAuth.instance.currentUser?.uid ?? '',
+            );
+
+            String arrivalTime = await getArrivalDay(
+              product.meridiem,
+              product.baselineTime,
+            );
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder:
+                    (context) => ItemDetails(
+                      product: product,
+                      arrivalDay: arrivalTime,
+                      isSub: isSub,
+                    ),
               ),
             );
           },

@@ -7,6 +7,7 @@ import 'package:ecommerece_app/features/cart/cart.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/address_list_screen.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -131,7 +132,6 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
     final bool isSub = userData != null && (userData['isSub'] ?? false);
 
     // Get default address name
-    String addressName = '배송지 선택';
     if (userData != null &&
         userData['defaultAddressId'] != null &&
         userData['defaultAddressId'] != '') {
@@ -141,10 +141,7 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
           .doc(addressId);
       addressSnapshot.get().then((addressDoc) {
         if (addressDoc.exists) {
-          final addressData = addressDoc.data() as Map<String, dynamic>;
-          setState(() {
-            addressName = addressData['address'] ?? 'Unknown';
-          });
+          setState(() {});
         }
       });
     }
@@ -173,7 +170,8 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
               ),
             ),
             appBar: AppBar(
-              toolbarHeight: 40,
+              toolbarHeight: 0,
+              elevation: 0,
               title: Text(''),
               centerTitle: false,
               bottom: PreferredSize(
@@ -184,7 +182,7 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                     Row(
                       children: [
                         Padding(
-                          padding: EdgeInsets.only(left: 8, bottom: 4, top: 4),
+                          padding: EdgeInsets.only(left: 8),
                           child: FutureBuilder<DocumentSnapshot<Object?>>(
                             future:
                                 (userData != null &&
@@ -212,7 +210,8 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                                     horizontal: 2,
                                     vertical: 0,
                                   ),
-                                  minimumSize: Size(0, 32),
+                                  minimumSize: Size(0, 0),
+                                  maximumSize: Size(200, 80),
                                   tapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
                                 ),
@@ -248,24 +247,37 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                           ),
                         ),
                         Spacer(),
-                        IconButton(
+                        InkWell(
+                          onTap: () {
+                            context.go(Routes.shopSearchScreen);
+                          },
+                          child: Image.asset(
+                            'assets/010no_cropped.png',
+                            color: Colors.grey,
+                            width: 22,
+                            height: 28,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        /*                         IconButton(
                           onPressed: () {
                             context.go(Routes.shopSearchScreen);
                           },
+
                           icon: ImageIcon(
                             color: Colors.grey,
-                            AssetImage('assets/010no.png'),
-                            size: 40,
+                            AssetImage('assets/010no_cropped.png'),
+                            size: 22,
                           ),
-                        ),
+                        ), */
                       ],
                     ),
+
                     TabBar(
-                      tabAlignment:
-                          categories.length > 4
-                              ? TabAlignment.start
-                              : TabAlignment.center,
+                      tabAlignment: TabAlignment.start,
+                      dragStartBehavior: DragStartBehavior.start,
                       padding: EdgeInsets.zero,
+                      labelPadding: EdgeInsets.symmetric(horizontal: 16),
                       labelStyle: TextStyle(
                         fontSize: 16,
                         decoration: TextDecoration.none,
@@ -276,12 +288,16 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                         color: ColorsManager.primaryblack,
                       ),
                       unselectedLabelColor: ColorsManager.primary600,
-                      indicatorSize: TabBarIndicatorSize.tab,
+                      indicatorSize: TabBarIndicatorSize.label,
                       indicatorColor: ColorsManager.primaryblack,
-                      isScrollable: categories.length > 4,
+                      isScrollable: true,
+
                       tabs:
                           categories
-                              .map((category) => Tab(text: category['name']))
+                              .map(
+                                (category) =>
+                                    Tab(text: category['name'], height: 45),
+                              )
                               .toList(),
                     ),
                   ],
@@ -344,6 +360,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Get user address from ancestor widget if passed, or fetch from Firestore if needed
     final shopState = context.findAncestorStateOfType<ShopState>();
     if (shopState != null && widget.userData != null) {
       final userData = widget.userData!;
@@ -367,33 +384,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
     }
   }
 
-  bool _isSameRegion(
-    Map<String, dynamic>? userAddress,
-    Map<String, dynamic>? productAddress,
-  ) {
-    if (userAddress == null || productAddress == null) return false;
-    final userRegion1 =
-        userAddress['road_address']?['region_1depth_name'] ??
-        userAddress['address']?['region_1depth_name'];
-    final userRegion2 =
-        userAddress['road_address']?['region_2depth_name'] ??
-        userAddress['address']?['region_2depth_name'];
-    final productRegion1 =
-        productAddress['road_address']?['region_1depth_name'] ??
-        productAddress['address']?['region_1depth_name'];
-    final productRegion2 =
-        productAddress['road_address']?['region_2depth_name'] ??
-        productAddress['address']?['region_2depth_name'];
-    return (userRegion1 != null &&
-            productRegion1 != null &&
-            userRegion1 == productRegion1) ||
-        (userRegion2 != null &&
-            productRegion2 != null &&
-            userRegion2 == productRegion2);
-  }
-
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    // Display products in a grid
     return Scaffold(
       body: Padding(
         padding: EdgeInsets.symmetric(horizontal: 12),
@@ -409,11 +403,15 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
             if (snapshot.hasError) {
               return Center(child: Text('오류: ${snapshot.error}'));
             }
+            /*             if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } */
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
               return const Center(child: Text('아직 제품이 없습니다'));
             }
             final products = snapshot.data!.docs;
-
+            /*             List<Product> sameRegion = [];
+ */
             List<Product> otherRegion = [];
             List<Product> soldOut = [];
 
@@ -423,13 +421,26 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
               );
               if (product.stock == 0) {
                 soldOut.add(product);
-              } else {
+              } /* else if (_isSameRegion(userAddressMap, product.address)) {
+                sameRegion.add(product);
+              } */ else {
                 otherRegion.add(product);
               }
             }
 
-            final sortedProducts = [...otherRegion, ...soldOut];
-
+            final sortedProducts = [
+              /* ...sameRegion, */ ...otherRegion,
+              ...soldOut,
+            ];
+            /*             // Sort: available products first, then sold out
+            final sortedProducts = List.from(products)..sort((a, b) {
+              final stockA = (a.data() as Map<String, dynamic>)['stock'] ?? 0;
+              final stockB = (b.data() as Map<String, dynamic>)['stock'] ?? 0;
+              if ((stockA > 0 && stockB > 0) || (stockA == 0 && stockB == 0))
+                return 0;
+              if (stockA > 0) return -1;
+              return 1;
+            }); */
             return ListView.separated(
               controller: widget.scrollController,
               separatorBuilder: (context, index) {
@@ -446,7 +457,10 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                   onTap: () {
                     GoRouter.of(context).pushNamed(
                       'productDetails',
-                      pathParameters: {'productId': p.product_id.toString()},
+                      pathParameters: {
+                        'productId':
+                            p.product_id.toString(), // <- fills :productId
+                      },
                     );
                   },
                   child: Padding(

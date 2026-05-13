@@ -152,6 +152,14 @@ class _AddressListScreenState extends State<AddressListScreen> {
                                             ),
                                           ),
                                           const SizedBox(height: 8),
+                                          Text(
+                                            address.address,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
                                           Container(
                                             decoration: BoxDecoration(
                                               color:

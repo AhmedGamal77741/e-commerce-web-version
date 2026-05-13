@@ -199,9 +199,9 @@ class _HomeScreenState extends State<HomeScreen>
                   );
                 },
                 child: ImageIcon(
-                  AssetImage('assets/search.png'),
+                  AssetImage('assets/search_icon.png'),
                   color: Colors.black,
-                  size: 35,
+                  size: 30,
                 ),
               ),
               horizontalSpace(5),
@@ -415,7 +415,9 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
         if (authSnapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator(color: Colors.black));
+          return Center(
+            /* child: CircularProgressIndicator(color: Colors.black) */
+          );
         }
 
         final firebaseUser = authSnapshot.data;
@@ -444,7 +446,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
             builder: (context, postsSnapshot) {
               if (postsSnapshot.connectionState == ConnectionState.waiting) {
                 return Center(
-                  child: CircularProgressIndicator(color: Colors.black),
+                  /* child: CircularProgressIndicator(color: Colors.black), */
                 );
               }
               if (postsSnapshot.hasError) {
@@ -466,7 +468,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                 builder: (context, authorsSnapshot) {
                   if (!authorsSnapshot.hasData) {
                     return Center(
-                      child: CircularProgressIndicator(color: Colors.black),
+                      /* child: CircularProgressIndicator(color: Colors.black), */
                     );
                   }
 
@@ -527,7 +529,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
           builder: (context, userSnapshot) {
             if (!userSnapshot.hasData) {
               return Center(
-                child: CircularProgressIndicator(color: Colors.black),
+                /* child: CircularProgressIndicator(color: Colors.black) */
               );
             }
             final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
@@ -549,7 +551,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                   if (postsSnapshot.connectionState ==
                       ConnectionState.waiting) {
                     return Center(
-                      child: CircularProgressIndicator(color: Colors.black),
+                      /* child: CircularProgressIndicator(color: Colors.black) */
                     );
                   }
                   if (postsSnapshot.hasError) {
@@ -574,7 +576,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                     builder: (context, authorsSnapshot) {
                       if (!authorsSnapshot.hasData) {
                         return Center(
-                          child: CircularProgressIndicator(color: Colors.black),
+                          /* child: CircularProgressIndicator(color: Colors.black) */
                         );
                       }
 
@@ -666,7 +668,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                     if (postsSnapshot.connectionState ==
                         ConnectionState.waiting) {
                       return Center(
-                        child: CircularProgressIndicator(color: Colors.black),
+                        /* child: CircularProgressIndicator(color: Colors.black) */
                       );
                     }
                     if (postsSnapshot.hasError) {
@@ -693,9 +695,9 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                       builder: (context, authorsSnapshot) {
                         if (!authorsSnapshot.hasData) {
                           return Center(
-                            child: CircularProgressIndicator(
+                            /*                             child: CircularProgressIndicator(
                               color: Colors.black,
-                            ),
+                            ), */
                           );
                         }
 
