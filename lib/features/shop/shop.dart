@@ -249,16 +249,28 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                         Spacer(),
                         InkWell(
                           onTap: () {
+                            context.go(Routes.reviewScreen);
+                          },
+                          child: Image.asset(
+                            'assets/order_history.png',
+                            color: Colors.black,
+                            width: 28,
+                            height: 28,
+                          ),
+                        ),
+                        horizontalSpace(12),
+                        InkWell(
+                          onTap: () {
                             context.go(Routes.shopSearchScreen);
                           },
                           child: Image.asset(
                             'assets/010no_cropped.png',
-                            color: Colors.grey,
+                            color: Colors.black,
                             width: 22,
                             height: 28,
                           ),
                         ),
-                        SizedBox(width: 12),
+                        horizontalSpace(12),
                         /*                         IconButton(
                           onPressed: () {
                             context.go(Routes.shopSearchScreen);

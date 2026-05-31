@@ -3,7 +3,6 @@ import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/widgets/no_account_screen.dart';
 import 'package:ecommerece_app/core/widgets/receipt_setup_screen.dart';
-import 'package:ecommerece_app/features/cart/cart.dart';
 import 'package:ecommerece_app/features/cart/sub_screens/add_address_screen.dart';
 import 'package:ecommerece_app/features/chat/models/chat_room_model.dart';
 import 'package:ecommerece_app/features/chat/ui/chats_navbar.dart';
@@ -25,6 +24,7 @@ class NavBar extends StatefulWidget {
 
 class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
   final shopKey = GlobalKey<ShopState>();
+  final homeKey = GlobalKey<HomeScreenState>();
   int _selectedIndex = 0;
 
   final ScrollController homeScrollController = ScrollController();
@@ -38,6 +38,7 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
     widgetOptions = [
       _buildMainWidget(
         () => HomeScreen(
+          key: homeKey,
           scrollController: homeScrollController,
           tabController: homeTabController,
         ),
@@ -198,15 +199,13 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
       });
       return;
     }
-    if (_selectedIndex == index && index == 0) {
-      homeTabController.animateTo(0);
-      if (homeScrollController.hasClients) {
-        homeScrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+    if (index == 0) {
+      if (_selectedIndex == 0) {
+        // Already on home — reset inner tab and scroll to top
+        homeKey.currentState?.resetToTop();
       }
+      setState(() => _selectedIndex = 0);
+      return;
     } else if (index == 3) {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
@@ -283,7 +282,7 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
         if (freshData == null ||
             (freshData['defaultAddressId'] == null ||
                 freshData['defaultAddressId'] == '')) {
-          final result = await Navigator.of(context).push(
+          await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => const AddAddressScreen(showSkip: true),
             ),
@@ -307,8 +306,8 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey[400],
-        selectedLabelStyle: const TextStyle(fontSize: 10),
-        unselectedLabelStyle: const TextStyle(fontSize: 10),
+        selectedLabelStyle: TextStyle(fontSize: 10),
+        unselectedLabelStyle: TextStyle(fontSize: 10),
         items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: ImageIcon(
@@ -327,12 +326,10 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
               builder: (context, authSnapshot) {
                 final user = authSnapshot.data;
                 if (user == null) {
-                  return CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.transparent,
-                    backgroundImage: const AssetImage(
-                      'assets/chat_with_seller_grey.png',
-                    ),
+                  return Image.asset(
+                    'assets/chat_with_seller_grey.png',
+                    width: 30,
+                    height: 30,
                   );
                 }
                 return StreamBuilder(
@@ -359,12 +356,10 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: Colors.transparent,
-                          backgroundImage: const AssetImage(
-                            'assets/chat_with_seller_grey.png',
-                          ),
+                        Image.asset(
+                          'assets/chat_with_seller_grey.png',
+                          width: 30,
+                          height: 30,
                         ),
                         if (hasUnread)
                           Positioned(
@@ -387,12 +382,10 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
               builder: (context, authSnapshot) {
                 final user = authSnapshot.data;
                 if (user == null) {
-                  return CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.transparent,
-                    backgroundImage: const AssetImage(
-                      'assets/chat_with_seller.png',
-                    ),
+                  return Image.asset(
+                    'assets/chat_with_seller.png',
+                    width: 30,
+                    height: 30,
                   );
                 }
                 return StreamBuilder(
@@ -419,12 +412,10 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: Colors.transparent,
-                          backgroundImage: const AssetImage(
-                            'assets/chat_with_seller.png',
-                          ),
+                        Image.asset(
+                          'assets/chat_with_seller.png',
+                          width: 30,
+                          height: 30,
                         ),
                         if (hasUnread)
                           Positioned(

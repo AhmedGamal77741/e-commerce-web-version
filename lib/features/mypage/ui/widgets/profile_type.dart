@@ -145,12 +145,7 @@ class _ProfileTypeState extends State<ProfileType> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '닉네임',
-                  style: TextStyles.abeezee16px400wPblack.copyWith(
-                    fontSize: 16,
-                  ),
-                ),
+                Text('닉네임', style: TextStyles.abeezee17px800wPblack),
                 verticalSpace(5),
                 TextField(
                   controller: _nicknameController,

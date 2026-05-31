@@ -60,18 +60,19 @@ class _MyPageState extends State<MyPage> {
                     ),
                     verticalSpace(20),
                   ],
-                  isSub
-                      ? Text('프리미엄 회원', style: TextStyles.abeezee17px800wPblack)
-                      : Text('일반 회원', style: TextStyles.abeezee17px800wPblack),
-                  verticalSpace(20),
-                  UserOptionsContainer(isSub: isSub),
-                  verticalSpace(20),
+
                   ProfileType(
                     key: _profileTypeKey,
                     isPrivate: myuser.isPrivate,
                     userId: userId,
                     currentUser: myuser,
                   ),
+                  verticalSpace(20),
+                  isSub
+                      ? Text('프리미엄 회원', style: TextStyles.abeezee17px800wPblack)
+                      : Text('일반 회원', style: TextStyles.abeezee17px800wPblack),
+                  verticalSpace(20),
+                  UserOptionsContainer(isSub: isSub),
                   verticalSpace(20),
                   Text('개인정보', style: TextStyles.abeezee17px800wPblack),
                   verticalSpace(20),
