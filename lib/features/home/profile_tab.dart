@@ -5,6 +5,7 @@ import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/widgets/safe_network_image.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
+import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_item.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -245,15 +246,23 @@ class _PostsPageState extends State<_PostsPage>
           );
         }
 
+        final bool isGuest = FirebaseAuth.instance.currentUser == null;
         return ListView.builder(
           itemCount: posts.length,
           itemBuilder: (context, index) {
+            final doc = posts[index];
+            final post = doc.data() as Map<String, dynamic>;
+            if (post['postId'] == null) {
+              post['postId'] = doc.id;
+            }
             return Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(
                 children: [
                   if (index != 0) Divider(color: ColorsManager.primary100),
-                  PostItem(postId: posts[index].id, fromComments: false),
+                  isGuest
+                      ? GuestPostItem(post: post)
+                      : PostItem(postId: doc.id, fromComments: false),
                 ],
               ),
             );
