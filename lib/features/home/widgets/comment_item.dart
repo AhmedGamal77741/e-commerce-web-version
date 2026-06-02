@@ -162,19 +162,40 @@ class _CommentItemState extends State<CommentItem> {
                                   authorName:
                                       widget.comment.postData!['userId'],
                                   postTitle: widget.comment.postData!['text'],
-                                  onTap:
-                                      () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder:
-                                              (_) => Comments(
+                                  onTap: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder:
+                                          (context) => Container(
+                                            height:
+                                                MediaQuery.of(
+                                                  context,
+                                                ).size.height *
+                                                0.95,
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFFF2F2F2),
+                                              borderRadius:
+                                                  BorderRadius.vertical(
+                                                    top: Radius.circular(20),
+                                                  ),
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  const BorderRadius.vertical(
+                                                    top: Radius.circular(20),
+                                                  ),
+                                              child: Comments(
                                                 postId:
                                                     widget
                                                         .comment
                                                         .postData!['postId'],
                                               ),
-                                        ),
-                                      ),
+                                            ),
+                                          ),
+                                    );
+                                  },
                                 ),
                               ],
                               if (widget.comment.productData != null) ...[

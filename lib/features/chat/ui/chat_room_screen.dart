@@ -1068,14 +1068,29 @@ class _BubbleContent extends StatelessWidget {
               imageUrl: message.postData!['imgUrl'],
               authorName: message.postData!['authorName'],
               postTitle: message.postData!['text'],
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (_) => Comments(postId: message.postData!['postId']),
-                    ),
-                  ),
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder:
+                      (context) => Container(
+                        height: MediaQuery.of(context).size.height * 0.95,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF2F2F2),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
+                          child: Comments(postId: message.postData!['postId']),
+                        ),
+                      ),
+                );
+              },
             ),
           ],
           if (message.productData != null) ...[
