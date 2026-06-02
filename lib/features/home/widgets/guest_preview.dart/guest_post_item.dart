@@ -7,6 +7,7 @@ import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:ecommerece_app/features/home/profile_tab.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_actions.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart'; // imports NaturalAspectPageView
+import 'package:ecommerece_app/features/home/widgets/share_dialog.dart';
 import 'package:flutter/material.dart';
 
 class GuestPostItem extends StatelessWidget {
@@ -17,9 +18,14 @@ class GuestPostItem extends StatelessWidget {
   /// NaturalAspectPageView always has the correct pixel width even when
   /// it lives inside a Column/SingleChildScrollView (unbounded width).
   final double? imageWidth;
+  final String? currentProfileUserId;
 
-  GuestPostItem({Key? key, required this.post, this.imageWidth})
-    : super(key: key);
+  GuestPostItem({
+    Key? key,
+    required this.post,
+    this.imageWidth,
+    this.currentProfileUserId,
+  }) : super(key: key);
 
   final PageController _pageController = PageController();
 
@@ -58,7 +64,8 @@ class GuestPostItem extends StatelessWidget {
                         children: [
                           InkWell(
                             onTap: () {
-                              if (myuser != null) {
+                              if (myuser != null &&
+                                  currentProfileUserId != myuser.userId) {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -148,6 +155,48 @@ class GuestPostItem extends StatelessWidget {
                               ],
                             ),
                           ),
+                          const Spacer(),
+                          PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'share') {
+                                showShareDialog(
+                                  context,
+                                  'post',
+                                  'https://app.pang2chocolate.com/comment?postId=${post['postId']}',
+                                  post['postId'] ?? '',
+                                  displayName,
+                                  profileUrl,
+                                  post,
+                                );
+                              }
+                            },
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            itemBuilder:
+                                (_) => [
+                                  const PopupMenuItem<String>(
+                                    value: 'share',
+                                    child: Text(
+                                      '공유하기',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 14,
+                                        fontFamily: 'NotoSans',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                            child: const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Icon(
+                                Icons.more_horiz,
+                                color: Colors.black,
+                                size: 22,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       if (post['text'].toString().isNotEmpty)
@@ -214,7 +263,8 @@ class GuestPostItem extends StatelessWidget {
                       // Avatar
                       InkWell(
                         onTap: () {
-                          if (myuser != null) {
+                          if (myuser != null &&
+                              currentProfileUserId != myuser.userId) {
                             Navigator.push(
                               context,
                               MaterialPageRoute(

@@ -7,7 +7,22 @@ import 'package:ecommerece_app/features/chat/services/friends_service.dart';
 import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
 import 'package:ecommerece_app/features/chat/ui/upload_story_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:screenshot/screenshot.dart';
+
+void _copyToClipboard(BuildContext context, String text) {
+  Clipboard.setData(ClipboardData(text: text)).then((_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('링크가 클립보드에 복사되었습니다!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  });
+}
 
 Future<void> _captureProductAndOpenStory(
   BuildContext context,
@@ -393,8 +408,9 @@ void showShareDialog(
       if (type == 'post') {
         mapData.addEntries({'authorName': name}.entries);
       }
-      String searchQuery = '';
+                      String searchQuery = '';
       final TextEditingController searchController = TextEditingController();
+      final isLoggedIn = FirebaseAuth.instance.currentUser != null;
       return StatefulBuilder(
         builder: (context, setState) {
           return Dialog(
@@ -431,105 +447,98 @@ void showShareDialog(
                     child: Row(
                       children: [
                         _buildSquareAction(
-                          icon: Icons.add,
-                          asset: 'assets/add_to_story.png',
-                          label: '내 스토리에\n추가',
-                          onTap: () {
-                            if (type == 'post') {
-                              _capturePostFromCommentsAndOpen(
-                                context,
-                                name,
-                                imgUrl,
-                                mapData,
-                              );
-                            } else if (type == 'product') {
-                              _captureProductAndOpenStory(
-                                context,
-                                name,
-                                imgUrl,
-                                mapData,
-                              );
-                            }
-                          } /* _capturePostAndOpenStory(
-                                context,
-                                screenshotController,
-                              ) */ /* => _handleQuickShare(context) */,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildSquareAction(
                           icon: Icons.link,
                           label: '링크 복사',
                           onTap: () {
+                            final String link;
                             if (type == 'post') {
-                              ShareService.sharePost(id);
-                            } else if (type == 'product') {
-                              ShareService.shareProduct(id, name);
+                              link = 'https://app.pang2chocolate.com/comment?postId=$id';
+                            } else {
+                              link = 'https://app.pang2chocolate.com/product/$id';
                             }
-                          } /* _copyToClipboard(postUrl) */,
+                            _copyToClipboard(context, link);
+                          },
                         ),
                       ],
                     ),
                   ),
 
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: TextField(
-                      controller: searchController,
-                      decoration: InputDecoration(
-                        hintText: '친구 검색',
-                        filled: true,
-                        fillColor: Colors.grey[200],
-                        contentPadding: EdgeInsets.zero,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                  if (isLoggedIn) ...[
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: TextField(
+                        controller: searchController,
+                        decoration: InputDecoration(
+                          hintText: '친구 검색',
+                          filled: true,
+                          fillColor: Colors.grey[200],
+                          contentPadding: EdgeInsets.zero,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onChanged: (value) {
+                          searchQuery = value.trim().toLowerCase();
+                          setState(() {});
+                        },
+                      ),
+                    ),
+
+                    // 3. Scrollable Friends List
+                    Expanded(
+                      child: FutureBuilder(
+                        future: FriendsService().getFriendsList(),
+                        builder: (context, asyncSnapshot) {
+                          if (asyncSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (asyncSnapshot.hasError) {
+                            return Center(child: Text('친구 목록을 불러오는 데 실패했습니다.'));
+                          }
+                          final friends = asyncSnapshot.data ?? [];
+
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            itemCount: friends.length,
+                            itemBuilder: (context, index) {
+                              if (searchQuery.isNotEmpty &&
+                                  !friends[index].name.toLowerCase().contains(
+                                    searchQuery,
+                                  )) {
+                                return const SizedBox.shrink();
+                              }
+                              return _buildFriendItem(
+                                friend: friends[index],
+                                context: context,
+                                postData: mapData,
+                                type: type,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ] else ...[
+                    Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Center(
+                        child: Text(
+                          '로그인하시면 친구들에게 직접 공유할 수 있습니다!',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                            fontFamily: 'NotoSans',
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                      onChanged: (value) {
-                        searchQuery = value.trim().toLowerCase();
-                        setState(() {});
-                      },
                     ),
-                  ),
-
-                  // 3. Scrollable Friends List
-                  Expanded(
-                    child: FutureBuilder(
-                      future: FriendsService().getFriendsList(),
-                      builder: (context, asyncSnapshot) {
-                        if (asyncSnapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        if (asyncSnapshot.hasError) {
-                          return Center(child: Text('친구 목록을 불러오는 데 실패했습니다.'));
-                        }
-                        final friends = asyncSnapshot.data ?? [];
-
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          itemCount: friends.length,
-                          itemBuilder: (context, index) {
-                            if (searchQuery.isNotEmpty &&
-                                !friends[index].name.toLowerCase().contains(
-                                  searchQuery,
-                                )) {
-                              return const SizedBox.shrink();
-                            }
-                            return _buildFriendItem(
-                              friend: friends[index],
-                              context: context,
-                              postData: mapData,
-                              type: type,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),

@@ -261,8 +261,12 @@ class _PostsPageState extends State<_PostsPage>
                 children: [
                   if (index != 0) Divider(color: ColorsManager.primary100),
                   isGuest
-                      ? GuestPostItem(post: post)
-                      : PostItem(postId: doc.id, fromComments: false),
+                      ? GuestPostItem(post: post, currentProfileUserId: widget.userId)
+                      : PostItem(
+                          postId: doc.id,
+                          fromComments: false,
+                          currentProfileUserId: widget.userId,
+                        ),
                 ],
               ),
             );

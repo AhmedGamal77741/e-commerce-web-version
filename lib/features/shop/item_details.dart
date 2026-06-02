@@ -282,7 +282,19 @@ class _ItemDetailsState extends State<ItemDetails> {
                   Row(
                     children: [
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          final url =
+                              'https://app.pang2chocolate.com/product/${widget.product.product_id}';
+                          showShareDialog(
+                            context,
+                            'product',
+                            url,
+                            widget.product.product_id,
+                            widget.product.productName,
+                            widget.product.imgUrl.toString(),
+                            widget.product.toMap(),
+                          );
+                        },
                         icon: const ImageIcon(
                           AssetImage('assets/grey_006m.png'),
                           size: 32,
