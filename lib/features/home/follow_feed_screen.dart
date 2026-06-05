@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/features/home/widgets/following_users_list.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
@@ -8,8 +10,7 @@ import 'package:flutter/material.dart';
 class FollowingTab extends StatefulWidget {
   final User? firebaseUser;
   final String? preselectedUser;
-  const FollowingTab({Key? key, this.firebaseUser, this.preselectedUser})
-    : super(key: key);
+  const FollowingTab({super.key, this.firebaseUser, this.preselectedUser});
 
   @override
   State<FollowingTab> createState() => _FollowingTabState();
@@ -20,8 +21,9 @@ class _FollowingTabState extends State<FollowingTab>
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<String?> _selectedUserId = ValueNotifier(null);
   final ValueNotifier<String?> _selectedCategoryId = ValueNotifier(null);
-  late final Stream<User?> _authStream;
-  late final Stream<DocumentSnapshot>? _userStream;
+  late StreamSubscription<User?> _authSubscription;
+  User? _currentUser;
+  Stream<DocumentSnapshot>? _userStream;
   late PageController _categoryPageController;
   List<String?> _categoryPages = [null]; // null represents "All" category
   bool get wantKeepAlive => true;
@@ -49,18 +51,36 @@ class _FollowingTabState extends State<FollowingTab>
   void initState() {
     super.initState();
     _categoryPageController = PageController();
-    _authStream = FirebaseAuth.instance.authStateChanges();
     _selectedUserId.value = widget.preselectedUser;
     if (widget.preselectedUser != null) {
       _scrollToSelectedUser();
     }
-    if (widget.firebaseUser != null) {
+
+    _currentUser = FirebaseAuth.instance.currentUser;
+    if (_currentUser != null) {
       _userStream =
           FirebaseFirestore.instance
               .collection('users')
-              .doc(widget.firebaseUser!.uid)
+              .doc(_currentUser!.uid)
               .snapshots();
     }
+
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          if (user != null) {
+            _userStream =
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .snapshots();
+          } else {
+            _userStream = null;
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -75,6 +95,7 @@ class _FollowingTabState extends State<FollowingTab>
 
   @override
   void dispose() {
+    _authSubscription.cancel();
     _scrollController.dispose();
     _categoryPageController.dispose();
     _selectedUserId.dispose();
@@ -85,7 +106,7 @@ class _FollowingTabState extends State<FollowingTab>
   void _handleUserSelection(String userId) {
     _selectedUserId.value = (_selectedUserId.value == userId) ? null : userId;
     _selectedCategoryId.value = null;
-    _categoryPages = [null]; // Reset category pages
+    _categoryPages = [null];
 
     if (_categoryPageController.hasClients) {
       _categoryPageController.jumpToPage(0);
@@ -115,14 +136,9 @@ class _FollowingTabState extends State<FollowingTab>
     super.build(context);
     return Padding(
       padding: const EdgeInsets.only(top: 10),
-      child: StreamBuilder<User?>(
-        stream: _authStream,
-        builder: (context, authSnapshot) {
-          final user = authSnapshot.data;
-
-          if (authSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center();
-          }
+      child: Builder(
+        builder: (context) {
+          final user = _currentUser;
 
           if (user == null) {
             return Center(
@@ -717,8 +733,6 @@ class FollowingPostsList extends StatelessWidget {
     String? userId,
     String? categoryId,
   ) {
-    // ... (the rest of this method remains unchanged)
-    // Keeping the full logic as it was (only ScreenUtil was removed above)
     try {
       if (userId != null) {
         Query query = FirebaseFirestore.instance
@@ -738,7 +752,6 @@ class FollowingPostsList extends StatelessWidget {
           .collection('following')
           .snapshots()
           .asyncMap((followingSnapshot) async {
-            // ... (unchanged logic)
             try {
               final followingIds =
                   followingSnapshot.docs.map((doc) => doc.id).toList();
@@ -791,6 +804,7 @@ class FollowingPostsList extends StatelessWidget {
                     if (aTimestamp == null || bTimestamp == null) return 0;
                     return bTimestamp.compareTo(aTimestamp);
                   } catch (e) {
+                    print('Error sorting posts: $e');
                     return 0;
                   }
                 });
@@ -812,7 +826,6 @@ class FollowingPostsList extends StatelessWidget {
   }
 }
 
-// Mock QuerySnapshot (unchanged)
 class _MockQuerySnapshot implements QuerySnapshot {
   final List<QueryDocumentSnapshot> _docs;
 
