@@ -289,9 +289,9 @@ class HomeScreenState extends State<HomeScreen>
             IndexedStack(
               index: _selectedIndex,
               children: [
-                _HomeFeedTab(),
+                const _HomeFeedTab(),
                 FollowingTab(firebaseUser: firebaseUser),
-                MyStory(),
+                const MyStory(),
               ],
             ),
           ],
@@ -512,6 +512,10 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
             }
             final currentUser = MyUser.fromDocument(userData);
 
+            List<String> blockedUsers = List<String>.from(
+              (userData['blocked'] as List<dynamic>?) ?? [],
+            );
+
             if (!currentUser.isSub) {
               return StreamBuilder<QuerySnapshot>(
                 stream:
@@ -551,13 +555,15 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                       final filteredPosts =
                           posts.where((doc) {
                             final data = doc.data() as Map<String, dynamic>;
-                            final authorData =
-                                authorsMap[data['userId'] as String] ?? {};
+                            final postAuthorId = data['userId'] as String;
+                            if (blockedUsers.contains(postAuthorId)) {
+                              return false;
+                            }
+                            final authorData = authorsMap[postAuthorId] ?? {};
                             return (authorData['isPrivate'] ?? false) ==
                                     false ||
-                                data['userId'] != currentUser.userId;
+                                postAuthorId != currentUser.userId;
                           }).toList();
-
                       return ListView.builder(
                         shrinkWrap: true,
                         physics: NeverScrollableScrollPhysics(),
@@ -583,10 +589,6 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                 },
               );
             }
-
-            List<String> blockedUsers = List<String>.from(
-              userSnapshot.data!.get('blocked') ?? [],
-            );
 
             return StreamBuilder<QuerySnapshot>(
               stream:

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
@@ -170,10 +171,24 @@ class _ItemDetailsState extends State<ItemDetails> {
                       itemCount: imageUrls.length,
                       physics: const BouncingScrollPhysics(),
                       itemBuilder:
-                          (context, index) => Image.network(
-                            imageUrls[index],
+                          (context, index) => CachedNetworkImage(
+                            imageUrl: imageUrls[index],
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Placeholder(),
+                            fadeInDuration: Duration.zero,
+                            fadeOutDuration: Duration.zero,
+                            placeholder:
+                                (context, url) =>
+                                    Container(color: Colors.grey[200]),
+                            errorWidget:
+                                (context, url, error) => Container(
+                                  color: Colors.grey[200],
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
                           ),
                     )
                   else
@@ -368,11 +383,24 @@ class _ItemDetailsState extends State<ItemDetails> {
                             itemCount: imageUrls.length,
                             onPageChanged: (index) => setState(() {}),
                             itemBuilder:
-                                (context, index) => Image.network(
-                                  imageUrls[index],
+                                (context, index) => CachedNetworkImage(
+                                  imageUrl: imageUrls[index],
                                   fit: BoxFit.cover,
-                                  errorBuilder:
-                                      (_, __, ___) => const Placeholder(),
+                                  fadeInDuration: Duration.zero,
+                                  fadeOutDuration: Duration.zero,
+                                  placeholder:
+                                      (context, url) =>
+                                          Container(color: Colors.grey[200]),
+                                  errorWidget:
+                                      (context, url, error) => Container(
+                                        color: Colors.grey[200],
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.broken_image,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
                                 ),
                           )
                         else
@@ -930,6 +958,8 @@ void _launchPaymentPage(String amount, String userId) async {
 }
 
 class ShiningPremiumBanner extends StatelessWidget {
+  const ShiningPremiumBanner({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Padding(

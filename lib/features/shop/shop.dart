@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
@@ -482,11 +483,31 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            p.imgUrl!,
+                          child: CachedNetworkImage(
+                            imageUrl: p.imgUrl!,
                             width: 106,
                             height: 106,
                             fit: BoxFit.cover,
+                            fadeInDuration: Duration.zero,
+                            fadeOutDuration: Duration.zero,
+                            placeholder:
+                                (context, url) => Container(
+                                  width: 106,
+                                  height: 106,
+                                  color: Colors.grey[200],
+                                ),
+                            errorWidget:
+                                (context, url, error) => Container(
+                                  width: 106,
+                                  height: 106,
+                                  color: Colors.grey[200],
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
                           ),
                         ),
                         SizedBox(width: 10),

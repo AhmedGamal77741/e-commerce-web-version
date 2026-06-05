@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/routing/app_router.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
@@ -8,17 +7,11 @@ import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/core/widgets/black_text_button.dart';
 import 'package:ecommerece_app/core/widgets/no_account_screen.dart';
 import 'package:ecommerece_app/core/widgets/receipt_setup_screen.dart';
-import 'package:ecommerece_app/features/review/ui/review_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ecommerece_app/features/chat/services/chat_service.dart';
-import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
-import 'package:ecommerece_app/features/review/ui/order_history.dart';
-
-// app router (root-level GoRouter)
-import 'package:ecommerece_app/core/routing/app_router.dart';
 
 class UserOptionsContainer extends StatefulWidget {
   final bool isSub;
@@ -309,7 +302,7 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
                     ),
                   ),
                 Text(
-                  '월 회비 : 10,000원 혜택 : 전 제품 20% 할인',
+                  '월 회비 : 8,000원 혜택 : 전 제품 20% 할인',
                   style: TextStyles.abeezee11px400wP600,
                 ),
                 Divider(color: ColorsManager.primary100),

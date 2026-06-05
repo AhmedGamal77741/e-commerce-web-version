@@ -23,7 +23,10 @@ class _AddressListScreenState extends State<AddressListScreen> {
     final currentUser = _auth.currentUser;
 
     if (currentUser == null) {
-      return const Scaffold(body: Center(child: Text('로그인이 필요합니다')));
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Text('로그인이 필요합니다')),
+      );
     }
 
     final addressService = AddressService(userId: currentUser.uid);

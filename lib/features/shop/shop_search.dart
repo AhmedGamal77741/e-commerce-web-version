@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/basetime.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
@@ -138,20 +139,41 @@ class _ShopSearchState extends State<ShopSearch> {
                             : Text(
                               '${formatCurrency.format(product.price / 0.8)} 원',
                             ),
-                    leading: Image.network(
-                      product.imgUrl!,
+                    leading: CachedNetworkImage(
+                      imageUrl: product.imgUrl!,
                       width: 50,
                       height: 50,
                       fit: BoxFit.cover,
+                      fadeInDuration: Duration.zero,
+                      fadeOutDuration: Duration.zero,
+                      placeholder:
+                          (context, url) => Container(
+                            width: 50,
+                            height: 50,
+                            color: Colors.grey[200],
+                          ),
+                      errorWidget:
+                          (context, url, error) => Container(
+                            width: 50,
+                            height: 50,
+                            color: Colors.grey[200],
+                            child: const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                color: Colors.grey,
+                                size: 24,
+                              ),
+                            ),
+                          ),
                     ),
                     onTap: () async {
-                      bool isSub = await isUserSubscribed();
-                      bool liked = isFavoritedByUser(
+                      await isUserSubscribed();
+                      isFavoritedByUser(
                         p: product,
                         userId: FirebaseAuth.instance.currentUser?.uid ?? '',
                       );
 
-                      String arrivalTime = await getArrivalDay(
+                      await getArrivalDay(
                         product.meridiem,
                         product.baselineTime,
                       );

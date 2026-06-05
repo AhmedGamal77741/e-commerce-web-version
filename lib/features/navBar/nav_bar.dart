@@ -157,9 +157,7 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
                   .snapshots(),
           builder: (context, userSnapshot) {
             if (!userSnapshot.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(color: Colors.black),
-              );
+              return builder();
             }
             final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
             if (userData == null) {

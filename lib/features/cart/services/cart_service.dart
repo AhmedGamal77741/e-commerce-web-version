@@ -184,9 +184,9 @@ Future<bool> isUserSubscribed() async {
 
   final data = userDoc.data();
 
-  if (data == null || data['issub'] == null) return false;
+  if (data == null || data['isSub'] == null) return false;
 
-  return data['issub'] == true;
+  return data['isSub'] == true;
 }
 
 Future<void> deleteCartItem(String cartId) async {

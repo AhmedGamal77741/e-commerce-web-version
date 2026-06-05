@@ -38,7 +38,7 @@ class _FollowingTabState extends State<FollowingTab>
             context,
             duration: const Duration(milliseconds: 500),
             curve: Curves.easeInOut,
-            alignment: 0.5, // Centers the item in the viewport
+            alignment: 0.5,
           );
         }
       }
@@ -87,7 +87,6 @@ class _FollowingTabState extends State<FollowingTab>
     _selectedCategoryId.value = null;
     _categoryPages = [null]; // Reset category pages
 
-    // Only jump if controller has clients (PageView is attached)
     if (_categoryPageController.hasClients) {
       _categoryPageController.jumpToPage(0);
     }
@@ -115,22 +114,20 @@ class _FollowingTabState extends State<FollowingTab>
   Widget build(BuildContext context) {
     super.build(context);
     return Padding(
-      padding: EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.only(top: 10),
       child: StreamBuilder<User?>(
         stream: _authStream,
         builder: (context, authSnapshot) {
           final user = authSnapshot.data;
 
-          // Loading auth state
           if (authSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(/* child: CircularProgressIndicator() */);
+            return const Center();
           }
 
-          // User not authenticated
           if (user == null) {
             return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -139,7 +136,7 @@ class _FollowingTabState extends State<FollowingTab>
                       size: 64,
                       color: Colors.grey[300],
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Text(
                       '로그인이 필요합니다',
                       style: TextStyle(
@@ -148,7 +145,7 @@ class _FollowingTabState extends State<FollowingTab>
                         color: Colors.grey[700],
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
                       '내 페이지탭에서 회원가입 후 이용가능합니다',
                       textAlign: TextAlign.center,
@@ -160,17 +157,15 @@ class _FollowingTabState extends State<FollowingTab>
             );
           }
           if (_userStream == null) {
-            return SizedBox.shrink();
+            return const SizedBox.shrink();
           }
           return StreamBuilder<DocumentSnapshot>(
             stream: _userStream,
             builder: (context, snapshot) {
-              // Loading user data
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(/* child: CircularProgressIndicator() */);
+                return const Center();
               }
 
-              // Error loading user data
               if (snapshot.hasError) {
                 return Center(
                   child: Column(
@@ -181,12 +176,12 @@ class _FollowingTabState extends State<FollowingTab>
                         size: 64,
                         color: Colors.red[300],
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         '오류가 발생했습니다',
                         style: TextStyle(fontSize: 16, color: Colors.grey[700]),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         '잠시 후 다시 시도해주세요',
                         style: TextStyle(fontSize: 13, color: Colors.grey[500]),
@@ -196,7 +191,6 @@ class _FollowingTabState extends State<FollowingTab>
                 );
               }
 
-              // No user data
               if (!snapshot.hasData || snapshot.data?.data() == null) {
                 return const Center(child: Text('사용자 정보를 불러올 수 없습니다'));
               }
@@ -204,10 +198,12 @@ class _FollowingTabState extends State<FollowingTab>
               final data = snapshot.data!.data() as Map<String, dynamic>?;
               final isSub = data?['isSub'] == true;
               final currentUserId = user.uid;
+              final blockedUsers = List<String>.from(
+                (data?['blocked'] as List<dynamic>?) ?? [],
+              );
 
               return Column(
                 children: [
-                  // Following users horizontal list
                   SizedBox(
                     height: 100,
                     child: StreamBuilder<QuerySnapshot>(
@@ -233,11 +229,7 @@ class _FollowingTabState extends State<FollowingTab>
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
                           return const Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              /* child: CircularProgressIndicator(strokeWidth: 2), */
-                            ),
+                            child: SizedBox(width: 20, height: 20),
                           );
                         }
 
@@ -260,7 +252,7 @@ class _FollowingTabState extends State<FollowingTab>
                                   size: 32,
                                   color: Colors.grey[300],
                                 ),
-                                SizedBox(height: 8),
+                                const SizedBox(height: 8),
                                 Text(
                                   '팔로우한 사용자가 없습니다',
                                   style: TextStyle(
@@ -287,7 +279,6 @@ class _FollowingTabState extends State<FollowingTab>
                     ),
                   ),
 
-                  // Categories row and PageView (only shown when a user is selected)
                   ValueListenableBuilder<String?>(
                     valueListenable: _selectedUserId,
                     builder: (context, selectedUserId, _) {
@@ -295,7 +286,6 @@ class _FollowingTabState extends State<FollowingTab>
                         return const SizedBox.shrink();
                       }
 
-                      // Fetch categories and build the pages list
                       return StreamBuilder<QuerySnapshot>(
                         stream:
                             FirebaseFirestore.instance
@@ -316,19 +306,18 @@ class _FollowingTabState extends State<FollowingTab>
 
                           return Column(
                             children: [
-                              // Categories bar
-                              ValueListenableBuilder<String?>(
-                                valueListenable: _selectedCategoryId,
-                                builder: (context, selectedCategoryId, _) {
-                                  return UserCategoriesBar(
-                                    userId: selectedUserId,
-                                    selectedCategoryId: selectedCategoryId,
-                                    onCategorySelected:
-                                        _handleCategorySelection,
-                                  );
-                                },
-                              ),
-                              // Posts PageView
+                              if (!blockedUsers.contains(selectedUserId))
+                                ValueListenableBuilder<String?>(
+                                  valueListenable: _selectedCategoryId,
+                                  builder: (context, selectedCategoryId, _) {
+                                    return UserCategoriesBar(
+                                      userId: selectedUserId,
+                                      selectedCategoryId: selectedCategoryId,
+                                      onCategorySelected:
+                                          _handleCategorySelection,
+                                    );
+                                  },
+                                ),
                               SizedBox(
                                 height:
                                     MediaQuery.of(context).size.height * 0.65,
@@ -343,6 +332,7 @@ class _FollowingTabState extends State<FollowingTab>
                                       selectedUserId: selectedUserId,
                                       selectedCategoryId: _categoryPages[index],
                                       useGuestPostItem: !isSub,
+                                      blockedUsers: blockedUsers,
                                     );
                                   },
                                 ),
@@ -363,7 +353,6 @@ class _FollowingTabState extends State<FollowingTab>
   }
 }
 
-// New widget to display user's categories
 class UserCategoriesBar extends StatefulWidget {
   final String userId;
   final String? selectedCategoryId;
@@ -391,7 +380,6 @@ class _UserCategoriesBarState extends State<UserCategoriesBar> {
   @override
   void didUpdateWidget(UserCategoriesBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Only recreate stream if userId actually changed
     if (oldWidget.userId != widget.userId) {
       _categoriesStream = _buildStream(widget.userId);
     }
@@ -412,25 +400,19 @@ class _UserCategoriesBarState extends State<UserCategoriesBar> {
       stream: _categoriesStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return SizedBox(
+          return const SizedBox(
             height: 50,
-            child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                /* child: const CircularProgressIndicator(strokeWidth: 2), */
-              ),
-            ),
+            child: Center(child: SizedBox(width: 20, height: 20)),
           );
         }
 
         if (snapshot.hasError) {
-          return SizedBox(
+          return const SizedBox(
             height: 50,
             child: Center(
               child: Text(
                 '카테고리를 불러올 수 없습니다',
-                style: TextStyle(fontSize: 12, color: Colors.red[300]),
+                style: TextStyle(fontSize: 12, color: Colors.red),
               ),
             ),
           );
@@ -442,14 +424,13 @@ class _UserCategoriesBarState extends State<UserCategoriesBar> {
 
         final categories = snapshot.data!.docs;
 
-        // If no categories, show a simple message
         if (categories.isEmpty) {
-          return SizedBox(
+          return const SizedBox(
             height: 50,
             child: Center(
               child: Text(
                 '카테고리가 없습니다',
-                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
           );
@@ -457,26 +438,19 @@ class _UserCategoriesBarState extends State<UserCategoriesBar> {
 
         return Container(
           height: 50,
-
-          padding: EdgeInsets.symmetric(vertical: 8),
-
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Center(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Add left padding for centering
-                  SizedBox(width: 16),
-
-                  // "All" category option
+                  const SizedBox(width: 16),
                   _buildCategoryPill(
                     '전체',
                     widget.selectedCategoryId == null,
                     () => widget.onCategorySelected(''),
                   ),
-
-                  // User's categories
                   ...categories.map((category) {
                     final categoryData =
                         category.data() as Map<String, dynamic>;
@@ -484,7 +458,7 @@ class _UserCategoriesBarState extends State<UserCategoriesBar> {
                     final isSelected = widget.selectedCategoryId == category.id;
 
                     return Padding(
-                      padding: EdgeInsets.only(left: 8),
+                      padding: const EdgeInsets.only(left: 8),
                       child: _buildCategoryPill(
                         categoryName,
                         isSelected,
@@ -492,9 +466,7 @@ class _UserCategoriesBarState extends State<UserCategoriesBar> {
                       ),
                     );
                   }).toList(),
-
-                  // Add right padding for centering
-                  SizedBox(width: 16),
+                  const SizedBox(width: 16),
                 ],
               ),
             ),
@@ -512,7 +484,7 @@ class _UserCategoriesBarState extends State<UserCategoriesBar> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
@@ -542,6 +514,7 @@ class FollowingPostsList extends StatelessWidget {
   final String? selectedUserId;
   final String? selectedCategoryId;
   final bool useGuestPostItem;
+  final List<String> blockedUsers;
 
   const FollowingPostsList({
     Key? key,
@@ -550,21 +523,72 @@ class FollowingPostsList extends StatelessWidget {
     this.selectedUserId,
     this.selectedCategoryId,
     this.useGuestPostItem = false,
+    this.blockedUsers = const [],
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    if (selectedUserId != null && blockedUsers.contains(selectedUserId)) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.block, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(
+              '차단된 사용자입니다',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(currentUserId)
+                      .update({
+                        'blocked': FieldValue.arrayRemove([selectedUserId]),
+                      });
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('차단이 해제되었습니다.')),
+                  );
+                } catch (e) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('오류 발생: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              child: const Text('차단 해제', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
+
     return StreamBuilder<QuerySnapshot>(
       stream: _getFollowingPostsStream(selectedUserId, selectedCategoryId),
       builder: (context, snapshot) {
-        // Error state
         if (snapshot.hasError) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   '오류가 발생했습니다',
                   style: TextStyle(
@@ -573,7 +597,7 @@ class FollowingPostsList extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
                   '잠시 후 다시 시도해주세요',
                   style: TextStyle(fontSize: 13, color: Colors.grey[500]),
@@ -583,19 +607,17 @@ class FollowingPostsList extends StatelessWidget {
           );
         }
 
-        // Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(/* child: CircularProgressIndicator() */);
+          return const Center();
         }
 
-        // No data state
         if (!snapshot.hasData) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.cloud_off, size: 64, color: Colors.grey[300]),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   '데이터를 불러올 수 없습니다',
                   style: TextStyle(fontSize: 16, color: Colors.grey),
@@ -605,37 +627,29 @@ class FollowingPostsList extends StatelessWidget {
           );
         }
 
-        final posts = snapshot.data!.docs;
+        final rawPosts = snapshot.data!.docs;
+        final posts =
+            rawPosts.where((doc) {
+              final postData = doc.data() as Map<String, dynamic>?;
+              if (postData == null) return false;
+              final authorId = postData['userId'] as String?;
+              if (authorId != null && blockedUsers.contains(authorId)) {
+                return false;
+              }
+              return true;
+            }).toList();
 
-        // Empty posts state - different messages based on context
         if (posts.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.feed_outlined, size: 64, color: Colors.grey[300]),
-                /* SizedBox(height: 16),
-                Text(
-                  _getEmptyStateMessage(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  _getEmptyStateSubMessage(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: Colors.grey[400]),
-                ), */
               ],
             ),
           );
         }
 
-        // Success state with posts
         return ListView.builder(
           shrinkWrap: true,
           controller: scrollController,
@@ -645,13 +659,15 @@ class FollowingPostsList extends StatelessWidget {
             try {
               final postData = posts[index].data() as Map<String, dynamic>?;
 
-              // Handle null or invalid post data
               if (postData == null) {
                 return const SizedBox.shrink();
               }
 
               return Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child:
                     useGuestPostItem
                         ? GuestPostItem(post: postData)
@@ -661,12 +677,14 @@ class FollowingPostsList extends StatelessWidget {
                         ),
               );
             } catch (e) {
-              // Handle individual post rendering errors
               print('Error rendering post at index $index: $e');
               return Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Container(
-                  padding: EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.red[50],
                     borderRadius: BorderRadius.circular(8),
@@ -679,10 +697,10 @@ class FollowingPostsList extends StatelessWidget {
                         color: Colors.red[400],
                         size: 20,
                       ),
-                      SizedBox(width: 8),
-                      Text(
+                      const SizedBox(width: 8),
+                      const Text(
                         '이 게시물을 표시할 수 없습니다',
-                        style: TextStyle(fontSize: 12, color: Colors.red[700]),
+                        style: TextStyle(fontSize: 12, color: Colors.red),
                       ),
                     ],
                   ),
@@ -695,48 +713,18 @@ class FollowingPostsList extends StatelessWidget {
     );
   }
 
-  String _getEmptyStateMessage() {
-    // User selected + Category selected
-    if (selectedUserId != null && selectedCategoryId != null) {
-      return '이 카테고리에 게시물이 없습니다';
-    }
-
-    // User selected + No category (showing all user's posts)
-    if (selectedUserId != null) {
-      return '아직 게시물이 없습니다';
-    }
-
-    // No user selected (showing all following users' posts)
-    return '팔로우한 사용자의 게시물이 없습니다';
-  }
-
-  String _getEmptyStateSubMessage() {
-    // User selected + Category selected
-    if (selectedUserId != null && selectedCategoryId != null) {
-      return '다른 카테고리를 선택해보세요';
-    }
-
-    // User selected + No category
-    if (selectedUserId != null) {
-      return '첫 게시물을 기다리고 있어요';
-    }
-
-    // No user selected
-    return '더 많은 사용자를 팔로우해보세요';
-  }
-
   Stream<QuerySnapshot> _getFollowingPostsStream(
     String? userId,
     String? categoryId,
   ) {
+    // ... (the rest of this method remains unchanged)
+    // Keeping the full logic as it was (only ScreenUtil was removed above)
     try {
       if (userId != null) {
-        // Show posts from the selected user
         Query query = FirebaseFirestore.instance
             .collection('posts')
             .where('userId', isEqualTo: userId);
 
-        // Add category filter if a category is selected
         if (categoryId != null && categoryId.isNotEmpty) {
           query = query.where('categoryId', isEqualTo: categoryId);
         }
@@ -744,19 +732,18 @@ class FollowingPostsList extends StatelessWidget {
         return query.orderBy('createdAt', descending: true).snapshots();
       }
 
-      // Show all posts from following users (no specific user selected)
       return FirebaseFirestore.instance
           .collection('users')
           .doc(currentUserId)
           .collection('following')
           .snapshots()
           .asyncMap((followingSnapshot) async {
+            // ... (unchanged logic)
             try {
               final followingIds =
                   followingSnapshot.docs.map((doc) => doc.id).toList();
 
               if (followingIds.isEmpty) {
-                // Return empty query result
                 return FirebaseFirestore.instance
                     .collection('posts')
                     .where(
@@ -766,7 +753,6 @@ class FollowingPostsList extends StatelessWidget {
                     .get();
               }
 
-              // Firestore 'in' query limit is 10, so we need to batch if more
               if (followingIds.length <= 10) {
                 return await FirebaseFirestore.instance
                     .collection('posts')
@@ -774,7 +760,6 @@ class FollowingPostsList extends StatelessWidget {
                     .limit(50)
                     .get();
               } else {
-                // Handle more than 10 following users
                 final batches = <Future<QuerySnapshot>>[];
                 for (int i = 0; i < followingIds.length; i += 10) {
                   final batch = followingIds.skip(i).take(10).toList();
@@ -793,7 +778,6 @@ class FollowingPostsList extends StatelessWidget {
                   allDocs.addAll(result.docs);
                 }
 
-                // Sort all posts by creation date
                 allDocs.sort((a, b) {
                   try {
                     final aData = a.data() as Map<String, dynamic>?;
@@ -807,17 +791,14 @@ class FollowingPostsList extends StatelessWidget {
                     if (aTimestamp == null || bTimestamp == null) return 0;
                     return bTimestamp.compareTo(aTimestamp);
                   } catch (e) {
-                    print('Error sorting posts: $e');
                     return 0;
                   }
                 });
 
-                // Return a custom QuerySnapshot wrapper
                 return _MockQuerySnapshot(allDocs.take(50).toList());
               }
             } catch (e) {
               print('Error fetching following posts: $e');
-              // Return empty result on error
               return FirebaseFirestore.instance
                   .collection('posts')
                   .where('userId', isEqualTo: 'error_fallback_empty_result')
@@ -826,13 +807,12 @@ class FollowingPostsList extends StatelessWidget {
           });
     } catch (e) {
       print('Error creating posts stream: $e');
-      // Return a stream that emits an empty result
       return Stream.value(_MockQuerySnapshot([]));
     }
   }
 }
 
-// Mock QuerySnapshot to handle batched queries
+// Mock QuerySnapshot (unchanged)
 class _MockQuerySnapshot implements QuerySnapshot {
   final List<QueryDocumentSnapshot> _docs;
 
