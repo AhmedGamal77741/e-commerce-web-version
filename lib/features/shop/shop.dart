@@ -479,34 +479,55 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: CachedNetworkImage(
-                            imageUrl: p.imgUrl!,
-                            width: 106,
-                            height: 106,
-                            fit: BoxFit.cover,
-                            fadeInDuration: Duration.zero,
-                            fadeOutDuration: Duration.zero,
-                            placeholder:
-                                (context, url) => Container(
-                                  width: 106,
-                                  height: 106,
-                                  color: Colors.grey[200],
-                                ),
-                            errorWidget:
-                                (context, url, error) => Container(
-                                  width: 106,
-                                  height: 106,
-                                  color: Colors.grey[200],
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.broken_image,
-                                      color: Colors.grey,
+                        Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: CachedNetworkImage(
+                                imageUrl: p.imgUrl!,
+                                width: 106,
+                                height: 106,
+                                fit: BoxFit.cover,
+                                fadeInDuration: Duration.zero,
+                                fadeOutDuration: Duration.zero,
+                                placeholder:
+                                    (context, url) => Container(
+                                      width: 106,
+                                      height: 106,
+                                      color: Colors.grey[200],
+                                    ),
+                                errorWidget:
+                                    (context, url, error) => Container(
+                                      width: 106,
+                                      height: 106,
+                                      color: Colors.grey[200],
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.broken_image,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                              ),
+                            ),
+                            if (p.stock == 0)
+                              Positioned.fill(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    width: 150,
+                                    height: 150,
+                                    color: Colors.transparent,
+                                    child: Center(
+                                      child: Image.asset(
+                                        'assets/sold_out.png',
+                                        fit: BoxFit.contain,
+                                      ),
                                     ),
                                   ),
                                 ),
-                          ),
+                              ),
+                          ],
                         ),
                         SizedBox(width: 10),
                         Expanded(
