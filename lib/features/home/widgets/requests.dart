@@ -116,7 +116,7 @@ class _RequestsState extends State<Requests> {
                       .snapshots(),
               builder: (context, userSnapshot) {
                 if (!userSnapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const SizedBox.shrink();
                 }
 
                 final currentUserData =
@@ -156,9 +156,7 @@ class _RequestsState extends State<Requests> {
                             if (snapshot.connectionState ==
                                     ConnectionState.waiting &&
                                 !snapshot.hasData) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
+                              return const Center(child: SizedBox.shrink());
                             }
 
                             if (snapshot.hasError) {
@@ -199,9 +197,7 @@ class _RequestsState extends State<Requests> {
                                       .snapshots(),
                               builder: (context, usersSnapshot) {
                                 if (!usersSnapshot.hasData) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
+                                  return const Center(child: SizedBox.shrink());
                                 }
 
                                 // Build user map for quick lookup
@@ -419,7 +415,7 @@ class _RequestsState extends State<Requests> {
                                   if (recommendationsSnapshot.connectionState ==
                                       ConnectionState.waiting) {
                                     return const Center(
-                                      child: CircularProgressIndicator(),
+                                      child: SizedBox.shrink(),
                                     );
                                   }
 
@@ -695,9 +691,7 @@ class _RequestsState extends State<Requests> {
                                   );
                                 },
                               )
-                              : const Center(
-                                child: CircularProgressIndicator(),
-                              ),
+                              : const Center(child: SizedBox.shrink()),
                     ),
 
                     // ===================== Section 3: 차단친구 보기 (Always shown) =====================
@@ -723,9 +717,7 @@ class _RequestsState extends State<Requests> {
                                 .snapshots(),
                         builder: (context, userSnapshot) {
                           if (!userSnapshot.hasData) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
+                            return const Center(child: SizedBox.shrink());
                           }
 
                           final blockedList = List<String>.from(
@@ -756,9 +748,7 @@ class _RequestsState extends State<Requests> {
                                     .snapshots(),
                             builder: (context, blockedSnapshot) {
                               if (!blockedSnapshot.hasData) {
-                                return const Center(
-                                  child: CircularProgressIndicator(),
-                                );
+                                return const Center(child: SizedBox.shrink());
                               }
 
                               final blockedUsers = blockedSnapshot.data!.docs;

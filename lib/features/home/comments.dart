@@ -169,7 +169,7 @@ class _CommentsState extends State<Comments> {
         if (postData == null) {
           return const Scaffold(
             backgroundColor: _kBgColor,
-            body: Center(child: CircularProgressIndicator()),
+            body: SizedBox.shrink(),
           );
         }
 
@@ -225,9 +225,11 @@ class _CommentsState extends State<Comments> {
                                         ? (comment.createdAt as Timestamp)
                                             .toDate()
                                         : DateTime.now(),
-                                imageUrls: comment.imageUrl != null && comment.imageUrl!.isNotEmpty
-                                    ? [comment.imageUrl!]
-                                    : null,
+                                imageUrls:
+                                    comment.imageUrl != null &&
+                                            comment.imageUrl!.isNotEmpty
+                                        ? [comment.imageUrl!]
+                                        : null,
                                 postData: comment.postData,
                                 productData: comment.productData,
                                 isPost: false,
@@ -239,7 +241,8 @@ class _CommentsState extends State<Comments> {
                           final String postText = postData['text'] ?? '';
                           final List imgUrls =
                               postData['imgUrls'] as List? ?? [];
-                          final List<String> castedUrls = imgUrls.map((e) => e.toString()).toList();
+                          final List<String> castedUrls =
+                              imgUrls.map((e) => e.toString()).toList();
                           final DateTime postTime =
                               postData['createdAt'] is Timestamp
                                   ? (postData['createdAt'] as Timestamp)
@@ -354,7 +357,7 @@ class _CommentBubble extends StatefulWidget {
   final bool isMe;
 
   const _CommentBubble({Key? key, required this.item, required this.isMe})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<_CommentBubble> createState() => _CommentBubbleState();
@@ -418,10 +421,11 @@ class _CommentBubbleState extends State<_CommentBubble> {
                 height: 40,
                 decoration: ShapeDecoration(
                   image: DecorationImage(
-                    image: item.senderImage.isNotEmpty
-                        ? NetworkImage(item.senderImage)
-                        : const AssetImage('assets/avatar.png')
-                            as ImageProvider,
+                    image:
+                        item.senderImage.isNotEmpty
+                            ? NetworkImage(item.senderImage)
+                            : const AssetImage('assets/avatar.png')
+                                as ImageProvider,
                     fit: BoxFit.cover,
                   ),
                   shape: const OvalBorder(),
@@ -569,9 +573,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
-                                    constraints: BoxConstraints(
-                                      maxWidth: maxW,
-                                    ),
+                                    constraints: BoxConstraints(maxWidth: maxW),
                                     child: Image.network(
                                       item.imageUrls!.first,
                                       fit: BoxFit.cover,
@@ -582,9 +584,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
-                                    constraints: BoxConstraints(
-                                      maxWidth: maxW,
-                                    ),
+                                    constraints: BoxConstraints(maxWidth: maxW),
                                     child: NaturalAspectPageView(
                                       imgUrls: item.imageUrls!,
                                       pageController: _pageController,

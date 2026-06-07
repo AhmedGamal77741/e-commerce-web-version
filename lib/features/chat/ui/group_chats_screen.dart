@@ -477,7 +477,7 @@ class _GroupChatsScreenState extends State<GroupChatsScreen>
           stream: chatService.getChatRoomsStream(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
+              return const SizedBox.shrink();
             }
 
             final groupChats =

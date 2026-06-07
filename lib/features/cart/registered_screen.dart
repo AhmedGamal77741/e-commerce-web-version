@@ -89,7 +89,7 @@ class _BankRegisteredScreenState extends State<BankRegisteredScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const CircularProgressIndicator(color: Colors.black),
+            const SizedBox.shrink(),
           ],
         ),
       ),

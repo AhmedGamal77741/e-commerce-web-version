@@ -377,7 +377,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
       builder: (context, authSnapshot) {
         if (authSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            /* child: CircularProgressIndicator(color: Colors.black), */
+            /* child: SizedBox.shrink(), */
           );
         }
 
@@ -415,7 +415,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                 builder: (context, userSnapshot) {
                   if (userSnapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
-                      /* child: CircularProgressIndicator(color: Colors.black), */
+                      /* child: SizedBox.shrink(), */
                     );
                   }
 
@@ -712,7 +712,7 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(/* child: CircularProgressIndicator() */);
+          return const Center(/* child: SizedBox.shrink() */);
         }
         final docs = snapshot.data?.docs ?? [];
 

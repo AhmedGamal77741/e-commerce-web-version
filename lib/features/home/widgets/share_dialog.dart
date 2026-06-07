@@ -408,7 +408,7 @@ void showShareDialog(
       if (type == 'post') {
         mapData.addEntries({'authorName': name}.entries);
       }
-                      String searchQuery = '';
+      String searchQuery = '';
       final TextEditingController searchController = TextEditingController();
       final isLoggedIn = FirebaseAuth.instance.currentUser != null;
       return StatefulBuilder(
@@ -452,9 +452,11 @@ void showShareDialog(
                           onTap: () {
                             final String link;
                             if (type == 'post') {
-                              link = 'https://app.pang2chocolate.com/comment?postId=$id';
+                              link =
+                                  'https://app.pang2chocolate.com/comment?postId=$id';
                             } else {
-                              link = 'https://app.pang2chocolate.com/product/$id';
+                              link =
+                                  'https://app.pang2chocolate.com/product/$id';
                             }
                             _copyToClipboard(context, link);
                           },
@@ -492,9 +494,7 @@ void showShareDialog(
                         builder: (context, asyncSnapshot) {
                           if (asyncSnapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
+                            return const Center(child: SizedBox.shrink());
                           }
                           if (asyncSnapshot.hasError) {
                             return Center(child: Text('친구 목록을 불러오는 데 실패했습니다.'));

@@ -571,9 +571,7 @@ class _AddPostState extends State<AddPost> {
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
+                            return const Center(child: SizedBox.shrink());
                           }
                           if (snapshot.hasError) {
                             return const Center(child: Text('Error'));

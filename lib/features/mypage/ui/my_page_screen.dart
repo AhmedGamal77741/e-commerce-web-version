@@ -58,9 +58,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
             return isLoading
                 ? Container(
                   color: Colors.black54,
-                  child: const Center(
-                    child: CircularProgressIndicator(color: Colors.black),
-                  ),
+                  child: const Center(child: SizedBox.shrink()),
                 )
                 : const SizedBox.shrink();
           },

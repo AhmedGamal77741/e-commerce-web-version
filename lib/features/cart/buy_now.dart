@@ -588,7 +588,7 @@ class _BuyNowState extends State<BuyNow> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(color: Colors.black),
+                      SizedBox.shrink(),
                       SizedBox(height: 16),
                       Text(
                         '결제 처리 중입니다...',
@@ -871,7 +871,7 @@ class _BuyNowState extends State<BuyNow> {
                                   if (snapshot.connectionState ==
                                       ConnectionState.waiting) {
                                     return const Center(
-                                      child: CircularProgressIndicator(),
+                                      child: SizedBox.shrink(),
                                     );
                                   }
                                   if (snapshot.hasError ||
@@ -899,7 +899,7 @@ class _BuyNowState extends State<BuyNow> {
                                       if (snapshot.connectionState ==
                                           ConnectionState.waiting) {
                                         return const Center(
-                                          child: CircularProgressIndicator(),
+                                          child: SizedBox.shrink(),
                                         );
                                       }
                                       if (!snapshot.hasData ||

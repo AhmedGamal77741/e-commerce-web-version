@@ -48,7 +48,7 @@ class _TableContainerState extends State<TableContainer> {
 
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
+                return SizedBox.shrink();
               }
 
               if (!snapshot.hasData || !snapshot.data!.exists) {

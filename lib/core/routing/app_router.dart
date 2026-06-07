@@ -43,9 +43,7 @@ class AppRouter {
                     .get(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                );
+                return const Scaffold(body: SizedBox.shrink());
               }
               if (!snapshot.hasData || snapshot.data?.data() == null) {
                 return const Scaffold(
@@ -207,9 +205,7 @@ class AppRouter {
             ]),
             builder: (context, AsyncSnapshot<List<dynamic>> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                );
+                return const Scaffold(body: SizedBox.shrink());
               }
               if (!snapshot.hasData ||
                   snapshot.data![0] == null ||

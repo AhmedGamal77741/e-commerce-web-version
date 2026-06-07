@@ -105,7 +105,7 @@ class _GuestCommentsState extends State<GuestComments> {
                             .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
+                        return const SizedBox.shrink();
                       }
                       if (snapshot.hasError) {
                         return const Center(child: Text('댓글을 불러올 수 없습니다'));
@@ -124,13 +124,15 @@ class _GuestCommentsState extends State<GuestComments> {
                             senderName: data['userName'] ?? '알 수 없음',
                             senderImage: data['userImage'] ?? '',
                             content: data['text'] ?? '',
-                            timestamp: data['createdAt'] is Timestamp
-                                ? (data['createdAt'] as Timestamp).toDate()
-                                : DateTime.now(),
-                            imageUrls: data['imageUrl'] != null &&
-                                    data['imageUrl'].toString().isNotEmpty
-                                ? [data['imageUrl'].toString()]
-                                : null,
+                            timestamp:
+                                data['createdAt'] is Timestamp
+                                    ? (data['createdAt'] as Timestamp).toDate()
+                                    : DateTime.now(),
+                            imageUrls:
+                                data['imageUrl'] != null &&
+                                        data['imageUrl'].toString().isNotEmpty
+                                    ? [data['imageUrl'].toString()]
+                                    : null,
                             // postData & productData parsing if exist
                             postData: data['postData'],
                             productData:
@@ -145,7 +147,8 @@ class _GuestCommentsState extends State<GuestComments> {
                       // Add post itself
                       final String postText = post['text'] ?? '';
                       final List imgUrls = post['imgUrls'] as List? ?? [];
-                      final List<String> castedUrls = imgUrls.map((e) => e.toString()).toList();
+                      final List<String> castedUrls =
+                          imgUrls.map((e) => e.toString()).toList();
                       final DateTime postTime =
                           post['createdAt'] is Timestamp
                               ? (post['createdAt'] as Timestamp).toDate()
@@ -243,7 +246,7 @@ class _CommentBubble extends StatefulWidget {
   final bool isMe;
 
   const _CommentBubble({Key? key, required this.item, required this.isMe})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<_CommentBubble> createState() => _CommentBubbleState();
@@ -307,10 +310,11 @@ class _CommentBubbleState extends State<_CommentBubble> {
                 height: 40,
                 decoration: ShapeDecoration(
                   image: DecorationImage(
-                    image: item.senderImage.isNotEmpty
-                        ? NetworkImage(item.senderImage)
-                        : const AssetImage('assets/avatar.png')
-                            as ImageProvider,
+                    image:
+                        item.senderImage.isNotEmpty
+                            ? NetworkImage(item.senderImage)
+                            : const AssetImage('assets/avatar.png')
+                                as ImageProvider,
                     fit: BoxFit.cover,
                   ),
                   shape: const OvalBorder(),
@@ -465,9 +469,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
-                                    constraints: BoxConstraints(
-                                      maxWidth: maxW,
-                                    ),
+                                    constraints: BoxConstraints(maxWidth: maxW),
                                     child: Image.network(
                                       item.imageUrls!.first,
                                       fit: BoxFit.cover,
@@ -478,9 +480,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
-                                    constraints: BoxConstraints(
-                                      maxWidth: maxW,
-                                    ),
+                                    constraints: BoxConstraints(maxWidth: maxW),
                                     child: NaturalAspectPageView(
                                       imgUrls: item.imageUrls!,
                                       pageController: _pageController,

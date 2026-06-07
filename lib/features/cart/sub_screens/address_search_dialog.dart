@@ -166,7 +166,7 @@ class _AddressSearchDialogState extends State<AddressSearchDialog> {
             if (_isLoading)
               Padding(
                 padding: const EdgeInsets.all(24.0),
-                child: CircularProgressIndicator(color: Colors.grey[800]),
+                child: SizedBox.shrink(),
               )
             // Error message
             else if (_errorMessage != null)

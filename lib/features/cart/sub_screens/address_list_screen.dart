@@ -73,7 +73,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
           Expanded(
             child:
                 _isProcessing
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const SizedBox.shrink()
                     : StreamBuilder<QuerySnapshot>(
                       stream:
                           _firestore
@@ -85,9 +85,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
+                          return const Center(child: SizedBox.shrink());
                         }
 
                         if (snapshot.hasError) {

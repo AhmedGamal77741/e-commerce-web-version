@@ -7,11 +7,7 @@ void showLoadingDialog(BuildContext context) {
     builder: (BuildContext context) {
       return AlertDialog(
         content: Row(
-          children: [
-            CircularProgressIndicator(color: Colors.black),
-            SizedBox(width: 20),
-            Text("처리 중..."),
-          ],
+          children: [SizedBox.shrink(), SizedBox(width: 20), Text("처리 중...")],
         ),
       );
     },

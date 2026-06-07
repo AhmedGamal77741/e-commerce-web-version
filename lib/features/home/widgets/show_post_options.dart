@@ -74,7 +74,7 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                         return AlertDialog(
                           content: Row(
                             children: [
-                              CircularProgressIndicator(),
+                              SizedBox.shrink(),
                               SizedBox(width: 16),
                               Text("신고 처리 중..."),
                             ],
@@ -142,7 +142,7 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                         return AlertDialog(
                           content: Row(
                             children: [
-                              CircularProgressIndicator(),
+                              SizedBox.shrink(),
                               SizedBox(width: 16),
                               Text("신고 처리 중..."), // "Processing report..."
                             ],
@@ -230,7 +230,7 @@ void showPostMenu(BuildContext context, String postId, String userId) {
                                 return AlertDialog(
                                   content: Row(
                                     children: [
-                                      CircularProgressIndicator(),
+                                      SizedBox.shrink(),
                                       SizedBox(width: 16),
                                       Text(
                                         "신고 처리 중...",

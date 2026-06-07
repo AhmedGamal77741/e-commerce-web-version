@@ -82,7 +82,7 @@ class _ProfileTabState extends State<ProfileTab> {
       stream: _userStream,
       builder: (context, userSnapshot) {
         if (userSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SizedBox.shrink();
         }
         if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
           return const Center(child: Text('사용자 프로필을 찾을 수 없습니다'));
@@ -134,9 +134,7 @@ class _ProfileTabState extends State<ProfileTab> {
                         placeholder: SizedBox(
                           width: 64,
                           height: 64,
-                          child: const Center(
-                            child: CircularProgressIndicator(),
-                          ),
+                          child: const Center(child: SizedBox.shrink()),
                         ),
                       ),
                     ),
@@ -250,7 +248,7 @@ class _PostsPageState extends State<_PostsPage>
       stream: _stream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SizedBox.shrink();
         }
         if (snapshot.hasError) {
           return const Center(child: Text('게시물을 불러오지 못했습니다'));

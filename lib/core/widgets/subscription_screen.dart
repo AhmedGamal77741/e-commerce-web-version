@@ -288,7 +288,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(color: Colors.black),
+                      SizedBox.shrink(),
                       SizedBox(height: 16),
                       Text(
                         '결제 처리 중입니다...',
@@ -340,9 +340,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       ),
       body:
           _isLoading
-              ? const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              )
+              ? const Center(child: SizedBox.shrink())
               : ListView(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                 children: [

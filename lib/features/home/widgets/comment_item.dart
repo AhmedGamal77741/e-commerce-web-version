@@ -345,10 +345,7 @@ class _CommentItemState extends State<CommentItem> {
                     .snapshots(),
             builder: (context, userSnapshot) {
               if (!userSnapshot.hasData) {
-                return SizedBox(
-                  height: 50,
-                  child: Center(child: CircularProgressIndicator()),
-                );
+                return SizedBox(height: 50, child: SizedBox.shrink());
               }
 
               final commentUserData =

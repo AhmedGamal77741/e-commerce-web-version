@@ -15,9 +15,7 @@ class LandingScreen extends StatelessWidget {
       stream: authRepo.user,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: SizedBox.shrink());
         }
 
         final user = snapshot.data;

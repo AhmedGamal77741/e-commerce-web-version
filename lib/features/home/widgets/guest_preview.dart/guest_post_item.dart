@@ -54,7 +54,7 @@ class GuestPostItem extends StatelessWidget {
               (_, __, ___) => AlertDialog(
                 content: Row(
                   children: [
-                    CircularProgressIndicator(),
+                    SizedBox.shrink(),
                     SizedBox(width: 16),
                     Text('처리 중...'),
                   ],

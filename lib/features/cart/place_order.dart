@@ -487,7 +487,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(color: Colors.black),
+                      SizedBox.shrink(),
                       SizedBox(height: 16),
                       Text(
                         '결제 처리 중입니다...',
@@ -706,9 +706,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                           builder: (context, cartSnapshot) {
                             if (cartSnapshot.connectionState ==
                                 ConnectionState.waiting) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
+                              return const Center(child: SizedBox.shrink());
                             }
                             final cartDocs = cartSnapshot.data!.docs;
                             return ListView.separated(
@@ -848,7 +846,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                       if (snapshot.connectionState ==
                                           ConnectionState.waiting) {
                                         return const Center(
-                                          child: CircularProgressIndicator(),
+                                          child: SizedBox.shrink(),
                                         );
                                       }
                                       if (snapshot.hasError ||
@@ -877,8 +875,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                           if (snapshot.connectionState ==
                                               ConnectionState.waiting) {
                                             return const Center(
-                                              child:
-                                                  CircularProgressIndicator(),
+                                              child: SizedBox.shrink(),
                                             );
                                           }
                                           if (!snapshot.hasData ||
@@ -1137,7 +1134,7 @@ class _PlaceOrderState extends State<PlaceOrder> {
                                       height: 1.40,
                                     ),
                                   )
-                                  : const CircularProgressIndicator(),
+                                  : const SizedBox.shrink(),
                             ],
                           ),
                           verticalSpace(8),

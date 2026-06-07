@@ -35,7 +35,7 @@ class _MyPageState extends State<MyPage> {
               .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SizedBox.shrink();
         }
 
         if (!snapshot.hasData || !snapshot.data!.exists) {

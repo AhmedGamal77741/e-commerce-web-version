@@ -1599,7 +1599,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     if (_isLoadingUser) {
       return Padding(
         padding: EdgeInsets.symmetric(vertical: 16),
-        child: const Center(child: CircularProgressIndicator()),
+        child: const SizedBox.shrink(),
       );
     }
     if (_currentUser == null) return const SizedBox.shrink();
@@ -1864,7 +1864,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                     stream: _friendsService.getFriendsStream(),
                     builder: (context, snapshot) {
                       if (!snapshot.hasData || _isSyncing) {
-                        return const Center(child: CircularProgressIndicator());
+                        return const SizedBox.shrink();
                       }
 
                       final allUsers = snapshot.data ?? [];
