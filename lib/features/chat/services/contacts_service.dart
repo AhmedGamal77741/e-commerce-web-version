@@ -1,5 +1,6 @@
 // services/contact_service.dart
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:flutter_contacts/contact.dart';
@@ -17,12 +18,14 @@ class ContactService {
 
   // Request contact permission
   Future<bool> requestContactPermission() async {
+    if (kIsWeb) return false;
     final status = await Permission.contacts.request();
     return status.isGranted;
   }
 
   // Get phone contacts
   Future<List<Contact>> getPhoneContacts() async {
+    if (kIsWeb) return [];
     final hasPermission = await requestContactPermission();
     if (!hasPermission) {
       throw Exception('Contact permission denied');
@@ -59,33 +62,46 @@ class ContactService {
   ///   normalizeNumber("01012345678", "KR") -> +821012345678
   List<String> expandEgKrNumber(String input) {
     final List<String> results = [];
-    final cleaned = input.replaceAll(
+    var cleaned = input.replaceAll(
       RegExp(r'\s+|-'),
       "",
     ); // remove spaces/dashes
 
-    // Case 1: Egyptian number (+20… or 01…)
-    if (cleaned.startsWith("+20")) {
-      final local = cleaned.replaceFirst("+20", "0"); // local format
-      results.add(cleaned); // keep international
-      results.add(local);
-    }
-    // Case 2: Korean number (+82… or 010…)
-    else if (cleaned.startsWith("+82")) {
-      final local = cleaned.replaceFirst("+82", "0"); // 010...
-      results.add(cleaned);
-      results.add(local);
-    }
-    // Case 3: Ambiguous (doesn't start with +20/+82/01/010)
-    else {
-      // Try Egypt interpretation
-      final egIntl = "+20$cleaned".replaceFirst("0", "");
-      results.add(cleaned);
-      results.add(egIntl);
+    if (cleaned.isEmpty) return [];
 
-      // Try Korea interpretation
-      final krIntl = "+82$cleaned".replaceFirst("0", "");
-      results.add(krIntl);
+    // Strip leading '+' if present
+    if (cleaned.startsWith("+")) {
+      cleaned = cleaned.substring(1);
+    }
+
+    // Identify and strip country code if present
+    String base = cleaned;
+    if (cleaned.startsWith("82")) {
+      base = cleaned.substring(2);
+    } else if (cleaned.startsWith("20")) {
+      base = cleaned.substring(2);
+    }
+
+    // Strip leading '0' if any (e.g. 010... becomes 10...)
+    if (base.startsWith("0")) {
+      base = base.substring(1);
+    }
+
+    // Now base is the raw mobile number (e.g. 1012345678)
+    if (base.isNotEmpty) {
+      results.add("0$base"); // local format: 01012345678
+      results.add("+$base"); // in case it's already an intl format without code
+      results.add("+20$base"); // Egyptian international format: +201012345678
+      results.add("+82$base"); // Korean international format: +821012345678
+      results.add("20$base"); // Egyptian international without +
+      results.add("82$base"); // Korean international without +
+    }
+
+    // Also include the original and cleaned inputs just in case
+    results.add(input);
+    results.add(cleaned);
+    if (!cleaned.startsWith("+")) {
+      results.add("+$cleaned");
     }
 
     return results.toSet().toList(); // remove duplicates
@@ -136,7 +152,8 @@ class ContactService {
       }
     }
     for (final user in matchingUsers) {
-      final normalized = expandEgKrNumber(user.phoneNumber.toString());
+      if (user.phoneNumber == null || user.phoneNumber!.isEmpty) continue;
+      final normalized = expandEgKrNumber(user.phoneNumber!);
       for (final number in normalized) {
         if (phoneToName.containsKey(number)) {
           map[user.userId] = phoneToName[number]!; // ← userId as key
@@ -166,8 +183,22 @@ class ContactService {
   }
 
   // Auto-add friends from contacts
-  Future<int> syncAndAddFriendsFromContacts() async {
+  Future<int> syncAndAddFriendsFromContacts({bool force = false}) async {
+    if (kIsWeb) return 0;
     try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!force) {
+        final lastSyncStr = prefs.getString('last_contacts_sync_time');
+        if (lastSyncStr != null) {
+          final lastSync = DateTime.parse(lastSyncStr);
+          final difference = DateTime.now().difference(lastSync);
+          // Skip if synced in the last 24 hours
+          if (difference.inHours < 24) {
+            return 0;
+          }
+        }
+      }
+
       final currentUserDoc =
           await _firestore.collection('users').doc(currentUserId).get();
       final currentUser = MyUser.fromDocument(currentUserDoc.data()!);
@@ -182,6 +213,13 @@ class ContactService {
         contactPhoneNumbers,
       );
       await saveContactNameMap(nameMap);
+
+      // Save last sync time
+      await prefs.setString(
+        'last_contacts_sync_time',
+        DateTime.now().toIso8601String(),
+      );
+
       final newFriends =
           matchingUsers
               .where((user) => !currentUser.friends.contains(user.userId))

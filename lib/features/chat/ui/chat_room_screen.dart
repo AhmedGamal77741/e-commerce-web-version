@@ -381,6 +381,77 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Widget _buildGroupTitleWidget() {
+    if (!_isGroup) {
+      return Text(
+        _appBarTitle,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+
+    if (widget.chatRoomName.trim().isNotEmpty) {
+      return Text(
+        widget.chatRoomName,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+
+    if (_chatRoom == null) {
+      return const Text(
+        '...',
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchMemberDetails(_chatRoom!.participants),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Text(
+            '...',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          );
+        }
+        final otherNames =
+            snap.data!
+                .where((m) => m['id'] != currentUserId)
+                .map(
+                  (m) => _resolveDisplayName(
+                    m['id'] as String,
+                    m['name'] as String? ?? '알 수 없음',
+                  ),
+                )
+                .toList();
+        final targetNames = otherNames.isEmpty ? ['나'] : otherNames;
+        return Text(
+          targetNames.join(', '),
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        );
+      },
+    );
+  }
   // ── Block state ───────────────────────────────────────────────────────────
 
   @override
@@ -519,14 +590,8 @@ class _ChatScreenState extends State<ChatScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Title: alias for direct, group name for group
-              Text(
-                _appBarTitle,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              _buildGroupTitleWidget(),
+
               if (_isGroup && _chatRoom != null) _buildGroupSubtitle(),
             ],
           ),

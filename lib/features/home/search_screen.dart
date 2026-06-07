@@ -20,7 +20,12 @@ import 'package:provider/provider.dart';
 
 class HomeSearch extends StatefulWidget {
   final bool useGuestPostItem;
-  const HomeSearch({super.key, this.useGuestPostItem = false});
+  final int initialTabIndex;
+  const HomeSearch({
+    super.key,
+    this.useGuestPostItem = false,
+    this.initialTabIndex = 1,
+  });
 
   @override
   State<HomeSearch> createState() => _HomeSearchState();
@@ -29,7 +34,7 @@ class HomeSearch extends StatefulWidget {
 class _HomeSearchState extends State<HomeSearch> {
   final TextEditingController _searchController = TextEditingController();
   String searchQuery = '';
-  int _selectedIndex = 0;
+  late int _selectedIndex;
   final List<Map<String, dynamic>> _userTabs = [
     {'label': '프로필'},
     {'label': '게시글'},
@@ -38,6 +43,8 @@ class _HomeSearchState extends State<HomeSearch> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialTabIndex;
+
     _searchController.addListener(() {
       setState(() {
         searchQuery = _searchController.text.trim().toLowerCase();
@@ -362,6 +369,9 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (widget.searchQuery.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
@@ -524,7 +534,14 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                                 final post =
                                     filteredPosts[index].data()
                                         as Map<String, dynamic>;
-                                return GuestPostItem(post: post);
+                                final postId = filteredPosts[index].id;
+                                if (post['postId'] == null) {
+                                  post['postId'] = postId;
+                                }
+                                return PostItem(
+                                  postId: post['postId'],
+                                  fromComments: false,
+                                );
                               },
                             );
                           },
@@ -687,6 +704,10 @@ class FollowingSearchTab extends StatefulWidget {
 class _FollowingSearchTabState extends State<FollowingSearchTab> {
   @override
   Widget build(BuildContext context) {
+    final searchQuery = widget.searchQuery ?? '';
+    if (searchQuery.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
@@ -764,7 +785,7 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
                             followingSnapshot.data!.exists;
 
                         // Check if user is private
-                        final isPrivate = user.isPrivate ?? false;
+                        final isPrivate = user.isPrivate;
 
                         if (isFollowing) {
                           // Already following
@@ -966,6 +987,10 @@ class _ShopSearchScreenState extends State<ShopSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final query = widget.searchQuery ?? '';
+    if (query.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
     return ListView.builder(
       itemCount: _filteredProducts.length,
       itemBuilder: (context, index) {
@@ -990,10 +1015,6 @@ class _ShopSearchScreenState extends State<ShopSearchScreen> {
           ),
           onTap: () async {
             bool isSub = await isUserSubscribed();
-            bool liked = isFavoritedByUser(
-              p: product,
-              userId: FirebaseAuth.instance.currentUser?.uid ?? '',
-            );
 
             String arrivalTime = await getArrivalDay(
               product.meridiem,

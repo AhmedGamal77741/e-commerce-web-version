@@ -23,7 +23,7 @@ class EditScreen extends StatefulWidget {
 
 class _EditScreenState extends State<EditScreen> {
   late int _selectedTab;
-  final List<String> _tabs = ['연락처', '1:1채팅', '그룹채팅'];
+  final List<String> _tabs = ['친구', '1:1채팅', '그룹채팅'];
 
   String _query = '';
   final TextEditingController _searchCtrl = TextEditingController();

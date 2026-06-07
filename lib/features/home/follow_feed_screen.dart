@@ -212,7 +212,6 @@ class _FollowingTabState extends State<FollowingTab>
               }
 
               final data = snapshot.data!.data() as Map<String, dynamic>?;
-              final isSub = data?['isSub'] == true;
               final currentUserId = user.uid;
               final blockedUsers = List<String>.from(
                 (data?['blocked'] as List<dynamic>?) ?? [],
@@ -347,7 +346,7 @@ class _FollowingTabState extends State<FollowingTab>
                                       scrollController: _scrollController,
                                       selectedUserId: selectedUserId,
                                       selectedCategoryId: _categoryPages[index],
-                                      useGuestPostItem: !isSub,
+                                      useGuestPostItem: false,
                                       blockedUsers: blockedUsers,
                                     );
                                   },

@@ -11,6 +11,7 @@ import 'package:ecommerece_app/features/home/add_post.dart';
 import 'package:ecommerece_app/features/home/comments.dart';
 import 'package:ecommerece_app/features/cart/services/cart_service.dart';
 import 'package:ecommerece_app/features/home/notifications.dart';
+import 'package:ecommerece_app/features/home/search_screen.dart';
 import 'package:ecommerece_app/features/home/widgets/alerts.dart';
 import 'package:ecommerece_app/features/mypage/ui/cancel_subscription.dart';
 import 'package:ecommerece_app/features/mypage/ui/delete_account_screen.dart';
@@ -135,7 +136,7 @@ class AppRouter {
           GoRoute(
             name: Routes.shopSearchScreen,
             path: Routes.shopSearchScreen,
-            builder: (context, state) => const ShopSearch(),
+            builder: (context, state) => const HomeSearch(initialTabIndex: 2),
           ),
           GoRoute(
             name: Routes.commentsScreen,

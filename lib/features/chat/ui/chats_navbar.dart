@@ -30,7 +30,7 @@ class _ChatsNavbarState extends State<ChatsNavbar>
   final ChatService _chatService = ChatService();
 
   final List<Map<String, dynamic>> _tabs = [
-    {'label': '연락처'},
+    {'label': '친구'},
     {'label': '1:1 채팅'},
     {'label': '그룹채팅'},
   ];

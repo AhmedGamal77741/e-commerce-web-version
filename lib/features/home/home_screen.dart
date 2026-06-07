@@ -32,7 +32,7 @@ class HomeScreenState extends State<HomeScreen>
   Stream<DocumentSnapshot>? _userStream;
   int _selectedIndex = 0;
   bool isSub = false;
-  late final _authSubscription;
+  late final StreamSubscription<User?> _authSubscription;
 
   /// Called by NavBar when the home icon is tapped while already on home.
   void resetToTop() {
@@ -217,7 +217,9 @@ class HomeScreenState extends State<HomeScreen>
                   }
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => HomeSearch()),
+                    MaterialPageRoute(
+                      builder: (context) => HomeSearch(initialTabIndex: 1),
+                    ),
                   );
                 },
                 child: ImageIcon(
@@ -580,7 +582,10 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                           }
                           return Column(
                             children: [
-                              GuestPostItem(post: post),
+                              PostItem(
+                                postId: post['postId'],
+                                fromComments: false,
+                              ),
                               verticalSpace(10),
                             ],
                           );

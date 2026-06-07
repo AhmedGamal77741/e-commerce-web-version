@@ -35,6 +35,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   MyUser? _currentUser;
   bool _isLoadingUser = true;
   Map<String, String> _latestAliases = {};
+  Map<String, String> _contactNicknameMap = {};
 
   // ── Expansion state ──────────────────────────────────────────────────────
   bool _subscribedExpanded = true;
@@ -101,7 +102,17 @@ class _FriendsScreenState extends State<FriendsScreen>
   void initState() {
     super.initState();
     _loadCurrentUser();
+    _loadContactNicknameMap();
     _syncContactsOnEnter();
+  }
+
+  Future<void> _loadContactNicknameMap() async {
+    final map = await _contactService.loadContactNameMap();
+    if (mounted) {
+      setState(() {
+        _contactNicknameMap = map;
+      });
+    }
   }
 
   Future<void> _loadCurrentUser() async {
@@ -1987,6 +1998,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     final bool hasAlias =
         aliases.containsKey(friend.userId) &&
         aliases[friend.userId]!.isNotEmpty;
+    final String? contactName = _contactNicknameMap[friend.userId];
 
     void showFriendMenu() {
       if (isBrand) return;
@@ -2188,9 +2200,22 @@ class _FriendsScreenState extends State<FriendsScreen>
                           ).showSnackBar(SnackBar(content: Text('Error: $e')));
                         }
                       },
-                      child: _buildHighlightedName(
-                        displayName,
-                        _effectiveQuery,
+                      child: Row(
+                        children: [
+                          _buildHighlightedName(displayName, _effectiveQuery),
+                          if (contactName != null &&
+                              contactName.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '@$contactName',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     )
                     : InkWell(
@@ -2236,38 +2261,21 @@ class _FriendsScreenState extends State<FriendsScreen>
                               ),
                             ),
                           ],
+                          if (contactName != null &&
+                              contactName.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '@$contactName',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                FutureBuilder<String?>(
-                  future: _contactService.getContactNickname(friend.userId),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const SizedBox.shrink(); // Or a small CircularProgressIndicator
-                    }
-
-                    if (snapshot.hasError ||
-                        !snapshot.hasData ||
-                        snapshot.data == null) {
-                      return const SizedBox.shrink();
-                    }
-
-                    final nickname = snapshot.data!;
-                    return Padding(
-                      padding: EdgeInsets.only(top: 2),
-                      child: Text(
-                        '@$nickname',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  },
-                ),
                 /*                 if (friend.bio != null && friend.bio!.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
