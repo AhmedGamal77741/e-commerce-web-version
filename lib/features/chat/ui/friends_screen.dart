@@ -881,11 +881,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                                           child: SizedBox(
                                             width: 16,
                                             height: 16,
-                                            child:
-                                                const CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  color: Colors.black,
-                                                ),
+                                            child: const SizedBox.shrink(),
                                           ),
                                         )
                                         : Icon(

@@ -200,14 +200,7 @@ class _ReceiptSetupScreenState extends State<ReceiptSetupScreen> {
                   ),
                   child:
                       _isSaving
-                          ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2.5,
-                            ),
-                          )
+                          ? const SizedBox.shrink()
                           : Text(
                             '저장하고 계속하기',
                             style: TextStyle(

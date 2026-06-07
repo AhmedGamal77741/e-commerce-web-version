@@ -455,7 +455,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                         if (postsSnapshot.connectionState ==
                             ConnectionState.waiting) {
                           return Center(
-                            /* child: const CircularProgressIndicator(
+                            /* child: const SizedBox.shrink()(
                               color: Colors.black,
                             ), */
                           );
@@ -476,7 +476,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                           builder: (context, authorsSnapshot) {
                             if (!authorsSnapshot.hasData) {
                               return const Center(
-                                /*  child: CircularProgressIndicator(
+                                /*  child: SizedBox.shrink()(
                                   color: Colors.black,
                                 ), */
                               );
@@ -583,7 +583,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                           if (postsSnapshot.connectionState ==
                               ConnectionState.waiting) {
                             return const Center(
-                              /* child: CircularProgressIndicator(
+                              /* child: SizedBox.shrink()(
                                 color: Colors.black,
                               ), */
                             );
@@ -608,7 +608,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                             builder: (context, authorsSnapshot) {
                               if (!authorsSnapshot.hasData) {
                                 return const Center(
-                                  /* child: CircularProgressIndicator(
+                                  /* child: SizedBox.shrink()(
                                     color: Colors.black,
                                   ), */
                                 );

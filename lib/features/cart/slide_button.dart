@@ -214,14 +214,7 @@ class _Handle extends StatelessWidget {
       child: Center(
         child:
             isProcessing
-                ? SizedBox(
-                  width: size * 0.38,
-                  height: size * 0.38,
-                  child: const CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2.5,
-                  ),
-                )
+                ? SizedBox.shrink()
                 : Image.asset(
                   'assets/swiper_logo.png',
                   width: size * 0.9,

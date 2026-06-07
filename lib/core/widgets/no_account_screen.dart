@@ -93,14 +93,7 @@ class _NoBankAccountScreenState extends State<NoBankAccountScreen> {
                   ),
                   child:
                       _isLaunching
-                          ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              color: Colors.black,
-                              strokeWidth: 2.5,
-                            ),
-                          )
+                          ? const SizedBox.shrink()
                           : Text(
                             '계좌 등록하기',
                             style: TextStyle(

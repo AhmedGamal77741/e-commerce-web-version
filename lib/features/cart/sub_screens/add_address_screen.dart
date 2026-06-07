@@ -391,14 +391,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   ),
                   child:
                       _isLoading
-                          ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
+                          ? const SizedBox.shrink()
                           : Text(
                             '저장',
                             style: TextStyle(

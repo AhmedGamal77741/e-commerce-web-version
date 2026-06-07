@@ -93,7 +93,7 @@ class _CommentItemState extends State<CommentItem> {
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
-                          return const SizedBox.shrink(); // Or a small CircularProgressIndicator
+                          return const SizedBox.shrink(); // Or a small SizedBox.shrink()
                         }
 
                         if (snapshot.hasError ||

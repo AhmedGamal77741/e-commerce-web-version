@@ -38,16 +38,7 @@ class SafeNetworkImage extends StatelessWidget {
       fit: fit,
       loadingBuilder: (ctx, child, progress) {
         if (progress == null) return child;
-        return placeholder ??
-            Center(
-              child: CircularProgressIndicator(
-                value:
-                    progress.expectedTotalBytes != null
-                        ? progress.cumulativeBytesLoaded /
-                            progress.expectedTotalBytes!
-                        : null,
-              ),
-            );
+        return placeholder ?? SizedBox.shrink();
       },
       errorBuilder: (ctx, error, stack) {
         return errorWidget ?? const Icon(Icons.image_not_supported);
