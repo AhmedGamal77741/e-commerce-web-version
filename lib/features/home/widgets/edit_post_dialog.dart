@@ -343,7 +343,7 @@ class _EditPostDialogState extends State<EditPostDialog> {
                                 child: Container(
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(8),
-                                    color: Colors.blue.withOpacity(0.2),
+                                    color: Colors.black.withOpacity(0.2),
                                   ),
                                   child: Center(
                                     child: Container(

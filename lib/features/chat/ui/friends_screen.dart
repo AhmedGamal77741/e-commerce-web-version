@@ -2332,7 +2332,7 @@ class _FriendsScreenState extends State<FriendsScreen>
           TextSpan(
             text: name.substring(matchIndex, matchIndex + query.length),
             style: const TextStyle(
-              color: Colors.blue,
+              color: Colors.black,
               fontWeight: FontWeight.w700,
             ),
           ),

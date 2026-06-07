@@ -24,6 +24,19 @@ class EcommerceApp extends StatelessWidget {
             child: ClipRect(
               child: MaterialApp.router(
                 theme: ThemeData(
+                  useMaterial3: true,
+                  colorScheme: ColorScheme.fromSeed(
+                    seedColor: Colors.black,
+                    primary: Colors.black,
+                    onPrimary: Colors.white,
+                    secondary: Colors.black,
+                    onSecondary: Colors.white,
+                  ),
+                  textSelectionTheme: const TextSelectionThemeData(
+                    cursorColor: Colors.black,
+                    selectionColor: Colors.black12,
+                    selectionHandleColor: Colors.black,
+                  ),
                   scaffoldBackgroundColor: ColorsManager.primary,
                   appBarTheme: AppBarTheme(
                     backgroundColor: ColorsManager.primary,
