@@ -398,6 +398,32 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
     }
   }
 
+  bool _isSameRegion(
+    Map<String, dynamic>? userAddress,
+    Map<String, dynamic>? productAddress,
+  ) {
+    if (userAddress == null || productAddress == null) return false;
+    final userRegion1 =
+        userAddress['road_address']?['region_1depth_name'] ??
+        userAddress['address']?['region_1depth_name'];
+    final userRegion2 =
+        userAddress['road_address']?['region_2depth_name'] ??
+        userAddress['address']?['region_2depth_name'];
+    final productRegion1 =
+        productAddress['road_address']?['region_1depth_name'] ??
+        productAddress['address']?['region_1depth_name'];
+    final productRegion2 =
+        productAddress['road_address']?['region_2depth_name'] ??
+        productAddress['address']?['region_2depth_name'];
+
+    if (userRegion1 == null || productRegion1 == null) return false;
+    if (userRegion1 != productRegion1) return false;
+    if (productRegion2 != null && productRegion2.isNotEmpty) {
+      if (userRegion2 != productRegion2) return false;
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -424,24 +450,55 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
               return const Center(child: Text('아직 제품이 없습니다'));
             }
             final products = snapshot.data!.docs;
-            /*             List<Product> sameRegion = [];
- */
+
+            List<Product> sameRegion = [];
             List<Product> otherRegion = [];
             List<Product> soldOut = [];
+
+            final bool hasUserAddress =
+                userAddressMap != null && userAddressMap!.isNotEmpty;
 
             for (var p in products) {
               Product product = Product.fromMap(
                 p.data() as Map<String, dynamic>,
               );
               if (product.stock == 0) {
-                soldOut.add(product);
-              } /* else if (_isSameRegion(userAddressMap, product.address)) {
-                sameRegion.add(product);
-              } */ else {
-                otherRegion.add(product);
+                if (!hasUserAddress) {
+                  soldOut.add(product);
+                } else {
+                  if (product.address != null && product.address!.isNotEmpty) {
+                    if (_isSameRegion(userAddressMap, product.address)) {
+                      soldOut.add(product);
+                    }
+                  } else {
+                    soldOut.add(product);
+                  }
+                }
+              } else {
+                if (product.address != null && product.address!.isNotEmpty) {
+                  if (hasUserAddress &&
+                      _isSameRegion(userAddressMap, product.address)) {
+                    sameRegion.add(product);
+                  } else if (!hasUserAddress) {
+                    otherRegion.add(product);
+                  }
+                } else {
+                  otherRegion.add(product);
+                }
               }
             }
             final random = Random();
+            sameRegion.sort((a, b) {
+              final weightA = _productRandomWeight.putIfAbsent(
+                a.product_id,
+                () => random.nextDouble(),
+              );
+              final weightB = _productRandomWeight.putIfAbsent(
+                b.product_id,
+                () => random.nextDouble(),
+              );
+              return weightA.compareTo(weightB);
+            });
             otherRegion.sort((a, b) {
               final weightA = _productRandomWeight.putIfAbsent(
                 a.product_id,
@@ -453,10 +510,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
               );
               return weightA.compareTo(weightB);
             });
-            final sortedProducts = [
-              /* ...sameRegion, */ ...otherRegion,
-              ...soldOut,
-            ];
+            final sortedProducts = [...sameRegion, ...otherRegion, ...soldOut];
             /*             // Sort: available products first, then sold out
             final sortedProducts = List.from(products)..sort((a, b) {
               final stockA = (a.data() as Map<String, dynamic>)['stock'] ?? 0;
