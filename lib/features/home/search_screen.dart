@@ -704,6 +704,10 @@ class FollowingSearchTab extends StatefulWidget {
 class _FollowingSearchTabState extends State<FollowingSearchTab> {
   @override
   Widget build(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      return const Center(child: Text('Please sign in to continue'));
+    }
     final searchQuery = widget.searchQuery ?? '';
     if (searchQuery.trim().isEmpty) {
       return const SizedBox.shrink();
@@ -723,8 +727,9 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
             final user = MyUser.fromDocument(doc);
 
             // FIX: Safe search query comparison
+            final currentUserId = FirebaseAuth.instance.currentUser?.uid;
             final searchQuery = widget.searchQuery ?? '';
-            if (user.userId == FirebaseAuth.instance.currentUser!.uid ||
+            if (user.userId == currentUserId ||
                 (searchQuery.isNotEmpty &&
                     !user.name.toLowerCase().contains(
                       searchQuery.toLowerCase(),
@@ -775,7 +780,7 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
                       stream:
                           FirebaseFirestore.instance
                               .collection('users')
-                              .doc(FirebaseAuth.instance.currentUser?.uid)
+                              .doc(currentUserId)
                               .collection('following')
                               .doc(user.userId)
                               .snapshots(),
@@ -826,7 +831,7 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
                                     .collection('users')
                                     .doc(user.userId)
                                     .collection('followRequests')
-                                    .doc(FirebaseAuth.instance.currentUser?.uid)
+                                    .doc(currentUserId)
                                     .snapshots(),
                             builder: (context, requestSnapshot) {
                               final hasRequest =
@@ -858,12 +863,7 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
                                         .collection('users')
                                         .doc(user.userId)
                                         .collection('followRequests')
-                                        .doc(
-                                          FirebaseAuth
-                                              .instance
-                                              .currentUser
-                                              ?.uid,
-                                        )
+                                        .doc(currentUserId)
                                         .delete();
                                   } else {
                                     // Send request
@@ -871,18 +871,9 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
                                         .collection('users')
                                         .doc(user.userId)
                                         .collection('followRequests')
-                                        .doc(
-                                          FirebaseAuth
-                                              .instance
-                                              .currentUser
-                                              ?.uid,
-                                        )
+                                        .doc(currentUserId)
                                         .set({
-                                          'userId':
-                                              FirebaseAuth
-                                                  .instance
-                                                  .currentUser
-                                                  ?.uid,
+                                          'userId': currentUserId,
                                           'createdAt':
                                               FieldValue.serverTimestamp(),
                                         });
