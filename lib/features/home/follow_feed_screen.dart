@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/home/widgets/following_users_list.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_item.dart';
@@ -101,6 +102,42 @@ class _FollowingTabState extends State<FollowingTab>
     _selectedUserId.dispose();
     _selectedCategoryId.dispose();
     super.dispose();
+  }
+
+  Future<List<MyUser>> _fetchAndSortFollowingUsers(List<String> ids) async {
+    if (ids.isEmpty) return [];
+
+    final List<List<String>> chunks = [];
+    for (var i = 0; i < ids.length; i += 30) {
+      chunks.add(ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30));
+    }
+
+    final List<MyUser> fetchedUsers = [];
+    await Future.wait(
+      chunks.map((chunk) async {
+        final querySnapshot =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .where('userId', whereIn: chunk)
+                .get();
+        for (var doc in querySnapshot.docs) {
+          if (doc.exists) {
+            fetchedUsers.add(MyUser.fromDocument(doc.data()!));
+          }
+        }
+      }),
+    );
+
+    fetchedUsers.sort((a, b) {
+      if (a.lastPostCreatedAt == null && b.lastPostCreatedAt == null) {
+        return 0;
+      }
+      if (a.lastPostCreatedAt == null) return 1;
+      if (b.lastPostCreatedAt == null) return -1;
+      return b.lastPostCreatedAt!.compareTo(a.lastPostCreatedAt!);
+    });
+
+    return fetchedUsers;
   }
 
   void _handleUserSelection(String userId) {
@@ -280,13 +317,47 @@ class _FollowingTabState extends State<FollowingTab>
                           );
                         }
 
-                        return ValueListenableBuilder(
-                          valueListenable: _selectedUserId,
-                          builder: (context, selectedUserId, child) {
-                            return FollowingUsersList(
-                              followingIds: followingIds,
-                              onUserTap: _handleUserSelection,
-                              selectedUserId: selectedUserId,
+                        return FutureBuilder<List<MyUser>>(
+                          future: _fetchAndSortFollowingUsers(followingIds),
+                          builder: (context, futureSnapshot) {
+                            if (futureSnapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                child: SizedBox(width: 20, height: 20),
+                              );
+                            }
+
+                            final sortedUsers = futureSnapshot.data ?? [];
+                            final sortedIds =
+                                sortedUsers.map((u) => u.userId).toList();
+
+                            // Automatically select the account that most recently posted (first item)
+                            // if none is selected, or if the selected user is no longer followed.
+                            if (sortedIds.isNotEmpty &&
+                                (_selectedUserId.value == null ||
+                                    !sortedIds.contains(
+                                      _selectedUserId.value,
+                                    ))) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted &&
+                                    (_selectedUserId.value == null ||
+                                        !sortedIds.contains(
+                                          _selectedUserId.value,
+                                        ))) {
+                                  _selectedUserId.value = sortedIds.first;
+                                }
+                              });
+                            }
+
+                            return ValueListenableBuilder(
+                              valueListenable: _selectedUserId,
+                              builder: (context, selectedUserId, child) {
+                                return FollowingUsersList(
+                                  followingUsers: sortedUsers,
+                                  onUserTap: _handleUserSelection,
+                                  selectedUserId: selectedUserId,
+                                );
+                              },
                             );
                           },
                         );

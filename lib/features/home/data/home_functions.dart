@@ -157,10 +157,11 @@ Future<void> uploadPost({
 
     final postsCollection = FirebaseFirestore.instance.collection('posts');
 
-    // Create a new document with auto-generated ID
     final newPostRef = postsCollection.doc();
 
-    await newPostRef.set({
+    final batch = FirebaseFirestore.instance.batch();
+
+    batch.set(newPostRef, {
       'userId': currentUser.uid,
       'postId': newPostRef.id,
       'text': text,
@@ -174,6 +175,12 @@ Future<void> uploadPost({
       'notInterestedBy': [],
     });
 
+    batch.update(
+      FirebaseFirestore.instance.collection('users').doc(currentUser.uid),
+      {'lastPostCreatedAt': FieldValue.serverTimestamp()},
+    );
+
+    await batch.commit();
     print('Post uploaded successfully!');
   } catch (e) {
     print('Error uploading post: $e');
@@ -357,5 +364,84 @@ Future<List<String>> uploadMultipleImagesToFirebaseHome() async {
   } catch (e) {
     print('Error uploading multiple images: $e');
     throw Exception('Failed to upload images: $e');
+  }
+}
+
+Future<void> migrateLastPostCreatedAt() async {
+  try {
+    print('Starting migration: lastPostCreatedAt...');
+    final postsSnapshot =
+        await FirebaseFirestore.instance.collection('posts').get();
+
+    // Map to keep track of the latest post timestamp for each user
+    final Map<String, DateTime> latestPosts = {};
+
+    for (var doc in postsSnapshot.docs) {
+      final data = doc.data();
+      final userId = data['userId'] as String?;
+      final createdAtRaw = data['createdAt'];
+
+      if (userId == null || createdAtRaw == null) continue;
+
+      DateTime? postDate;
+      if (createdAtRaw is Timestamp) {
+        postDate = createdAtRaw.toDate();
+      } else if (createdAtRaw is int) {
+        postDate = DateTime.fromMillisecondsSinceEpoch(createdAtRaw);
+      }
+
+      if (postDate != null) {
+        final currentLatest = latestPosts[userId];
+        if (currentLatest == null || postDate.isAfter(currentLatest)) {
+          latestPosts[userId] = postDate;
+        }
+      }
+    }
+
+    print(
+      'Found latest posts for ${latestPosts.length} users. Updating profiles...',
+    );
+
+    // Update each user's profile if their post timestamp is newer than their current one
+    int updatedCount = 0;
+    for (var entry in latestPosts.entries) {
+      final userId = entry.key;
+      final latestPostDate = entry.value;
+
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .get();
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        final currentLastPostRaw = userData?['lastPostCreatedAt'];
+        DateTime? currentLastPost;
+
+        if (currentLastPostRaw is Timestamp) {
+          currentLastPost = currentLastPostRaw.toDate();
+        } else if (currentLastPostRaw is int) {
+          currentLastPost = DateTime.fromMillisecondsSinceEpoch(
+            currentLastPostRaw,
+          );
+        }
+
+        if (currentLastPost == null ||
+            latestPostDate.isAfter(currentLastPost)) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .update({
+                'lastPostCreatedAt': Timestamp.fromDate(latestPostDate),
+              });
+          updatedCount++;
+        }
+      }
+    }
+
+    print('Migration complete! Updated $updatedCount users.');
+  } catch (e) {
+    print('Error during lastPostCreatedAt migration: $e');
+    rethrow;
   }
 }
