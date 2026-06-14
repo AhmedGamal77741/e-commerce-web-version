@@ -11,6 +11,7 @@ import 'package:ecommerece_app/features/chat/widgets/chat_post_share.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
 import 'package:ecommerece_app/features/home/models/comment_model.dart';
 import 'package:ecommerece_app/features/home/follow_feed_screen.dart';
+import 'package:ecommerece_app/features/home/profile_tab.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -407,10 +408,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
                     builder:
                         (context) => SafeArea(
                           child: Scaffold(
-                            body: FollowingTab(
-                              firebaseUser: FirebaseAuth.instance.currentUser,
-                              preselectedUser: item.senderId,
-                            ),
+                            body: ProfileTab(userId: item.senderId),
                           ),
                         ),
                   ),

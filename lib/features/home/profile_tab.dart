@@ -24,34 +24,39 @@ class _ProfileTabState extends State<ProfileTab> {
   String? selectedCategoryId;
   late PageController _pageController;
   List<String?> _categoryPages = [null];
-  User? _firebaseUser;
-  late final StreamSubscription<User?> _authSubscription;
+
   Stream<DocumentSnapshot>? _userStream;
+  Stream<QuerySnapshot>? _categoriesStream;
+  String? _cachedCategoriesUserId;
+
+  Stream<QuerySnapshot> _getCategoriesStream(String userId) {
+    if (_categoriesStream == null || _cachedCategoriesUserId != userId) {
+      _cachedCategoriesUserId = userId;
+      _categoriesStream =
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .collection('categories')
+              .orderBy('order')
+              .snapshots();
+    }
+    return _categoriesStream!;
+  }
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
-    _firebaseUser = FirebaseAuth.instance.currentUser;
 
     _userStream =
         FirebaseFirestore.instance
             .collection('users')
             .doc(widget.userId)
             .snapshots();
-
-    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (mounted) {
-        setState(() {
-          _firebaseUser = user;
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
-    _authSubscription.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -92,13 +97,7 @@ class _ProfileTabState extends State<ProfileTab> {
         final profileUser = MyUser.fromDocument(userData);
 
         return StreamBuilder<QuerySnapshot>(
-          stream:
-              FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(profileUser.userId)
-                  .collection('categories')
-                  .orderBy('order')
-                  .snapshots(),
+          stream: _getCategoriesStream(profileUser.userId),
           builder: (context, categorySnapshot) {
             if (categorySnapshot.hasData) {
               _categoryPages = [
@@ -177,7 +176,10 @@ class _ProfileTabState extends State<ProfileTab> {
                     verticalSpace(10),
 
                     UserCategoriesBar(
-                      userId: profileUser.userId,
+                      categories:
+                          categorySnapshot.hasData
+                              ? categorySnapshot.data!.docs
+                              : const [],
                       selectedCategoryId: selectedCategoryId,
                       onCategorySelected: _onCategorySelected,
                     ),
@@ -306,68 +308,50 @@ class _PostsPageState extends State<_PostsPage>
 }
 
 class UserCategoriesBar extends StatelessWidget {
-  final String userId;
+  final List<QueryDocumentSnapshot> categories;
   final String? selectedCategoryId;
   final Function(String) onCategorySelected;
 
   const UserCategoriesBar({
     super.key,
-    required this.userId,
+    required this.categories,
     required this.selectedCategoryId,
     required this.onCategorySelected,
   });
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .collection('categories')
-              .orderBy('order')
-              .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox(height: 50);
-        }
+    if (categories.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-        final categories = snapshot.data!.docs;
-
-        if (categories.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        return SizedBox(
-          height: 50,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                SizedBox(width: 16),
-                _pill(
-                  '전체',
-                  selectedCategoryId == null,
-                  () => onCategorySelected(''),
-                ),
-                ...categories.map((cat) {
-                  final name =
-                      (cat.data() as Map<String, dynamic>)['name'] ?? '';
-                  return Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: _pill(
-                      name,
-                      selectedCategoryId == cat.id,
-                      () => onCategorySelected(cat.id),
-                    ),
-                  );
-                }),
-                SizedBox(width: 16),
-              ],
+    return SizedBox(
+      height: 50,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            SizedBox(width: 16),
+            _pill(
+              '전체',
+              selectedCategoryId == null,
+              () => onCategorySelected(''),
             ),
-          ),
-        );
-      },
+            ...categories.map((cat) {
+              final name = (cat.data() as Map<String, dynamic>)['name'] ?? '';
+              return Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: _pill(
+                  name,
+                  selectedCategoryId == cat.id,
+                  () => onCategorySelected(cat.id),
+                ),
+              );
+            }),
+            SizedBox(width: 16),
+          ],
+        ),
+      ),
     );
   }
 
