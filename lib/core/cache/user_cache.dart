@@ -12,4 +12,8 @@ class UserCache {
     _cache[uid] = doc;
     return doc;
   }
+
+  static DocumentSnapshot? getUserCached(String uid) {
+    return _cache[uid];
+  }
 }

@@ -364,16 +364,24 @@ class ChatService {
           .collection('messages')
           .doc(id);
 
-      batch.update(msgRef, {
+      batch.set(msgRef, {
         'readBy': FieldValue.arrayUnion([currentUserId]),
-      });
-      batch.update(subRef, {
+      }, SetOptions(merge: true));
+      batch.set(subRef, {
         'readBy': FieldValue.arrayUnion([currentUserId]),
-      });
+      }, SetOptions(merge: true));
     }
 
-    await batch.commit();
-    await resetUnreadCount(chatRoomId);
+    try {
+      await batch.commit();
+    } catch (e) {
+      print('Error committing read status batch: $e');
+    }
+    try {
+      await resetUnreadCount(chatRoomId);
+    } catch (e) {
+      print('Error resetting unread count: $e');
+    }
   }
 
   // Get chat rooms stream
@@ -381,14 +389,19 @@ class ChatService {
     return _firestore
         .collection('chatRooms')
         .where('participants', arrayContains: currentUserId)
-        .orderBy('lastMessageTime', descending: true)
         .snapshots()
-        .map(
-          (snapshot) =>
+        .map((snapshot) {
+          final rooms =
               snapshot.docs
                   .map((doc) => ChatRoomModel.fromMap(doc.data()))
-                  .toList(),
-        );
+                  .toList();
+          rooms.sort((a, b) {
+            final aTime = a.lastMessageTime;
+            final bTime = b.lastMessageTime;
+            return bTime.compareTo(aTime);
+          });
+          return rooms;
+        });
   }
 
   // Get messages stream
@@ -396,14 +409,19 @@ class ChatService {
     return _firestore
         .collection('messages')
         .where('chatRoomId', isEqualTo: chatRoomId)
-        .orderBy('timestamp', descending: true)
         .snapshots()
-        .map(
-          (snapshot) =>
+        .map((snapshot) {
+          final messages =
               snapshot.docs
                   .map((doc) => MessageModel.fromMap(doc.data()))
-                  .toList(),
-        );
+                  .toList();
+          messages.sort((a, b) {
+            final aTime = a.timestamp;
+            final bTime = b.timestamp;
+            return bTime.compareTo(aTime);
+          });
+          return messages;
+        });
   }
 
   // Get users for creating chats

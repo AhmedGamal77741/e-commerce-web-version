@@ -19,7 +19,8 @@ class _DirectChatsScreenState extends State<DirectChatsScreen>
   final ChatService chatService = ChatService();
   String get currentUserId => FirebaseAuth.instance.currentUser!.uid;
   final FriendsService _friendsService = FriendsService();
-
+  final Map<String, MyUser?> _usersCache = {};
+  final Set<String> _fetchingIds = {};
   // ── Active overlay (only one menu open at a time) ────────────────────────
   OverlayEntry? _activeMenuOverlay;
 
@@ -57,39 +58,59 @@ class _DirectChatsScreenState extends State<DirectChatsScreen>
   }
 
   // ─── Resolve other participant ────────────────────────────────────────────
-  Future<MyUser?> getOtherUser(ChatRoomModel chat) async {
+  Future<void> getOtherUser(ChatRoomModel chat) async {
     final otherId = chat.participants.firstWhere(
       (id) => id != currentUserId,
       orElse: () => '',
     );
-    if (otherId.isEmpty) return null;
+    if (otherId.isEmpty) return;
 
-    if (chat.type == 'direct') {
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(otherId)
-              .get();
-      if (!doc.exists) return null;
-      return MyUser.fromDocument(doc.data()!);
-    } else if (chat.type == 'seller') {
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('deliveryManagers')
-              .doc(otherId)
-              .get();
-      if (!doc.exists) return null;
-      return MyUser.fromSellerDocument(doc.data()!);
-    } else if (chat.type == 'admin') {
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(otherId)
-              .get();
-      if (!doc.exists) return null;
-      return MyUser.fromSellerDocument(doc.data()!);
+    if (_usersCache.containsKey(otherId) || _fetchingIds.contains(otherId)) {
+      return;
     }
-    return null;
+
+    _fetchingIds.add(otherId);
+
+    try {
+      MyUser? user;
+      if (chat.type == 'direct') {
+        final doc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(otherId)
+                .get();
+        if (doc.exists) {
+          user = MyUser.fromDocument(doc.data()!);
+        }
+      } else if (chat.type == 'seller') {
+        final doc =
+            await FirebaseFirestore.instance
+                .collection('deliveryManagers')
+                .doc(otherId)
+                .get();
+        if (doc.exists) {
+          user = MyUser.fromSellerDocument(doc.data()!);
+        }
+      } else if (chat.type == 'admin') {
+        final doc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(otherId)
+                .get();
+        if (doc.exists) {
+          user = MyUser.fromSellerDocument(doc.data()!);
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _usersCache[otherId] = user;
+        });
+      }
+    } catch (e) {
+      print('Error fetching other user ($otherId): $e');
+    } finally {
+      _fetchingIds.remove(otherId);
+    }
   }
 
   String _getOtherUserId(ChatRoomModel chat) {
@@ -336,44 +357,39 @@ class _DirectChatsScreenState extends State<DirectChatsScreen>
                       return const SizedBox.shrink();
                     }
 
-                    return FutureBuilder<MyUser?>(
-                      future: getOtherUser(chat),
-                      builder: (context, userSnap) {
-                        if (userSnap.connectionState ==
-                            ConnectionState.waiting) {
-                          return const ListTile(
-                            leading: CircleAvatar(
-                              radius: 25,
-                              child: Icon(Icons.person),
-                            ),
-                            title: Text('Loading...'),
-                          );
-                        }
+                    if (!_usersCache.containsKey(otherId)) {
+                      getOtherUser(chat);
+                      return const ListTile(
+                        leading: CircleAvatar(
+                          radius: 25,
+                          child: Icon(Icons.person),
+                        ),
+                        title: Text('Loading...'),
+                      );
+                    }
 
-                        if (!userSnap.hasData) {
-                          return _buildChatTile(
-                            chat: chat,
-                            displayName: '삭제된 사용자',
-                            realName: null,
-                            avatarUrl: null,
-                            userId: '',
-                            isDeleted: true,
-                          );
-                        }
+                    final friend = _usersCache[otherId];
+                    if (friend == null) {
+                      return _buildChatTile(
+                        chat: chat,
+                        displayName: '삭제된 사용자',
+                        realName: null,
+                        avatarUrl: null,
+                        userId: '',
+                        isDeleted: true,
+                      );
+                    }
 
-                        final friend = userSnap.data!;
-                        final String displayName =
-                            aliases[friend.userId] ?? friend.name;
-                        final bool hasAlias = displayName != friend.name;
+                    final String displayName =
+                        aliases[friend.userId] ?? friend.name;
+                    final bool hasAlias = displayName != friend.name;
 
-                        return _buildChatTile(
-                          chat: chat,
-                          displayName: displayName,
-                          realName: hasAlias ? friend.name : null,
-                          avatarUrl: friend.url.isNotEmpty ? friend.url : null,
-                          userId: friend.userId,
-                        );
-                      },
+                    return _buildChatTile(
+                      chat: chat,
+                      displayName: displayName,
+                      realName: hasAlias ? friend.name : null,
+                      avatarUrl: friend.url.isNotEmpty ? friend.url : null,
+                      userId: friend.userId,
                     );
                   },
                 );

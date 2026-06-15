@@ -1,6 +1,7 @@
 // screens/chat_screen.dart
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:ecommerece_app/core/cache/user_cache.dart';
 import 'package:ecommerece_app/core/helpers/image_picker_helper.dart';
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
@@ -50,10 +51,13 @@ class _ChatScreenState extends State<ChatScreen> {
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
   XFile? _pickedImage;
+  Uint8List? _pickedImageBytes;
   bool _isBlocked = false;
   bool _blocked = false;
   bool _loadingBlockState = true;
   MessageModel? _replyToMessage;
+  List<MessageModel> _messages = [];
+  bool _messagesLoaded = false;
   StreamSubscription<List<MessageModel>>? _messageSubscription;
 
   // ── Chat room state ───────────────────────────────────────────────────────
@@ -76,6 +80,12 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageSubscription = _chatService
         .getMessagesStream(widget.chatRoomId)
         .listen((messages) {
+          if (mounted) {
+            setState(() {
+              _messages = messages;
+              _messagesLoaded = true;
+            });
+          }
           final unreadIds =
               messages
                   .where(
@@ -99,36 +109,42 @@ class _ChatScreenState extends State<ChatScreen> {
   // ── Load chat room + aliases ──────────────────────────────────────────────
 
   Future<void> _loadChatRoom() async {
-    final doc =
-        await FirebaseFirestore.instance
-            .collection('chatRooms')
-            .doc(widget.chatRoomId)
-            .get();
-    if (!doc.exists || !mounted) return;
+    try {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('chatRooms')
+              .doc(widget.chatRoomId)
+              .get();
+      if (!doc.exists || !mounted) return;
 
-    final room = ChatRoomModel.fromMap(doc.data()!);
+      final room = ChatRoomModel.fromMap(doc.data()!);
 
-    if (room.type == 'group') {
-      // Group: load aliases for all participants so member names resolve
-      await _loadAliases(room.participants);
-      if (mounted)
-        setState(() {
-          _chatRoom = room;
-          _isGroup = true;
-        });
-    } else {
-      // Direct: identify the other participant and load their alias
-      final otherId = room.participants.firstWhere(
-        (id) => id != currentUserId,
-        orElse: () => '',
-      );
-      _otherUserId = otherId;
-      await _loadAliases(room.participants);
-      if (mounted)
-        setState(() {
-          _chatRoom = room;
-          _isGroup = false;
-        });
+      if (room.type == 'group') {
+        // Group: load aliases for all participants so member names resolve
+        await _loadAliases(room.participants);
+        if (mounted) {
+          setState(() {
+            _chatRoom = room;
+            _isGroup = true;
+          });
+        }
+      } else {
+        // Direct: identify the other participant and load their alias
+        final otherId = room.participants.firstWhere(
+          (id) => id != currentUserId,
+          orElse: () => '',
+        );
+        _otherUserId = otherId;
+        await _loadAliases(room.participants);
+        if (mounted) {
+          setState(() {
+            _chatRoom = room;
+            _isGroup = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading chat room: $e');
     }
   }
 
@@ -330,16 +346,13 @@ class _ChatScreenState extends State<ChatScreen> {
     final results = await Future.wait(
       ids.map((id) async {
         try {
-          final doc =
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(id)
-                  .get();
+          final doc = await UserCache.getUser(id);
           if (doc.exists) {
+            final data = doc.data() as Map<String, dynamic>?;
             return {
               'id': id,
-              'name': doc.data()!['name'] ?? '알 수 없음',
-              'url': doc.data()!['url'] ?? '',
+              'name': data?['name'] as String? ?? '알 수 없음',
+              'url': data?['url'] as String? ?? '',
             };
           }
         } catch (_) {}
@@ -362,6 +375,45 @@ class _ChatScreenState extends State<ChatScreen> {
   // so it can resolve aliases properly.
   Widget _buildGroupSubtitle() {
     if (_chatRoom == null) return const SizedBox.shrink();
+
+    final allCached = _chatRoom!.participants.every(
+      (id) => UserCache.getUserCached(id) != null,
+    );
+    if (allCached) {
+      final names =
+          _chatRoom!.participants.map((id) {
+            final isMe = id == currentUserId;
+            if (isMe) return '나';
+            final doc = UserCache.getUserCached(id)!;
+            final name =
+                doc.exists
+                    ? (doc.get('name') as String? ?? '알 수 없음')
+                    : '알 수 없음';
+            return _resolveDisplayName(id, name);
+          }).toList();
+
+      // Put '나' first
+      final mi = names.indexOf('나');
+      if (mi > 0) {
+        names.removeAt(mi);
+        names.insert(0, '나');
+      }
+
+      final subtitle =
+          names.length <= 2
+              ? names.join(', ')
+              : '${names.take(2).join(', ')} 외 ${names.length - 2}명';
+
+      return Text(
+        subtitle,
+        style: TextStyle(
+          color: Colors.grey[500],
+          fontSize: 11,
+          fontWeight: FontWeight.w400,
+        ),
+      );
+    }
+
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _fetchMemberDetails(_chatRoom!.participants),
       builder: (ctx, snap) {
@@ -434,6 +486,31 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
+    final allCached = _chatRoom!.participants.every(
+      (id) => UserCache.getUserCached(id) != null,
+    );
+    if (allCached) {
+      final otherNames =
+          _chatRoom!.participants.where((id) => id != currentUserId).map((id) {
+            final doc = UserCache.getUserCached(id)!;
+            final name =
+                doc.exists
+                    ? (doc.get('name') as String? ?? '알 수 없음')
+                    : '알 수 없음';
+            return _resolveDisplayName(id, name);
+          }).toList();
+      final targetNames = otherNames.isEmpty ? ['나'] : otherNames;
+      return Text(
+        targetNames.join(', '),
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _fetchMemberDetails(_chatRoom!.participants),
       builder: (context, snap) {
@@ -485,55 +562,78 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _pickImage() async {
     final picked = await ImagePickerHelper.pickImage();
 
-    if (picked != null) setState(() => _pickedImage = picked);
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _pickedImage = picked;
+        _pickedImageBytes = bytes;
+      });
+    }
   }
 
   Future<void> _checkBlockState() async {
-    final chatRoomDoc =
-        await FirebaseFirestore.instance
-            .collection('chatRooms')
-            .doc(widget.chatRoomId)
-            .get();
-    final chatRoom = ChatRoomModel.fromMap(chatRoomDoc.data()!);
-    if (chatRoom.type != 'direct') {
-      setState(() {
-        _blocked = false;
-        _isBlocked = false;
-        _loadingBlockState = false;
-      });
-      return;
+    try {
+      final chatRoomDoc =
+          await FirebaseFirestore.instance
+              .collection('chatRooms')
+              .doc(widget.chatRoomId)
+              .get();
+      if (!chatRoomDoc.exists || chatRoomDoc.data() == null) {
+        if (mounted) setState(() => _loadingBlockState = false);
+        return;
+      }
+      final chatRoom = ChatRoomModel.fromMap(chatRoomDoc.data()!);
+      if (chatRoom.type != 'direct') {
+        if (mounted) {
+          setState(() {
+            _blocked = false;
+            _isBlocked = false;
+            _loadingBlockState = false;
+          });
+        }
+        return;
+      }
+      final otherUserId = chatRoom.participants.firstWhere(
+        (id) => id != currentUserId,
+        orElse: () => '',
+      );
+      if (otherUserId.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _blocked = false;
+            _isBlocked = false;
+            _loadingBlockState = false;
+          });
+        }
+        return;
+      }
+      final currentDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUserId)
+              .get();
+      final otherDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(otherUserId)
+              .get();
+      if (mounted) {
+        setState(() {
+          _blocked = List<String>.from(
+            currentDoc.data()?['blocked'] ?? [],
+          ).contains(otherUserId);
+          _isBlocked = List<String>.from(
+            otherDoc.data()?['blocked'] ?? [],
+          ).contains(currentUserId);
+          _loadingBlockState = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking block state: $e');
+      if (mounted) {
+        setState(() => _loadingBlockState = false);
+      }
     }
-    final otherUserId = chatRoom.participants.firstWhere(
-      (id) => id != currentUserId,
-      orElse: () => '',
-    );
-    if (otherUserId.isEmpty) {
-      setState(() {
-        _blocked = false;
-        _isBlocked = false;
-        _loadingBlockState = false;
-      });
-      return;
-    }
-    final currentDoc =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentUserId)
-            .get();
-    final otherDoc =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(otherUserId)
-            .get();
-    setState(() {
-      _blocked = List<String>.from(
-        currentDoc.data()?['blocked'] ?? [],
-      ).contains(otherUserId);
-      _isBlocked = List<String>.from(
-        otherDoc.data()?['blocked'] ?? [],
-      ).contains(currentUserId);
-      _loadingBlockState = false;
-    });
   }
 
   Future<void> _unblockUser(String otherUserId) async {
@@ -549,30 +649,28 @@ class _ChatScreenState extends State<ChatScreen> {
   // ── Send messages ─────────────────────────────────────────────────────────
 
   Future<void> _sendImageMessage() async {
-    if (_pickedImage == null) return;
+    if (_pickedImage == null || _pickedImageBytes == null) return;
     final fileName =
         '${DateTime.now().millisecondsSinceEpoch}_$currentUserId.jpg';
     final ref = FirebaseStorage.instance.ref().child('chat_images/$fileName');
 
     final content = _messageController.text.trim();
-    final imageFile = _pickedImage!;
+    final imageBytes = _pickedImageBytes!;
     final replyId = _replyToMessage?.id;
 
     // Clear UI instantly
     _messageController.clear();
     setState(() {
       _pickedImage = null;
+      _pickedImageBytes = null;
       _replyToMessage = null;
     });
 
     try {
-      UploadTask task;
-      if (kIsWeb) {
-        final bytes = await imageFile.readAsBytes();
-        task = ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-      } else {
-        task = ref.putFile(File(imageFile.path));
-      }
+      final UploadTask task = ref.putData(
+        imageBytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
       final url = await (await task).ref.getDownloadURL();
       await _chatService.sendMessage(
         chatRoomId: widget.chatRoomId,
@@ -645,15 +743,16 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   // ── Message list ────────────────────────────────────────────
                   Expanded(
-                    child: StreamBuilder<List<MessageModel>>(
-                      stream: _chatService.getMessagesStream(widget.chatRoomId),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text('Error: ${snapshot.error}'),
+                    child: Builder(
+                      builder: (context) {
+                        if (!_messagesLoaded) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.black,
+                            ),
                           );
                         }
-                        final messages = snapshot.data ?? [];
+                        final messages = _messages;
                         if (messages.isEmpty) {
                           return Center(
                             child: Text(
@@ -665,23 +764,17 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                           );
                         }
-                        if (_pickedImage != null) {
+                        if (_pickedImageBytes != null) {
                           return Padding(
                             padding: const EdgeInsets.all(12),
                             child: Stack(
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(16),
-                                  child:
-                                      kIsWeb
-                                          ? Image.network(
-                                            _pickedImage!.path,
-                                            fit: BoxFit.cover,
-                                          )
-                                          : Image.file(
-                                            File(_pickedImage!.path),
-                                            fit: BoxFit.cover,
-                                          ),
+                                  child: Image.memory(
+                                    _pickedImageBytes!,
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
                                 Positioned(
                                   top: 0,
@@ -692,8 +785,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                       color: Colors.white,
                                     ),
                                     onPressed:
-                                        () =>
-                                            setState(() => _pickedImage = null),
+                                        () => setState(() {
+                                          _pickedImage = null;
+                                          _pickedImageBytes = null;
+                                        }),
                                   ),
                                 ),
                               ],
