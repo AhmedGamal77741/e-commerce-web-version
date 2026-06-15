@@ -348,7 +348,9 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
                     if (snapshot.hasData) {
                       final chatRooms = snapshot.data!;
                       hasUnread = chatRooms.any(
-                        (room) => (room.unreadCount[currentUserId] ?? 0) > 0,
+                        (room) =>
+                            !room.deletedBy.contains(currentUserId) &&
+                            (room.unreadCount[currentUserId] ?? 0) > 0,
                       );
                     }
                     return Stack(
@@ -404,7 +406,9 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
                     if (snapshot.hasData) {
                       final chatRooms = snapshot.data!;
                       hasUnread = chatRooms.any(
-                        (room) => (room.unreadCount[currentUserId] ?? 0) > 0,
+                        (room) =>
+                            !room.deletedBy.contains(currentUserId) &&
+                            (room.unreadCount[currentUserId] ?? 0) > 0,
                       );
                     }
                     return Stack(

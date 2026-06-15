@@ -1,4 +1,5 @@
 // screens/chat_screen.dart
+import 'dart:async';
 import 'dart:io';
 import 'package:ecommerece_app/core/cache/user_cache.dart';
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
@@ -52,6 +53,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _blocked = false;
   bool _loadingBlockState = true;
   MessageModel? _replyToMessage;
+  StreamSubscription<List<MessageModel>>? _messageSubscription;
 
   // ── Chat room state ───────────────────────────────────────────────────────
   ChatRoomModel? _chatRoom;
@@ -67,13 +69,31 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _markMessagesAsRead();
+    _resetUnreadCount();
     _checkBlockState();
     _loadChatRoom();
+    _messageSubscription = _chatService
+        .getMessagesStream(widget.chatRoomId)
+        .listen((messages) {
+          final unreadIds =
+              messages
+                  .where(
+                    (m) =>
+                        m.senderId != currentUserId &&
+                        !m.readBy.contains(currentUserId),
+                  )
+                  .map((m) => m.id)
+                  .toList();
+          if (unreadIds.isNotEmpty) {
+            _chatService.markSpecificMessagesAsRead(
+              widget.chatRoomId,
+              unreadIds,
+            );
+          }
+        });
   }
 
-  void _markMessagesAsRead() =>
-      _chatService.markMessagesAsRead(widget.chatRoomId);
+  void _resetUnreadCount() => _chatService.resetUnreadCount(widget.chatRoomId);
 
   // ── Load chat room + aliases ──────────────────────────────────────────────
 
@@ -456,6 +476,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _messageSubscription?.cancel();
+
     super.dispose();
   }
 

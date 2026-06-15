@@ -334,31 +334,46 @@ class ChatService {
     await batch.commit();
   }
 
-  // Mark messages as read
-  Future<void> markMessagesAsRead(String chatRoomId) async {
-    final messagesQuery =
-        await _firestore
-            .collection('messages')
-            .where('chatRoomId', isEqualTo: chatRoomId)
-            .where('senderId', isNotEqualTo: currentUserId)
-            .get();
+  // Reset unread count for current user in the room doc
+  Future<void> resetUnreadCount(String chatRoomId) async {
+    final roomRef = _firestore.collection('chatRooms').doc(chatRoomId);
+    final roomDoc = await roomRef.get();
+    if (roomDoc.exists) {
+      final data = roomDoc.data();
+      final unreadCount = Map<String, dynamic>.from(data?['unreadCount'] ?? {});
+      final myUnread = unreadCount[currentUserId] ?? 0;
+      if (myUnread > 0) {
+        await roomRef.update({'unreadCount.$currentUserId': 0});
+      }
+    }
+  }
+
+  // Mark specific messages as read
+  Future<void> markSpecificMessagesAsRead(
+    String chatRoomId,
+    List<String> messageIds,
+  ) async {
+    if (messageIds.isEmpty) return;
 
     final batch = _firestore.batch();
+    for (final id in messageIds) {
+      final msgRef = _firestore.collection('messages').doc(id);
+      final subRef = _firestore
+          .collection('chatRooms')
+          .doc(chatRoomId)
+          .collection('messages')
+          .doc(id);
 
-    for (var doc in messagesQuery.docs) {
-      final message = MessageModel.fromMap(doc.data());
-      if (!message.readBy.contains(currentUserId)) {
-        batch.update(doc.reference, {
-          'readBy': FieldValue.arrayUnion([currentUserId]),
-        });
-      }
+      batch.update(msgRef, {
+        'readBy': FieldValue.arrayUnion([currentUserId]),
+      });
+      batch.update(subRef, {
+        'readBy': FieldValue.arrayUnion([currentUserId]),
+      });
     }
 
     await batch.commit();
-
-    await _firestore.collection('chatRooms').doc(chatRoomId).update({
-      'unreadCount.$currentUserId': 0,
-    });
+    await resetUnreadCount(chatRoomId);
   }
 
   // Get chat rooms stream
