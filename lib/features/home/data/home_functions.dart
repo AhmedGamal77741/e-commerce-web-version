@@ -250,6 +250,7 @@ Future<void> updatePost({
   required String text,
   required List<String> networkImgUrls, // Existing URLs to keep
   required List<File> newImages, // New images to upload
+  String? categoryId,
 }) async {
   try {
     final currentUser = FirebaseAuth.instance.currentUser;
@@ -269,6 +270,7 @@ Future<void> updatePost({
           allImgUrls.isNotEmpty
               ? allImgUrls[0]
               : null, // Keep for backward compatibility
+      'categoryId': categoryId,
     });
 
     print('Post updated successfully!');

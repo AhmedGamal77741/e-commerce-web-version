@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/image_picker_helper.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -9,22 +11,26 @@ class EditPostDialogResult {
   final String text;
   final List<String> imgUrls; // Network URLs (unchanged images)
   final List<File> newImages; // Local files (new/replaced images)
+  final String? categoryId; // Category ID selected
 
   EditPostDialogResult({
     required this.text,
     required this.imgUrls,
     required this.newImages,
+    this.categoryId,
   });
 }
 
 class EditPostDialog extends StatefulWidget {
   final String currentText;
   final List<String> currentImgUrls;
+  final String? currentCategoryId;
 
   const EditPostDialog({
     Key? key,
     required this.currentText,
     required this.currentImgUrls,
+    this.currentCategoryId,
   }) : super(key: key);
 
   @override
@@ -35,13 +41,40 @@ class _EditPostDialogState extends State<EditPostDialog> {
   late TextEditingController _textController;
   late List<String> _networkImgUrls; // Existing network images
   late List<File> _localImages; // New local files to be uploaded
-
+  String? _selectedCategoryId;
+  List<Map<String, dynamic>> _categories = [];
   @override
   void initState() {
     super.initState();
     _textController = TextEditingController(text: widget.currentText);
     _networkImgUrls = List.from(widget.currentImgUrls);
     _localImages = [];
+    _selectedCategoryId = widget.currentCategoryId;
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .collection('categories')
+              .orderBy('order', descending: false)
+              .get();
+      if (mounted) {
+        setState(() {
+          _categories =
+              snapshot.docs
+                  .map((doc) => {'id': doc.id, 'name': doc['name']})
+                  .toList();
+        });
+      }
+    } catch (e) {
+      print('Error loading categories in EditPostDialog: $e');
+    }
   }
 
   @override
@@ -207,6 +240,78 @@ class _EditPostDialogState extends State<EditPostDialog> {
                 ),
               ),
               SizedBox(height: 20),
+              // Category Selection
+              if (_categories.isNotEmpty) ...[
+                Text(
+                  '카테고리 선택',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                SizedBox(height: 8),
+                SizedBox(
+                  height: 35,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _categories.length,
+                    itemBuilder: (context, index) {
+                      final category = _categories[index];
+                      final isSelected = _selectedCategoryId == category['id'];
+                      return Padding(
+                        padding: EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (_selectedCategoryId == category['id']) {
+                                _selectedCategoryId = null;
+                              } else {
+                                _selectedCategoryId = category['id'];
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  isSelected ? Colors.black : Colors.grey[200],
+                              border: Border.all(
+                                color:
+                                    isSelected
+                                        ? Colors.transparent
+                                        : Colors.grey[300] ?? Colors.grey,
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Center(
+                              child: Text(
+                                category['name'] as String,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      isSelected
+                                          ? Colors.white
+                                          : Colors.grey[600],
+                                  fontWeight:
+                                      isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                SizedBox(height: 20),
+              ],
               // Image management section
               Text(
                 '사진 관리 (${totalImages} 개)',
@@ -519,6 +624,7 @@ class _EditPostDialogState extends State<EditPostDialog> {
                           text: _textController.text,
                           imgUrls: _networkImgUrls,
                           newImages: _localImages,
+                          categoryId: _selectedCategoryId,
                         ),
                       );
                     },
