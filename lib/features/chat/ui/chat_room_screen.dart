@@ -553,39 +553,58 @@ class _ChatScreenState extends State<ChatScreen> {
     final fileName =
         '${DateTime.now().millisecondsSinceEpoch}_$currentUserId.jpg';
     final ref = FirebaseStorage.instance.ref().child('chat_images/$fileName');
-    UploadTask task;
-    if (kIsWeb) {
-      final bytes = await _pickedImage!.readAsBytes();
-      task = ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-    } else {
-      task = ref.putFile(File(_pickedImage!.path));
-    }
-    final url = await (await task).ref.getDownloadURL();
-    await _chatService.sendMessage(
-      chatRoomId: widget.chatRoomId,
-      content: _messageController.text.trim(),
-      imageUrl: url,
-      replyToMessageId: _replyToMessage?.id,
-    );
+
+    final content = _messageController.text.trim();
+    final imageFile = _pickedImage!;
+    final replyId = _replyToMessage?.id;
+
+    // Clear UI instantly
     _messageController.clear();
-    await _chatService.resetDeletedBy(widget.chatRoomId);
     setState(() {
       _pickedImage = null;
       _replyToMessage = null;
     });
+
+    try {
+      UploadTask task;
+      if (kIsWeb) {
+        final bytes = await imageFile.readAsBytes();
+        task = ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      } else {
+        task = ref.putFile(File(imageFile.path));
+      }
+      final url = await (await task).ref.getDownloadURL();
+      await _chatService.sendMessage(
+        chatRoomId: widget.chatRoomId,
+        content: content,
+        imageUrl: url,
+        replyToMessageId: replyId,
+      );
+      await _chatService.resetDeletedBy(widget.chatRoomId);
+    } catch (e) {
+      print('Error sending image message: $e');
+    }
   }
 
   Future<void> _sendMessage() async {
     final content = _messageController.text.trim();
     if (content.isEmpty) return;
-    await _chatService.sendMessage(
-      chatRoomId: widget.chatRoomId,
-      content: content,
-      replyToMessageId: _replyToMessage?.id,
-    );
+
+    // Clear UI instantly
     _messageController.clear();
-    await _chatService.resetDeletedBy(widget.chatRoomId);
+    final replyId = _replyToMessage?.id;
     setState(() => _replyToMessage = null);
+
+    try {
+      await _chatService.sendMessage(
+        chatRoomId: widget.chatRoomId,
+        content: content,
+        replyToMessageId: replyId,
+      );
+      await _chatService.resetDeletedBy(widget.chatRoomId);
+    } catch (e) {
+      print('Error sending message: $e');
+    }
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>
