@@ -515,7 +515,7 @@ class UserCategoriesBar extends StatelessWidget {
             children: [
               const SizedBox(width: 16),
               _buildCategoryPill(
-                '전체',
+                '뉴스',
                 selectedCategoryId == null,
                 () => onCategorySelected(''),
               ),

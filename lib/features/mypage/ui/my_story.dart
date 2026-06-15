@@ -342,7 +342,7 @@ class UserCategoriesBar extends StatelessWidget {
           children: [
             SizedBox(width: 16),
             _pill(
-              '전체',
+              '뉴스',
               selectedCategoryId == null,
               () => onCategorySelected(''),
             ),
