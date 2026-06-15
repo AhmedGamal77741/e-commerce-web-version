@@ -47,6 +47,22 @@ class EcommerceApp extends StatelessWidget {
                       (states) => Colors.black,
                     ),
                   ),
+                  dialogTheme: const DialogThemeData(
+                    backgroundColor: Colors.white,
+                    surfaceTintColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(16)),
+                    ),
+                    titleTextStyle: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                    contentTextStyle: TextStyle(
+                      color: Colors.black,
+                      fontSize: 15,
+                    ),
+                  ),
                   progressIndicatorTheme: const ProgressIndicatorThemeData(
                     color: Colors.black,
                   ),
