@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ecommerece_app/core/helpers/image_picker_helper.dart';
 import 'package:ecommerece_app/core/helpers/loading_service.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
@@ -40,9 +41,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Future<void> pickImage() async {
     try {
-      final XFile? image = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-      );
+      final XFile? image = await ImagePickerHelper.pickImage();
+
       if (image != null) {
         setState(() {
           selectedImage = image;

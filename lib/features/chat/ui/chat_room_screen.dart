@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:ecommerece_app/core/cache/user_cache.dart';
+import 'package:ecommerece_app/core/helpers/image_picker_helper.dart';
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
 import 'package:ecommerece_app/features/cart/services/cart_service.dart';
 import 'package:ecommerece_app/features/chat/models/chat_room_model.dart';
@@ -482,7 +483,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _pickImage() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final picked = await ImagePickerHelper.pickImage();
+
     if (picked != null) setState(() => _pickedImage = picked);
   }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/core/helpers/image_picker_helper.dart';
 import 'package:ecommerece_app/core/helpers/loading_service.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
@@ -142,9 +143,7 @@ class _MyStoryState extends State<MyStory> {
                   onTap: () async {
                     LoadingService().showLoading();
                     final newUrl = await uploadImageToFirebaseStorage(
-                      await ImagePicker().pickImage(
-                        source: ImageSource.gallery,
-                      ),
+                      await ImagePickerHelper.pickImage(),
                     );
                     LoadingService().hideLoading();
                     /* setState(() => imgUrl = newUrl); */
