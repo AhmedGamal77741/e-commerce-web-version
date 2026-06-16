@@ -6,11 +6,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 
 class EditPostDialogResult {
   final String text;
   final List<String> imgUrls; // Network URLs (unchanged images)
-  final List<File> newImages; // Local files (new/replaced images)
+  final List<XFile> newImages; // Local files (new/replaced images)
   final String? categoryId; // Category ID selected
 
   EditPostDialogResult({
@@ -40,7 +41,7 @@ class EditPostDialog extends StatefulWidget {
 class _EditPostDialogState extends State<EditPostDialog> {
   late TextEditingController _textController;
   late List<String> _networkImgUrls; // Existing network images
-  late List<File> _localImages; // New local files to be uploaded
+  late List<XFile> _localImages; // New local files to be uploaded
   String? _selectedCategoryId;
   List<Map<String, dynamic>> _categories = [];
   @override
@@ -98,7 +99,7 @@ class _EditPostDialogState extends State<EditPostDialog> {
               _localImages.removeAt(replaceIndex - _networkImgUrls.length);
             }
           }
-          _localImages.add(File(pickedFile.path));
+          _localImages.add(pickedFile);
         });
       }
     } catch (e) {
@@ -404,11 +405,10 @@ class _EditPostDialogState extends State<EditPostDialog> {
 
                       // Image tile
                       final isNetworkImage = index < _networkImgUrls.length;
-                      final imageUrl =
+                      final localFile =
                           isNetworkImage
-                              ? _networkImgUrls[index]
-                              : _localImages[index - _networkImgUrls.length]
-                                  .path;
+                              ? null
+                              : _localImages[index - _networkImgUrls.length];
 
                       return Padding(
                         padding: EdgeInsets.only(right: 8),
@@ -424,7 +424,7 @@ class _EditPostDialogState extends State<EditPostDialog> {
                               child:
                                   isNetworkImage
                                       ? CachedNetworkImage(
-                                        imageUrl: imageUrl,
+                                        imageUrl: _networkImgUrls[index],
                                         fit: BoxFit.cover,
                                         placeholder:
                                             (context, url) => const Center(
@@ -434,8 +434,13 @@ class _EditPostDialogState extends State<EditPostDialog> {
                                             (context, url, error) =>
                                                 Icon(Icons.error),
                                       )
+                                      : kIsWeb
+                                      ? Image.network(
+                                        localFile!.path,
+                                        fit: BoxFit.cover,
+                                      )
                                       : Image.file(
-                                        File(imageUrl),
+                                        File(localFile!.path),
                                         fit: BoxFit.cover,
                                       ),
                             ),

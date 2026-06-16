@@ -190,7 +190,7 @@ Future<void> uploadPost({
 }
 
 /// Upload new images to Firebase Storage
-Future<List<String>> _uploadNewImages(List<File> files) async {
+Future<List<String>> _uploadNewImages(List<XFile> files) async {
   if (files.isEmpty) return [];
 
   final List<String> uploadedUrls = [];
@@ -249,7 +249,7 @@ Future<void> updatePost({
   required String postId,
   required String text,
   required List<String> networkImgUrls, // Existing URLs to keep
-  required List<File> newImages, // New images to upload
+  required List<XFile> newImages, // New images to upload
   String? categoryId,
 }) async {
   try {

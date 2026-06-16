@@ -59,6 +59,36 @@ class NaturalAspectPageViewState extends State<NaturalAspectPageView> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(NaturalAspectPageView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.pageController != oldWidget.pageController) {
+      oldWidget.pageController.removeListener(_onPageChanged);
+      widget.pageController.addListener(_onPageChanged);
+    }
+
+    // Check if the list of image URLs changed (different elements or different length)
+    bool urlsChanged = widget.imgUrls.length != oldWidget.imgUrls.length;
+    if (!urlsChanged) {
+      for (int i = 0; i < widget.imgUrls.length; i++) {
+        if (widget.imgUrls[i] != oldWidget.imgUrls[i]) {
+          urlsChanged = true;
+          break;
+        }
+      }
+    }
+
+    if (urlsChanged) {
+      setState(() {
+        _ratios = List<double?>.filled(widget.imgUrls.length, null);
+        _currentPage = 0;
+      });
+      for (int i = 0; i < widget.imgUrls.length; i++) {
+        _resolveRatio(i);
+      }
+    }
+  }
+
   void _onPageChanged() {
     final page = widget.pageController.page?.round() ?? 0;
     if (page != _currentPage && mounted) {
