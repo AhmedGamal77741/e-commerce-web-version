@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/features/home/comments.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -61,6 +62,38 @@ class _NotificationsState extends State<Notifications> {
                       final data =
                           notifications[index].data() as Map<String, dynamic>;
                       return ListTile(
+                        onTap: () {
+                          final postId = (data['postId']) as String?;
+                          final commentId = (data['commentId']) as String?;
+                          if (postId != null && postId.isNotEmpty) {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder:
+                                  (context) => Container(
+                                    height:
+                                        MediaQuery.of(context).size.height *
+                                        0.95,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFF2F2F2),
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(20),
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(20),
+                                      ),
+                                      child: Comments(
+                                        postId: postId,
+                                        commentId: commentId,
+                                      ),
+                                    ),
+                                  ),
+                            );
+                          }
+                        },
                         title: Text(
                           data['title'] ?? '',
                           style: TextStyle(
