@@ -205,17 +205,19 @@ class FriendsService {
                   .where('userId', whereIn: user.friends)
                   .get();
 
-          // Filter out blocked users in Dart
+          // Filter out blocked users in Dart (mutually)
           return friendsQuery.docs
               .map((doc) => MyUser.fromDocument(doc.data()))
               .where(
-                (friend) => !(user.blocked?.contains(friend.userId) ?? false),
+                (friend) =>
+                    !(user.blocked?.contains(friend.userId) ?? false) &&
+                    !(friend.blocked?.contains(user.userId) ?? false),
               )
               .toList();
         });
   }
 
-  Future<List<MyUser>> getFriendsList() {
+  Future<List<MyUser>> getFriendsList({bool includeHidden = true}) {
     return _firestore.collection('users').doc(currentUserId).get().then((
       userDoc,
     ) async {
@@ -230,10 +232,26 @@ class FriendsService {
               .where('userId', whereIn: user.friends)
               .get();
 
-      // Filter out blocked users in Dart
+      Set<String> hiddenIds = {};
+      if (!includeHidden) {
+        final hiddenSnap =
+            await _firestore
+                .collection('users')
+                .doc(currentUserId)
+                .collection('hiddenFriends')
+                .get();
+        hiddenIds = hiddenSnap.docs.map((d) => d.id).toSet();
+      }
+
+      // Filter out blocked users in Dart (mutually) and optionally hidden friends
       return friendsQuery.docs
           .map((doc) => MyUser.fromDocument(doc.data()))
-          .where((friend) => !(user.blocked?.contains(friend.userId) ?? false))
+          .where(
+            (friend) =>
+                !(user.blocked?.contains(friend.userId) ?? false) &&
+                !(friend.blocked?.contains(user.userId) ?? false) &&
+                (includeHidden || !hiddenIds.contains(friend.userId)),
+          )
           .toList();
     });
   }

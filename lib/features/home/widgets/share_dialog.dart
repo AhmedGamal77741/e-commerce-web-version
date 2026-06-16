@@ -494,7 +494,9 @@ void showShareDialog(
                     // 3. Scrollable Friends List
                     Expanded(
                       child: FutureBuilder(
-                        future: FriendsService().getFriendsList(),
+                        future: FriendsService().getFriendsList(
+                          includeHidden: false,
+                        ),
                         builder: (context, asyncSnapshot) {
                           if (asyncSnapshot.connectionState ==
                               ConnectionState.waiting) {
