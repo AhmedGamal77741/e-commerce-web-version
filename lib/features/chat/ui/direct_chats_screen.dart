@@ -359,10 +359,11 @@ class _DirectChatsScreenState extends State<DirectChatsScreen>
 
                     if (!_usersCache.containsKey(otherId)) {
                       getOtherUser(chat);
-                      return const ListTile(
+                      return ListTile(
                         leading: CircleAvatar(
+                          backgroundColor: Colors.grey[300],
                           radius: 25,
-                          child: Icon(Icons.person),
+                          child: Icon(Icons.person, color: Colors.black),
                         ),
                         title: Text('Loading...'),
                       );

@@ -351,7 +351,11 @@ Widget _buildFriendItem({
       },
       child: Row(
         children: [
-          CircleAvatar(radius: 25, backgroundImage: NetworkImage(friend.url)),
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: Colors.grey[300],
+            backgroundImage: NetworkImage(friend.url),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
