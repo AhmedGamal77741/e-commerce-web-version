@@ -202,8 +202,17 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                               if (addressSnap != null && addressSnap.exists) {
                                 final addressData =
                                     addressSnap.data() as Map<String, dynamic>?;
-                                displayName =
-                                    addressData?['address'] ?? '배송지 선택';
+                                if (addressData != null) {
+                                  final basic =
+                                      addressData['address'] as String? ?? '';
+                                  final detail =
+                                      addressData['detailAddress'] as String? ??
+                                      '';
+                                  displayName =
+                                      detail.isEmpty
+                                          ? (basic.isEmpty ? '배송지 선택' : basic)
+                                          : '$basic $detail';
+                                }
                               }
                               return TextButton(
                                 style: TextButton.styleFrom(
@@ -227,12 +236,16 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      displayName,
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
+                                    Flexible(
+                                      child: Text(
+                                        displayName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
                                     SizedBox(width: 6),
