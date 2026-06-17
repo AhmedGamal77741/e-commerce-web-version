@@ -246,12 +246,13 @@ class GuestPostItem extends StatelessWidget {
                                 ),
                           ],
                         ),
-                        if (post['text'].toString().isNotEmpty)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 15),
+                        if (post['text'] != null &&
+                            post['text'].toString().trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 15),
                             child: Text(
-                              '', // post text will be handled dynamically
-                              style: TextStyle(
+                              post['text'].toString(),
+                              style: const TextStyle(
                                 color: Color(0xFF343434),
                                 fontSize: 18,
                                 fontFamily: 'NotoSans',
@@ -381,11 +382,12 @@ class GuestPostItem extends StatelessWidget {
                                     style: TextStyles.abeezee16px400wPblack
                                         .copyWith(fontWeight: FontWeight.bold),
                                   ),
-                              if (post['text'].toString().isNotEmpty)
-                                const Padding(
+                              if (post['text'] != null &&
+                                  post['text'].toString().trim().isNotEmpty)
+                                Padding(
                                   padding: EdgeInsets.only(top: 5),
                                   child: Text(
-                                    '', // dynamic text
+                                    post['text'].toString(),
                                     style: TextStyle(
                                       color: Color(0xFF343434),
                                       fontSize: 16,

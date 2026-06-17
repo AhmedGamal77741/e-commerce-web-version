@@ -833,14 +833,15 @@ class _PostItemState extends State<PostItem> {
                                 ),
                             ],
                           ),
-                          if (postData['text'].toString().isNotEmpty)
+                          if (postData['text'] != null &&
+                              postData['text'].toString().trim().isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 15),
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      postData['text'],
+                                      postData['text'].toString(),
                                       style: const TextStyle(
                                         color: Color(0xFF343434),
                                         fontSize: 18,
@@ -1047,11 +1048,15 @@ class _PostItemState extends State<PostItem> {
                                         ),
                                       ],
                                     ),
-                                    if (postData['text'].toString().isNotEmpty)
+                                    if (postData['text'] != null &&
+                                        postData['text']
+                                            .toString()
+                                            .trim()
+                                            .isNotEmpty)
                                       Padding(
                                         padding: const EdgeInsets.only(top: 5),
                                         child: Text(
-                                          postData['text'],
+                                          postData['text'].toString(),
                                           style: const TextStyle(
                                             color: Color(0xFF343434),
                                             fontSize: 16,
