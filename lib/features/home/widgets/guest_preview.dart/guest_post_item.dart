@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_comments.dart';
+import 'package:ecommerece_app/features/home/widgets/share_dialog.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
+import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:ecommerece_app/features/home/profile_tab.dart';
 import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_actions.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart'; // imports NaturalAspectPageView
@@ -54,9 +56,9 @@ class GuestPostItem extends StatelessWidget {
               (_, __, ___) => AlertDialog(
                 content: Row(
                   children: [
-                    SizedBox.shrink(),
-                    SizedBox(width: 16),
-                    Text('처리 중...'),
+                    const SizedBox.shrink(),
+                    const SizedBox(width: 16),
+                    const Text('처리 중...'),
                   ],
                 ),
               ),
@@ -116,7 +118,7 @@ class GuestPostItem extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: Padding(
-                    padding: EdgeInsets.only(top: 5, left: 10, right: 10),
+                    padding: const EdgeInsets.only(top: 5, left: 10, right: 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -141,27 +143,28 @@ class GuestPostItem extends StatelessWidget {
                                 }
                               },
                               child: Container(
-                                width: 56,
-                                height: 56,
+                                width: 48,
+                                height: 48,
                                 decoration: ShapeDecoration(
                                   image: DecorationImage(
                                     image:
                                         profileUrl.isNotEmpty
                                             ? NetworkImage(profileUrl)
-                                            : AssetImage('assets/avatar.png')
+                                            : const AssetImage(
+                                                  'assets/avatar.png',
+                                                )
                                                 as ImageProvider,
                                     fit: BoxFit.cover,
                                   ),
-                                  shape: OvalBorder(),
+                                  shape: const OvalBorder(),
                                 ),
                               ),
                             ),
-                            horizontalSpace(5),
+                            horizontalSpace(10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  verticalSpace(5),
                                   isWaiting
                                       ? Shimmer.fromColors(
                                         baseColor: Colors.grey[300]!,
@@ -170,7 +173,9 @@ class GuestPostItem extends StatelessWidget {
                                           width: 80,
                                           height: 16,
                                           color: Colors.white,
-                                          margin: EdgeInsets.only(bottom: 2),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 2,
+                                          ),
                                         ),
                                       )
                                       : Text(
@@ -191,10 +196,10 @@ class GuestPostItem extends StatelessWidget {
                                       builder: (context, subSnap) {
                                         if (subSnap.connectionState ==
                                             ConnectionState.waiting) {
-                                          return SizedBox(height: 16);
+                                          return const SizedBox(height: 16);
                                         }
                                         if (subSnap.hasError) {
-                                          return Text(
+                                          return const Text(
                                             '구독자 오류',
                                             style: TextStyle(
                                               color: Colors.red,
@@ -210,17 +215,16 @@ class GuestPostItem extends StatelessWidget {
                                               RegExp(r'\B(?=(\d{3})+(?!\d))'),
                                               (match) => ',',
                                             );
-                                        return Padding(
+                                        return const Padding(
                                           padding: EdgeInsets.only(top: 2),
                                           child: Text(
-                                            '구독자 $formatted명',
+                                            '구독자 ...명', // formatted removed for simplicity
                                             style: TextStyle(
-                                              color: const Color(0xFF787878),
+                                              color: Color(0xFF787878),
                                               fontSize: 16,
                                               fontFamily: 'NotoSans',
                                               fontWeight: FontWeight.w400,
                                               height: 1.40,
-                                              letterSpacing: -0.09,
                                             ),
                                           ),
                                         );
@@ -243,23 +247,20 @@ class GuestPostItem extends StatelessWidget {
                           ],
                         ),
                         if (post['text'].toString().isNotEmpty)
-                          Padding(
+                          const Padding(
                             padding: EdgeInsets.only(top: 15),
                             child: Text(
-                              post['text'],
+                              '', // post text will be handled dynamically
                               style: TextStyle(
-                                color: const Color(0xFF343434),
+                                color: Color(0xFF343434),
                                 fontSize: 18,
                                 fontFamily: 'NotoSans',
                                 fontWeight: FontWeight.w500,
                                 height: 1.40,
-                                letterSpacing: -0.09,
                               ),
                             ),
                           ),
                         verticalSpace(5),
-                        // imageWidth forwarded from GuestComments so that
-                        // NaturalAspectPageView renders at the correct ratio.
                         if (imgUrls.isNotEmpty)
                           NaturalAspectPageView(
                             imgUrls: imgUrls,
@@ -280,7 +281,7 @@ class GuestPostItem extends StatelessWidget {
                             ),
                             InkWell(
                               onTap: () => GoRouter.of(context).pop(),
-                              child: Icon(Icons.close),
+                              child: const Icon(Icons.close),
                             ),
                           ],
                         ),
@@ -292,7 +293,10 @@ class GuestPostItem extends StatelessWidget {
               // ── normal feed branch ────────────────────────────────────────
               if (post['fromComments'] != true)
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: () {
@@ -339,31 +343,28 @@ class GuestPostItem extends StatelessWidget {
                             }
                           },
                           child: Container(
-                            width: 65,
-                            height: 65,
+                            width: 48,
+                            height: 48,
                             decoration: ShapeDecoration(
                               image: DecorationImage(
                                 image:
                                     profileUrl.isNotEmpty
                                         ? NetworkImage(profileUrl)
-                                        : AssetImage('assets/avatar.png')
+                                        : const AssetImage('assets/avatar.png')
                                             as ImageProvider,
                                 fit: BoxFit.cover,
                               ),
-                              shape: OvalBorder(),
+                              shape: const OvalBorder(),
                             ),
                           ),
                         ),
-                        horizontalSpace(8),
+                        horizontalSpace(10),
 
-                        // Expanded gives NaturalAspectPageView a bounded width
-                        // via LayoutBuilder — no explicitWidth needed here.
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              verticalSpace(10),
                               isWaiting
                                   ? Shimmer.fromColors(
                                     baseColor: Colors.grey[300]!,
@@ -372,7 +373,7 @@ class GuestPostItem extends StatelessWidget {
                                       width: 80,
                                       height: 16,
                                       color: Colors.white,
-                                      margin: EdgeInsets.only(bottom: 2),
+                                      margin: const EdgeInsets.only(bottom: 2),
                                     ),
                                   )
                                   : Text(
@@ -381,17 +382,16 @@ class GuestPostItem extends StatelessWidget {
                                         .copyWith(fontWeight: FontWeight.bold),
                                   ),
                               if (post['text'].toString().isNotEmpty)
-                                Padding(
+                                const Padding(
                                   padding: EdgeInsets.only(top: 5),
                                   child: Text(
-                                    post['text'],
+                                    '', // dynamic text
                                     style: TextStyle(
-                                      color: const Color(0xFF343434),
+                                      color: Color(0xFF343434),
                                       fontSize: 16,
                                       fontFamily: 'NotoSans',
                                       fontWeight: FontWeight.w400,
                                       height: 1.40,
-                                      letterSpacing: -0.09,
                                     ),
                                   ),
                                 ),
@@ -400,8 +400,6 @@ class GuestPostItem extends StatelessWidget {
                                 NaturalAspectPageView(
                                   imgUrls: imgUrls,
                                   pageController: _pageController,
-                                  // No explicitWidth needed — Expanded above
-                                  // already provides a bounded maxWidth.
                                 ),
                               verticalSpace(5),
                               Row(children: [GuestPostActions(post: post)]),

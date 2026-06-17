@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerece_app/core/helpers/extensions.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
@@ -10,9 +9,9 @@ import 'package:ecommerece_app/core/widgets/receipt_setup_screen.dart';
 // import 'package:ecommerece_app/core/widgets/wide_text_button.dart';
 import 'package:ecommerece_app/features/cart/services/cart_service.dart';
 import 'package:ecommerece_app/features/cart/services/favorites_service.dart';
-import 'package:ecommerece_app/features/chat/services/chat_service.dart';
-import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart';
-import 'package:ecommerece_app/features/home/widgets/share_dialog.dart';
+import 'package:ecommerece_app/features/chat/services/chat_service.dart'; // NEW UI
+import 'package:ecommerece_app/features/chat/ui/chat_room_screen.dart'; // NEW UI
+import 'package:ecommerece_app/features/home/widgets/share_dialog.dart'; // NEW UI
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +19,7 @@ import 'package:intl/intl.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MERGE NOTES:
@@ -47,6 +47,7 @@ class ItemDetails extends StatefulWidget {
 }
 
 class _ItemDetailsState extends State<ItemDetails> {
+  // NEW UI: chat service for floating seller chat button
   final ChatService _chatService = ChatService();
 
   late bool liked = false;
@@ -58,6 +59,7 @@ class _ItemDetailsState extends State<ItemDetails> {
     if (currentUser != null) {
       liked = isFavoritedByUser(p: widget.product, userId: currentUser.uid);
     }
+
     final defaultIndex = widget.product.pricePoints.indexWhere(
       (pricePoint) => pricePoint.quantity == 1,
     );
@@ -83,52 +85,47 @@ class _ItemDetailsState extends State<ItemDetails> {
     );
   }
 
+  // ── NEW LOGIC: write pending_buynow to Firestore then navigate ─────────────
   Future<void> _handleBuyNow({
     required String uid,
     required bool isSub,
     required PricePoint pricePoint,
     required int currentStock,
   }) async {
-    try {
-      final paymentId =
-          FirebaseFirestore.instance.collection('orders').doc().id;
+    final paymentId = FirebaseFirestore.instance.collection('orders').doc().id;
 
-      final finalPrice =
-          isSub ? pricePoint.price : (pricePoint.price / 0.8).round();
+    final finalPrice =
+        isSub ? pricePoint.price : (pricePoint.price / 0.8).round();
 
-      final pendingColl = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('pending_buynow');
+    final pendingColl = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('pending_buynow');
 
-      final existing = await pendingColl.get();
-      for (final doc in existing.docs) {
-        try {
-          await doc.reference.delete();
-        } catch (_) {}
-      }
+    final batch = FirebaseFirestore.instance.batch();
 
-      await pendingColl.doc(paymentId).set({
-        'product_id': widget.product.product_id,
-        'product_name': widget.product.productName,
-        'imgUrl': widget.product.imgUrl ?? '',
-        'deliveryManagerId': widget.product.deliveryManagerId,
-        'price': finalPrice,
-        'quantity': pricePoint.quantity,
-        'pricePointIndex': int.parse(_selectedOption!),
-        'paymentId': paymentId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+    final existing = await pendingColl.get();
+    for (final doc in existing.docs) {
+      batch.delete(doc.reference);
+    }
 
-      if (mounted) {
-        context.go('/buy-now?paymentId=$paymentId');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
-      }
+    batch.set(pendingColl.doc(paymentId), {
+      'product_id': widget.product.product_id,
+      'product_name': widget.product.productName,
+      'imgUrl': widget.product.imgUrl ?? '',
+      'deliveryManagerId': widget.product.deliveryManagerId,
+      'price': finalPrice,
+      'quantity': pricePoint.quantity,
+      'pricePointIndex': int.parse(_selectedOption!),
+      'paymentId': paymentId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+
+    if (mounted) {
+      Navigator.pop(context);
+      context.go('/buy-now?paymentId=$paymentId');
     }
   }
 
@@ -156,7 +153,6 @@ class _ItemDetailsState extends State<ItemDetails> {
     final formatCurrency = NumberFormat('#,###');
     final currentUser = FirebaseAuth.instance.currentUser;
 
-    // ── Not logged in scaffold ─────────────────────────────────────────────
     if (currentUser == null) {
       return Scaffold(
         body: ListView(
@@ -210,13 +206,6 @@ class _ItemDetailsState extends State<ItemDetails> {
                                 dotHeight: 10,
                                 dotWidth: 10,
                               ),
-                              onDotClicked: (index) {
-                                _pageController.animateToPage(
-                                  index,
-                                  duration: const Duration(milliseconds: 400),
-                                  curve: Curves.easeInOut,
-                                );
-                              },
                             ),
                           ),
                         ),
@@ -225,8 +214,6 @@ class _ItemDetailsState extends State<ItemDetails> {
                   if (widget.product.stock == 0)
                     Positioned.fill(
                       child: Container(
-                        width: 450,
-                        height: 450,
                         color: Colors.transparent,
                         child: Center(
                           child: Image.asset(
@@ -365,7 +352,6 @@ class _ItemDetailsState extends State<ItemDetails> {
       );
     }
 
-    // ── Logged-in scaffold ─────────────────────────────────────────────────
     return StreamBuilder<DocumentSnapshot>(
       stream:
           FirebaseFirestore.instance
@@ -445,8 +431,6 @@ class _ItemDetailsState extends State<ItemDetails> {
                         if (widget.product.stock == 0)
                           Positioned.fill(
                             child: Container(
-                              width: 450,
-                              height: 450,
                               color: Colors.transparent,
                               child: Center(
                                 child: Image.asset(
@@ -603,7 +587,6 @@ class _ItemDetailsState extends State<ItemDetails> {
                 ],
               ),
 
-              // Floating chat with seller button
               Positioned(
                 right: 0,
                 bottom: -10,
@@ -667,8 +650,6 @@ class _ItemDetailsState extends State<ItemDetails> {
       },
     );
   }
-
-  // ── Bottom button builders ─────────────────────────────────────────────────
 
   Widget _buildCartButton({required bool isLoggedIn, String? uid}) {
     return TextButton(
@@ -760,17 +741,39 @@ class _ItemDetailsState extends State<ItemDetails> {
           _showQuantityRequiredMessage();
           return;
         }
-        final pricePoint =
-            widget.product.pricePoints[int.parse(_selectedOption!)];
-        final currentStock = await _getValidatedStock(pricePoint);
-        if (currentStock == null) return;
 
-        await _handleBuyNow(
-          uid: uid,
-          isSub: isSub,
-          pricePoint: pricePoint,
-          currentStock: currentStock,
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder:
+              (context) => const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
         );
+
+        try {
+          final pricePoint =
+              widget.product.pricePoints[int.parse(_selectedOption!)];
+          final currentStock = await _getValidatedStock(pricePoint);
+          if (currentStock == null) {
+            if (mounted) Navigator.pop(context);
+            return;
+          }
+
+          await _handleBuyNow(
+            uid: uid,
+            isSub: isSub,
+            pricePoint: pricePoint,
+            currentStock: currentStock,
+          );
+        } catch (e) {
+          if (mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
+          }
+        }
       },
       style: TextButton.styleFrom(
         backgroundColor: ColorsManager.primaryblack,
@@ -789,8 +792,6 @@ class _ItemDetailsState extends State<ItemDetails> {
       ),
     );
   }
-
-  // ── Reusable card builders ─────────────────────────────────────────────────
 
   Widget _buildPricePointsCard({
     required NumberFormat formatCurrency,
@@ -990,8 +991,6 @@ class _ItemDetailsState extends State<ItemDetails> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 void _launchPaymentPage(String amount, String userId) async {
   final url = Uri.parse(
     'https://e-commerce-app-34fb2.web.app/web-payment.html?amount=$amount&userId=$userId',
@@ -1095,7 +1094,6 @@ Future<void> _navigateToSubscriptionFromBanner(
   BuildContext context,
   String uid,
 ) async {
-  // ── Gate 1: bank account ────────────────────────────────────────────
   final userDoc =
       await FirebaseFirestore.instance.collection('users').doc(uid).get();
   final data = userDoc.data();
@@ -1120,7 +1118,6 @@ Future<void> _navigateToSubscriptionFromBanner(
     if (!nowHasAccount) return;
   }
 
-  // ── Gate 2: receipt / invoice data ──────────────────────────────────
   final cacheDoc =
       await FirebaseFirestore.instance
           .collection('usercached_values')
@@ -1143,7 +1140,6 @@ Future<void> _navigateToSubscriptionFromBanner(
     if (result != true) return;
   }
 
-  // ── All gates passed ─────────────────────────────────────────────────
   if (context.mounted) {
     context.push(Routes.subscriptionScreen);
   }

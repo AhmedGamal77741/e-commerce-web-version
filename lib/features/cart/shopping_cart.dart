@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/basetime.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
@@ -14,6 +13,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ShoppingCart extends StatefulWidget {
   const ShoppingCart({super.key});
@@ -32,7 +32,7 @@ class _ShoppingCartState extends State<ShoppingCart> {
       builder: (context, authSnapshot) {
         final user = authSnapshot.data;
         if (user == null) {
-          return Center(child: Text('내 페이지 탭에서 회원가입 후 이용가능합니다.'));
+          return const Center(child: Text('내 페이지 탭에서 회원가입 후 이용가능합니다.'));
         }
         // Get user subscription status
         return StreamBuilder<DocumentSnapshot>(
@@ -47,7 +47,10 @@ class _ShoppingCartState extends State<ShoppingCart> {
               children: [
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
                     child: StreamBuilder(
                       stream:
                           FirebaseFirestore.instance
@@ -58,16 +61,16 @@ class _ShoppingCartState extends State<ShoppingCart> {
                       builder: (context, cartSnapshot) {
                         if (cartSnapshot.connectionState ==
                             ConnectionState.waiting) {
-                          return SizedBox.shrink();
+                          return const SizedBox.shrink();
                         }
                         final cartDocs = cartSnapshot.data!.docs;
 
                         return ListView.separated(
                           separatorBuilder: (context, index) {
                             if (index == cartDocs.length - 1) {
-                              return SizedBox.shrink();
+                              return const SizedBox.shrink();
                             }
-                            return Divider();
+                            return const Divider();
                           },
                           itemCount: cartDocs.length,
                           itemBuilder: (ctx, index) {
@@ -83,7 +86,7 @@ class _ShoppingCartState extends State<ShoppingCart> {
                               builder: (context, productSnapshot) {
                                 if (productSnapshot.connectionState ==
                                     ConnectionState.waiting) {
-                                  return ListTile(title: Text('로딩 중...'));
+                                  return const ListTile(title: Text('로딩 중...'));
                                 }
                                 if (!productSnapshot.hasData ||
                                     !productSnapshot.data!.exists) {
@@ -93,7 +96,7 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                   ) async {
                                     await deleteCartItem(cartDocs[index].id);
                                   });
-                                  return SizedBox.shrink(); // don't render anything
+                                  return const SizedBox.shrink();
                                 }
                                 final productData =
                                     productSnapshot.data!.data()
@@ -102,7 +105,7 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                 return InkWell(
                                   onTap: () async {
                                     bool isSub = await isUserSubscribed();
-                                    bool liked = isFavoritedByUser(
+                                    isFavoritedByUser(
                                       p: p,
                                       userId:
                                           FirebaseAuth
@@ -126,20 +129,6 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                             ),
                                       ),
                                     );
-
-                                    // context.pushNamed(
-                                    //   Routes.itemDetailsScreen,
-                                    //   arguments: {
-                                    // 'imgUrl': data['imgUrl'],
-                                    // 'sellerName': data['sellerName	'],
-                                    // 'price': data['price	'],
-                                    // 'product_id': data['product_id'],
-                                    // 'freeShipping': data['freeShipping	'],
-                                    // 'meridiem': data['meridiem'],
-                                    // 'baselinehour': data['baselinehour	'],
-                                    // 'productName': data['productName	'],
-                                    //   },
-                                    // );
                                   },
                                   child: Row(
                                     crossAxisAlignment:
@@ -177,7 +166,9 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                       ),
                                       Expanded(
                                         child: Padding(
-                                          padding: EdgeInsets.only(left: 10),
+                                          padding: const EdgeInsets.only(
+                                            left: 10,
+                                          ),
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
@@ -216,11 +207,6 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                                 },
                                               ),
 
-                                              /*  Text(
-                                            '수량 : ${cartData['quantity'].toString()}  ',
-                                            style:
-                                                TextStyles.abeezee14px400wP600,
-                                          ), */
                                               StreamBuilder<double>(
                                                 stream: getProductPriceStream(
                                                   cartData['product_id'],
@@ -238,12 +224,6 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                                   );
                                                 },
                                               ),
-                                              /* Text(
-                                            '${formatCurrency.format(cartData['price'] ?? 0)} 원',
-                                            style:
-                                                TextStyles
-                                                    .abeezee16px400wPblack,
-                                          ), */
                                             ],
                                           ),
                                         ),
@@ -298,7 +278,7 @@ class _ShoppingCartState extends State<ShoppingCart> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              Padding(
+                              const Padding(
                                 padding: EdgeInsets.only(left: 30, right: 70),
                                 child: Text(
                                   '총 금액: ',
@@ -311,13 +291,14 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                   ),
                                 ),
                               ),
-                              Spacer(),
+                              const Spacer(),
+
                               totalSnapshot.hasData
                                   ? Padding(
-                                    padding: EdgeInsets.only(right: 10),
+                                    padding: const EdgeInsets.only(right: 10),
                                     child: Text(
                                       '${formatCurrency.format(totalSnapshot.data ?? 0)} 원',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Colors.black,
                                         fontSize: 18,
                                         fontFamily: 'NotoSans',
@@ -326,95 +307,136 @@ class _ShoppingCartState extends State<ShoppingCart> {
                                       ),
                                     ),
                                   )
-                                  : SizedBox.shrink(),
+                                  : const SizedBox.shrink(),
                               Padding(
-                                padding: EdgeInsets.only(right: 20),
+                                padding: const EdgeInsets.only(right: 20),
                                 child: TextButton(
                                   onPressed: () async {
-                                    // Extra stock check before proceeding
-                                    final cartDocs = cartSnapshot.data!.docs;
-                                    bool hasInsufficientStock = false;
-                                    String insufficientProductName = '';
-                                    int remainingQuantity = 0;
-                                    for (final cartDoc in cartDocs) {
-                                      final cartData =
-                                          cartDoc.data()
-                                              as Map<String, dynamic>;
-                                      final productId = cartData['product_id'];
-                                      int quantity = 0;
-                                      final productStream =
-                                          await FirebaseFirestore.instance
-                                              .collection('products')
-                                              .doc(productId)
-                                              .get();
-                                      final productData = productStream.data();
-                                      if (productData != null) {
-                                        final prod = Product.fromMap(
-                                          productData,
-                                        );
-                                        quantity =
-                                            prod
-                                                .pricePoints[cartData['pricePointIndex']]
-                                                .quantity;
-                                      }
-                                      final productRef = FirebaseFirestore
-                                          .instance
-                                          .collection('products')
-                                          .doc(productId);
-                                      final productSnapshot =
-                                          await productRef.get();
-                                      final currentStock =
-                                          productSnapshot.data()?['stock'] ?? 0;
-                                      if (quantity > currentStock) {
-                                        hasInsufficientStock = true;
-                                        insufficientProductName =
-                                            cartData['productName'] ?? '';
-                                        remainingQuantity = currentStock;
-                                        break;
-                                      }
-                                    }
-                                    if (hasInsufficientStock) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            '(${insufficientProductName})의 남은 수량은 (${remainingQuantity})개 입니다.',
+                                    // Show loading indicator
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder:
+                                          (context) => const Center(
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                            ),
                                           ),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                      return;
+                                    );
+
+                                    try {
+                                      final cartDocs = cartSnapshot.data!.docs;
+                                      bool hasInsufficientStock = false;
+                                      String insufficientProductName = '';
+                                      int remainingQuantity = 0;
+
+                                      // Run all product fetches in parallel
+                                      final futures =
+                                          cartDocs.map((cartDoc) {
+                                            final cartData =
+                                                cartDoc.data()
+                                                    as Map<String, dynamic>;
+                                            final productId =
+                                                cartData['product_id'];
+                                            return FirebaseFirestore.instance
+                                                .collection('products')
+                                                .doc(productId)
+                                                .get();
+                                          }).toList();
+
+                                      final productSnapshots =
+                                          await Future.wait(futures);
+
+                                      for (
+                                        int i = 0;
+                                        i < cartDocs.length;
+                                        i++
+                                      ) {
+                                        final cartData =
+                                            cartDocs[i].data()
+                                                as Map<String, dynamic>;
+                                        final productSnapshot =
+                                            productSnapshots[i];
+                                        final productData =
+                                            productSnapshot.data();
+
+                                        if (productData != null) {
+                                          final prod = Product.fromMap(
+                                            productData,
+                                          );
+                                          final quantity =
+                                              prod
+                                                  .pricePoints[cartData['pricePointIndex']]
+                                                  .quantity;
+                                          final currentStock =
+                                              productData['stock'] ?? 0;
+
+                                          if (quantity > currentStock) {
+                                            hasInsufficientStock = true;
+                                            insufficientProductName =
+                                                cartData['productName'] ?? '';
+                                            remainingQuantity = currentStock;
+                                            break;
+                                          }
+                                        }
+                                      }
+
+                                      // Dismiss loading indicator
+                                      if (context.mounted)
+                                        Navigator.pop(context);
+
+                                      if (hasInsufficientStock) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                '(${insufficientProductName})의 남은 수량은 (${remainingQuantity})개 입니다.',
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                        return;
+                                      }
+
+                                      if (context.mounted) {
+                                        context.go(Routes.placeOrderScreen);
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        Navigator.pop(
+                                          context,
+                                        ); // Dismiss loading
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('오류가 발생했습니다.'),
+                                          ),
+                                        );
+                                      }
                                     }
-                                    context.go(Routes.placeOrderScreen);
                                   },
                                   style: TextButton.styleFrom(
-                                    backgroundColor: const Color(
-                                      0xFF121212,
-                                    ), // Background color
-                                    foregroundColor: Colors.white, // Text color
-                                    minimumSize: Size(
-                                      70,
-                                      40,
-                                    ), // Exact dimensions
-                                    padding:
-                                        EdgeInsets
-                                            .zero, // Remove default padding
+                                    backgroundColor: const Color(0xFF121212),
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(70, 40),
+                                    padding: EdgeInsets.zero,
                                     shape: RoundedRectangleBorder(
-                                      side: BorderSide(
+                                      side: const BorderSide(
                                         width: 1,
-                                        color: const Color(0xFF121212),
-                                      ), // Border
-                                      borderRadius: BorderRadius.circular(
-                                        11,
-                                      ), // Corner radius
+                                        color: Color(0xFF121212),
+                                      ),
+                                      borderRadius: BorderRadius.circular(11),
                                     ),
-                                    elevation: 0, // Remove shadow
+                                    elevation: 0,
                                   ),
-                                  child: Text(
+                                  child: const Text(
                                     '구매',
                                     style: TextStyle(
-                                      color: const Color(0xFFF5F5F5),
+                                      color: Color(0xFFF5F5F5),
                                       fontSize: 16,
                                       fontFamily: 'NotoSans',
                                       fontWeight: FontWeight.w400,

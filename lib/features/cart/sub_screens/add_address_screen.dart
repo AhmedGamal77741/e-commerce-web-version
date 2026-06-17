@@ -27,10 +27,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
   final _formKey = GlobalKey<FormState>();
 
-  String? _nameError;
-  String? _phoneError;
   String? _addressError;
-  String? _detailAddressError;
 
   bool _isLoading = false;
 
@@ -64,10 +61,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
   bool _validateName() {
     if (_nameController.text.trim().isEmpty) {
-      setState(() => _nameError = '받는 사람 이름을 입력해주세요');
       return false;
     }
-    setState(() => _nameError = null);
     return true;
   }
 
@@ -76,13 +71,10 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       r'^01([0|1|6|7|8|9])-?([0-9]{3,4})-?([0-9]{4})$',
     );
     if (_phoneController.text.trim().isEmpty) {
-      setState(() => _phoneError = '휴대폰 번호를 입력해주세요');
       return false;
     } else if (!phoneRegExp.hasMatch(_phoneController.text.trim())) {
-      setState(() => _phoneError = '올바른 휴대폰 번호 형식이 아닙니다');
       return false;
     }
-    setState(() => _phoneError = null);
     return true;
   }
 
@@ -97,10 +89,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
   bool _validateDetailAddress() {
     if (_detailAddressController.text.trim().isEmpty) {
-      setState(() => _detailAddressError = '상세 주소를 입력해주세요');
       return false;
     }
-    setState(() => _detailAddressError = null);
     return true;
   }
 
@@ -119,10 +109,12 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다')));
-        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다')));
+          setState(() => _isLoading = false);
+        }
         return;
       }
 
@@ -131,46 +123,61 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
           .doc(user.uid)
           .collection('addresses');
 
-      if (_isDefaultAddress) {
-        final addressesSnapshot = await addressesRef.get();
-        final batch = FirebaseFirestore.instance.batch();
-        for (var doc in addressesSnapshot.docs) {
+      // Check if this is the first address
+      final addressesSnapshot = await addressesRef.limit(1).get();
+      final bool isFirstAddress = addressesSnapshot.docs.isEmpty;
+      final bool shouldBeDefault = _isDefaultAddress || isFirstAddress;
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      if (shouldBeDefault && !isFirstAddress) {
+        // Reset existing defaults
+        final defaultAddresses =
+            await addressesRef.where('isDefault', isEqualTo: true).get();
+        for (var doc in defaultAddresses.docs) {
           batch.update(doc.reference, {'isDefault': false});
         }
-        await batch.commit();
       }
 
+      final docRef = addressesRef.doc();
       final addressData = {
-        'id': addressesRef.doc().id,
+        'id': docRef.id,
         'name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
         'address': _addressController.text.trim(),
         'detailAddress': _detailAddressController.text.trim(),
-        'isDefault': _isDefaultAddress,
+        'isDefault': shouldBeDefault,
         'addressMap': _address,
         'createdAt': FieldValue.serverTimestamp(),
       };
 
-      final docRef = await addressesRef.add(addressData);
+      batch.set(docRef, addressData);
 
-      if (_isDefaultAddress) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({'defaultAddressId': docRef.id});
+      if (shouldBeDefault) {
+        batch.update(
+          FirebaseFirestore.instance.collection('users').doc(user.uid),
+          {'defaultAddressId': docRef.id},
+        );
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('배송지가 저장되었습니다')));
+      await batch.commit();
 
-      Navigator.of(context).pop(true);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('배송지가 저장되었습니다')));
+        Navigator.of(context).pop(true);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다: $e')));
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -183,7 +190,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(false),
         ),
-        title: Text(
+        title: const Text(
           '주문/결제',
           style: TextStyle(
             color: Colors.black,
@@ -198,7 +205,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                 ? [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
-                    child: Text(
+                    child: const Text(
                       '나중에',
                       style: TextStyle(
                         color: Colors.black54,
@@ -217,7 +224,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
             key: _formKey,
             child: ListView(
               children: [
-                Center(
+                const Center(
                   child: Text(
                     '배송지 추가',
                     style: TextStyle(
@@ -227,7 +234,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     ),
                   ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 const Divider(),
 
                 // ── Recipient name ──────────────────────────────────────
@@ -252,11 +259,11 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       horizontal: 16,
                       vertical: 14,
                     ),
-                    errorText: _nameError,
+                    errorText: null, // Will be set dynamically
                   ),
                   onChanged: (_) => _validateName(),
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
 
                 // ── Phone ───────────────────────────────────────────────
                 TextField(
@@ -281,11 +288,11 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       horizontal: 16,
                       vertical: 14,
                     ),
-                    errorText: _phoneError,
+                    errorText: null,
                   ),
                   onChanged: (_) => _validatePhone(),
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
 
                 // ── Address search ──────────────────────────────────────
                 TextField(
@@ -311,15 +318,15 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       horizontal: 16,
                       vertical: 14,
                     ),
-                    suffixIcon: ImageIcon(
-                      const AssetImage('assets/Frame 4.png'),
+                    suffixIcon: const ImageIcon(
+                      AssetImage('assets/Frame 4.png'),
                       color: Colors.black,
                       size: 25,
                     ),
                     errorText: _addressError,
                   ),
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
 
                 // ── Detail address ──────────────────────────────────────
                 TextField(
@@ -343,11 +350,11 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       horizontal: 16,
                       vertical: 14,
                     ),
-                    errorText: _detailAddressError,
+                    errorText: null,
                   ),
                   onChanged: (_) => _validateDetailAddress(),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
 
                 // ── Default address checkbox ────────────────────────────
                 Row(
@@ -367,15 +374,15 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         activeColor: Colors.black,
                       ),
                     ),
-                    SizedBox(width: 8),
-                    Text(
+                    const SizedBox(width: 8),
+                    const Text(
                       '기본 배송지로 설정',
                       style: TextStyle(fontSize: 14, color: Colors.black87),
                     ),
                   ],
                 ),
 
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
 
                 // ── Save button ─────────────────────────────────────────
                 ElevatedButton(
@@ -391,8 +398,15 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   ),
                   child:
                       _isLoading
-                          ? const SizedBox.shrink()
-                          : Text(
+                          ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                          : const Text(
                             '저장',
                             style: TextStyle(
                               fontSize: 16,

@@ -1,5 +1,9 @@
 import 'package:ecommerece_app/core/helpers/spacing.dart';
+import 'package:ecommerece_app/core/routing/routes.dart';
+import 'package:ecommerece_app/core/services/share_service.dart';
+import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/core/theming/styles.dart';
+import 'package:ecommerece_app/features/auth/signup/data/models/user_entity.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/chat/services/contacts_service.dart';
 import 'package:ecommerece_app/features/home/comments.dart';
@@ -17,8 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:screenshot/screenshot.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 // =============================================================================
@@ -67,7 +71,6 @@ class NaturalAspectPageViewState extends State<NaturalAspectPageView> {
       widget.pageController.addListener(_onPageChanged);
     }
 
-    // Check if the list of image URLs changed (different elements or different length)
     bool urlsChanged = widget.imgUrls.length != oldWidget.imgUrls.length;
     if (!urlsChanged) {
       for (int i = 0; i < widget.imgUrls.length; i++) {
@@ -120,15 +123,10 @@ class NaturalAspectPageViewState extends State<NaturalAspectPageView> {
 
   @override
   Widget build(BuildContext context) {
-    // If explicitWidth is provided, bypass LayoutBuilder completely.
     if (widget.explicitWidth != null) {
-      debugPrint(
-        '✅ NaturalAspectPageView using explicitWidth=${widget.explicitWidth}',
-      );
       return _buildWithWidth(widget.explicitWidth!);
     }
 
-    debugPrint('⚠️ NaturalAspectPageView falling back to LayoutBuilder');
     return LayoutBuilder(
       builder: (context, constraints) {
         final double availableWidth =
@@ -141,10 +139,6 @@ class NaturalAspectPageViewState extends State<NaturalAspectPageView> {
   }
 
   Widget _buildWithWidth(double availableWidth) {
-    debugPrint(
-      '🟢 _buildWithWidth availableWidth=$availableWidth  ratio=${_ratios.isNotEmpty ? _ratios[0] : "empty"}',
-    );
-
     final int safePage =
         (_ratios.isNotEmpty && _currentPage < _ratios.length)
             ? _currentPage
@@ -165,8 +159,8 @@ class NaturalAspectPageViewState extends State<NaturalAspectPageView> {
 
     final double currentHeight = availableWidth / currentRatio;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return Stack(
+      alignment: Alignment.bottomCenter,
       children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
@@ -233,7 +227,7 @@ class NaturalAspectPageViewState extends State<NaturalAspectPageView> {
         ),
         if (widget.imgUrls.length > 1)
           Padding(
-            padding: EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(bottom: 12),
             child: SmoothPageIndicator(
               controller: widget.pageController,
               count: widget.imgUrls.length,
@@ -242,6 +236,7 @@ class NaturalAspectPageViewState extends State<NaturalAspectPageView> {
                 dotColor: Colors.grey,
                 dotHeight: 8,
                 dotWidth: 8,
+                paintStyle: PaintingStyle.fill,
               ),
               onDotClicked: (index) {
                 widget.pageController.animateToPage(
@@ -281,7 +276,6 @@ class PostItem extends StatefulWidget {
 }
 
 class _PostItemState extends State<PostItem> {
-  // Stable PageController that survives rebuilds
   final PageController _pageController = PageController();
   final ScreenshotController _screenshotController = ScreenshotController();
 
@@ -316,9 +310,9 @@ class _PostItemState extends State<PostItem> {
               (ctx) => AlertDialog(
                 content: Row(
                   children: [
-                    SizedBox.shrink(),
-                    SizedBox(width: 16),
-                    Text('게시글 수정 중...'),
+                    const SizedBox.shrink(),
+                    const SizedBox(width: 16),
+                    const Text('게시글 수정 중...'),
                   ],
                 ),
               ),
@@ -332,17 +326,14 @@ class _PostItemState extends State<PostItem> {
           categoryId: result.categoryId,
         );
 
-        Navigator.pop(context); // Close loading dialog
-        /* Navigator.pop(context); // Close this screen if needed */
+        Navigator.pop(context);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('게시글이 수정되었습니다.')));
+        ).showSnackBar(const SnackBar(content: Text('게시글이 수정되었습니다.')));
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('수정 실패: $e'), backgroundColor: Colors.red),
         );
-        /*         Navigator.pop(context); // Close loading dialog
- */
       }
     }
   }
@@ -357,12 +348,12 @@ class _PostItemState extends State<PostItem> {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Padding(
-              padding: EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     '게시글 삭제',
                     style: TextStyle(
                       fontSize: 18,
@@ -370,23 +361,23 @@ class _PostItemState extends State<PostItem> {
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 16),
-                  Text(
+                  const SizedBox(height: 16),
+                  const Text(
                     '정말로 이 게시글을 삭제하시겠습니까?',
                     style: TextStyle(fontSize: 16, color: Colors.black),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: Text(
+                        child: const Text(
                           '취소',
                           style: TextStyle(color: Colors.black, fontSize: 16),
                         ),
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
@@ -402,7 +393,7 @@ class _PostItemState extends State<PostItem> {
                               .delete();
                           Navigator.pop(ctx);
                         },
-                        child: Text('삭제'),
+                        child: const Text('삭제'),
                       ),
                     ],
                   ),
@@ -430,9 +421,9 @@ class _PostItemState extends State<PostItem> {
             (_, __, ___) => AlertDialog(
               content: Row(
                 children: [
-                  SizedBox.shrink(),
-                  SizedBox(width: 16),
-                  Text('신고 처리 중...'),
+                  const SizedBox.shrink(),
+                  const SizedBox(width: 16),
+                  const Text('신고 처리 중...'),
                 ],
               ),
             ),
@@ -461,21 +452,13 @@ class _PostItemState extends State<PostItem> {
       postsProvider.listenToComments(widget.postId);
     }
 
-    // Compute image width for fromComments here, in this widget's context.
-    // PostItem padding in fromComments: left:10 + right:10
     final double fromCommentsImageWidth =
-        MediaQuery.of(context).size.width - 10 - 10;
-
-    debugPrint(
-      '📐 PostItem.build fromComments=${widget.fromComments} '
-      'widget.imageWidth=${widget.imageWidth} '
-      'fromCommentsImageWidth=$fromCommentsImageWidth',
-    );
+        MediaQuery.of(context).size.width - 20;
 
     return Selector<PostsProvider, Map<String, dynamic>?>(
       selector: (_, provider) => provider.getPost(widget.postId),
       builder: (context, postData, child) {
-        if (postData == null) return SizedBox.shrink();
+        if (postData == null) return const SizedBox.shrink();
 
         final cachedUser = postsProvider.getUser(postData['userId']);
         return FutureBuilder<MyUser>(
@@ -506,6 +489,7 @@ class _PostItemState extends State<PostItem> {
                 !userMissing &&
                 !isWaiting &&
                 myuser!.userId == FirebaseAuth.instance.currentUser?.uid;
+
             final List imgUrls =
                 (postData['imgUrls'] != null &&
                         (postData['imgUrls'] as List).isNotEmpty)
@@ -516,10 +500,13 @@ class _PostItemState extends State<PostItem> {
               ignoring: isWaiting,
               child: Column(
                 children: [
-                  // ── fromComments branch ───────────────────────────────────
                   if (widget.fromComments)
                     Padding(
-                      padding: EdgeInsets.only(top: 5, left: 10, right: 10),
+                      padding: const EdgeInsets.only(
+                        top: 5,
+                        left: 10,
+                        right: 10,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -545,76 +532,92 @@ class _PostItemState extends State<PostItem> {
                                   }
                                 },
                                 child: Container(
-                                  width: 56,
-                                  height: 56,
+                                  width: 48,
+                                  height: 48,
                                   decoration: ShapeDecoration(
                                     image: DecorationImage(
                                       image:
                                           profileUrl.isNotEmpty
                                               ? NetworkImage(profileUrl)
-                                              : AssetImage('assets/avatar.png')
+                                              : const AssetImage(
+                                                    'assets/avatar.png',
+                                                  )
                                                   as ImageProvider,
                                       fit: BoxFit.cover,
                                     ),
-                                    shape: OvalBorder(),
+                                    shape: const OvalBorder(),
                                   ),
                                 ),
                               ),
-                              horizontalSpace(5),
+                              horizontalSpace(10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    verticalSpace(5),
-                                    isWaiting
-                                        ? Shimmer.fromColors(
-                                          baseColor: Colors.grey[300]!,
-                                          highlightColor: Colors.grey[100]!,
-                                          child: Container(
-                                            width: 80,
-                                            height: 16,
-                                            color: Colors.white,
-                                            margin: EdgeInsets.only(bottom: 2),
-                                          ),
-                                        )
-                                        : Text(
-                                          displayName,
-                                          style: TextStyles
-                                              .abeezee16px400wPblack
-                                              .copyWith(
-                                                fontWeight: FontWeight.bold,
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        isWaiting
+                                            ? Shimmer.fromColors(
+                                              baseColor: Colors.grey[300]!,
+                                              highlightColor: Colors.grey[100]!,
+                                              child: Container(
+                                                width: 80,
+                                                height: 16,
+                                                color: Colors.white,
+                                                margin: const EdgeInsets.only(
+                                                  bottom: 2,
+                                                ),
                                               ),
-                                        ),
-                                    FutureBuilder<String?>(
-                                      future: ContactService()
-                                          .getContactNickname(
-                                            myuser == null ? "" : myuser.userId,
-                                          ),
-                                      builder: (context, snapshot) {
-                                        if (snapshot.connectionState ==
-                                            ConnectionState.waiting) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        if (snapshot.hasError ||
-                                            !snapshot.hasData ||
-                                            snapshot.data == null) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        final nickname = snapshot.data!;
-                                        return Padding(
-                                          padding: EdgeInsets.only(top: 2),
-                                          child: Text(
-                                            '@$nickname',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey[600],
-                                              fontWeight: FontWeight.w400,
+                                            )
+                                            : Flexible(
+                                              child: Text(
+                                                displayName,
+                                                style: TextStyles
+                                                    .abeezee16px400wPblack
+                                                    .copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        );
-                                      },
+                                        horizontalSpace(4),
+                                        FutureBuilder<String?>(
+                                          future: ContactService()
+                                              .getContactNickname(
+                                                myuser == null
+                                                    ? ""
+                                                    : myuser.userId,
+                                              ),
+                                          builder: (context, snapshot) {
+                                            if (snapshot.connectionState ==
+                                                ConnectionState.waiting) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            if (snapshot.hasError ||
+                                                !snapshot.hasData ||
+                                                snapshot.data == null) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            final nickname = snapshot.data!;
+                                            return Flexible(
+                                              child: Text(
+                                                '@$nickname',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  color: Color(0xFF787878),
+                                                  fontWeight: FontWeight.w400,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                     if (!userMissing &&
                                         myuser!.userId.isNotEmpty)
@@ -628,10 +631,10 @@ class _PostItemState extends State<PostItem> {
                                         builder: (context, subSnap) {
                                           if (subSnap.connectionState ==
                                               ConnectionState.waiting) {
-                                            return SizedBox(height: 16);
+                                            return const SizedBox(height: 16);
                                           }
                                           if (subSnap.hasError) {
-                                            return Text(
+                                            return const Text(
                                               '구독자 오류',
                                               style: TextStyle(
                                                 color: Colors.red,
@@ -648,16 +651,17 @@ class _PostItemState extends State<PostItem> {
                                                 (match) => ',',
                                               );
                                           return Padding(
-                                            padding: EdgeInsets.only(top: 2),
+                                            padding: const EdgeInsets.only(
+                                              top: 2,
+                                            ),
                                             child: Text(
                                               '구독자 $formatted명',
-                                              style: TextStyle(
-                                                color: const Color(0xFF787878),
+                                              style: const TextStyle(
+                                                color: Color(0xFF787878),
                                                 fontSize: 16,
                                                 fontFamily: 'NotoSans',
                                                 fontWeight: FontWeight.w400,
                                                 height: 1.40,
-                                                letterSpacing: -0.09,
                                               ),
                                             ),
                                           );
@@ -666,7 +670,7 @@ class _PostItemState extends State<PostItem> {
                                   ],
                                 ),
                               ),
-                              Spacer(),
+                              const Spacer(),
                               if (!userMissing &&
                                   myuser!.userId !=
                                       FirebaseAuth.instance.currentUser?.uid)
@@ -687,7 +691,8 @@ class _PostItemState extends State<PostItem> {
                                     final isFollowing =
                                         snapshot.hasData &&
                                         snapshot.data!.exists;
-                                    final isPrivate = myuser.isPrivate;
+                                    final isPrivate =
+                                        myuser?.isPrivate ?? false;
 
                                     if (isFollowing) {
                                       return PopupMenuButton<String>(
@@ -716,28 +721,16 @@ class _PostItemState extends State<PostItem> {
                                         ),
                                         itemBuilder:
                                             (BuildContext context) => [
-                                              PopupMenuItem<String>(
+                                              const PopupMenuItem<String>(
                                                 value: 'share',
-                                                child: Text(
-                                                  '공유',
-                                                  style: TextStyle(
-                                                    color: Colors.black,
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
+                                                child: Text('공유'),
                                               ),
-                                              PopupMenuItem<String>(
+                                              const PopupMenuItem<String>(
                                                 value: 'unfollow',
-                                                child: Text(
-                                                  '구독 취소',
-                                                  style: TextStyle(
-                                                    color: Colors.black,
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
+                                                child: Text('구독 취소'),
                                               ),
                                             ],
-                                        child: Icon(
+                                        child: const Icon(
                                           Icons.more_horiz,
                                           color: Colors.black,
                                           size: 22,
@@ -773,7 +766,7 @@ class _PostItemState extends State<PostItem> {
                                                   hasRequest
                                                       ? Colors.black
                                                       : Colors.white,
-                                              minimumSize: Size(35, 33),
+                                              minimumSize: const Size(35, 33),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(20),
@@ -800,7 +793,7 @@ class _PostItemState extends State<PostItem> {
                                             },
                                             child: Text(
                                               hasRequest ? '요청 취소' : '구독 신청',
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 fontSize: 12,
                                                 fontFamily: 'NotoSans',
                                                 fontWeight: FontWeight.w500,
@@ -815,7 +808,7 @@ class _PostItemState extends State<PostItem> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.black,
                                         foregroundColor: Colors.white,
-                                        minimumSize: Size(40, 28),
+                                        minimumSize: const Size(40, 28),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
                                             20,
@@ -827,7 +820,7 @@ class _PostItemState extends State<PostItem> {
                                           myuser.userId,
                                         );
                                       },
-                                      child: Text(
+                                      child: const Text(
                                         '구독',
                                         style: TextStyle(
                                           fontSize: 12,
@@ -842,25 +835,24 @@ class _PostItemState extends State<PostItem> {
                           ),
                           if (postData['text'].toString().isNotEmpty)
                             Padding(
-                              padding: EdgeInsets.only(top: 15),
+                              padding: const EdgeInsets.only(top: 15),
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: Text(
                                       postData['text'],
-                                      style: TextStyle(
-                                        color: const Color(0xFF343434),
+                                      style: const TextStyle(
+                                        color: Color(0xFF343434),
                                         fontSize: 18,
                                         fontFamily: 'NotoSans',
                                         fontWeight: FontWeight.w500,
                                         height: 1.40,
-                                        letterSpacing: -0.09,
                                       ),
                                     ),
                                   ),
                                   if (widget.showMoreButton)
                                     IconButton(
-                                      icon: Icon(
+                                      icon: const Icon(
                                         Icons.more_vert,
                                         color: Colors.black,
                                         size: 22,
@@ -880,7 +872,6 @@ class _PostItemState extends State<PostItem> {
                             NaturalAspectPageView(
                               imgUrls: imgUrls,
                               pageController: _pageController,
-                              // Use locally computed width — most reliable
                               explicitWidth: fromCommentsImageWidth,
                             ),
                           verticalSpace(30),
@@ -900,7 +891,7 @@ class _PostItemState extends State<PostItem> {
                               ),
                               InkWell(
                                 onTap: () => context.pop(),
-                                child: Icon(Icons.close),
+                                child: const Icon(Icons.close),
                               ),
                             ],
                           ),
@@ -908,12 +899,11 @@ class _PostItemState extends State<PostItem> {
                       ),
                     ),
 
-                  // ── !fromComments branch ──────────────────────────────────
                   if (!widget.fromComments)
                     Screenshot(
                       controller: _screenshotController,
                       child: Padding(
-                        padding: EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 8,
                         ),
@@ -939,23 +929,25 @@ class _PostItemState extends State<PostItem> {
                                 }
                               },
                               child: Container(
-                                width: 65,
-                                height: 65,
+                                width: 48,
+                                height: 48,
                                 decoration: ShapeDecoration(
                                   image: DecorationImage(
                                     image:
                                         (myuser?.url != null &&
                                                 myuser!.url.isNotEmpty)
                                             ? NetworkImage(myuser.url)
-                                            : AssetImage('assets/avatar.png')
+                                            : const AssetImage(
+                                                  'assets/avatar.png',
+                                                )
                                                 as ImageProvider,
                                     fit: BoxFit.cover,
                                   ),
-                                  shape: OvalBorder(),
+                                  shape: const OvalBorder(),
                                 ),
                               ),
                             ),
-                            horizontalSpace(8),
+                            horizontalSpace(10),
                             Expanded(
                               child: InkWell(
                                 onTap: () {
@@ -991,68 +983,81 @@ class _PostItemState extends State<PostItem> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    verticalSpace(10),
-                                    isWaiting
-                                        ? Shimmer.fromColors(
-                                          baseColor: Colors.grey[300]!,
-                                          highlightColor: Colors.grey[100]!,
-                                          child: Container(
-                                            width: 80,
-                                            height: 16,
-                                            color: Colors.white,
-                                            margin: EdgeInsets.only(bottom: 2),
-                                          ),
-                                        )
-                                        : Text(
-                                          displayName,
-                                          style: TextStyles
-                                              .abeezee16px400wPblack
-                                              .copyWith(
-                                                fontWeight: FontWeight.bold,
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        isWaiting
+                                            ? Shimmer.fromColors(
+                                              baseColor: Colors.grey[300]!,
+                                              highlightColor: Colors.grey[100]!,
+                                              child: Container(
+                                                width: 80,
+                                                height: 16,
+                                                color: Colors.white,
+                                                margin: const EdgeInsets.only(
+                                                  bottom: 2,
+                                                ),
                                               ),
-                                        ),
-                                    FutureBuilder<String?>(
-                                      future: ContactService()
-                                          .getContactNickname(
-                                            myuser == null ? "" : myuser.userId,
-                                          ),
-                                      builder: (context, snapshot) {
-                                        if (snapshot.connectionState ==
-                                            ConnectionState.waiting) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        if (snapshot.hasError ||
-                                            !snapshot.hasData ||
-                                            snapshot.data == null) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        return Padding(
-                                          padding: EdgeInsets.only(top: 2),
-                                          child: Text(
-                                            '@${snapshot.data!}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey[600],
-                                              fontWeight: FontWeight.w400,
+                                            )
+                                            : Flexible(
+                                              child: Text(
+                                                displayName,
+                                                style: TextStyles
+                                                    .abeezee16px400wPblack
+                                                    .copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        );
-                                      },
+                                        horizontalSpace(4),
+                                        FutureBuilder<String?>(
+                                          future: ContactService()
+                                              .getContactNickname(
+                                                myuser == null
+                                                    ? ""
+                                                    : myuser.userId,
+                                              ),
+                                          builder: (context, snapshot) {
+                                            if (snapshot.connectionState ==
+                                                ConnectionState.waiting) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            if (snapshot.hasError ||
+                                                !snapshot.hasData ||
+                                                snapshot.data == null) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Flexible(
+                                              child: Text(
+                                                '@${snapshot.data!}',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  color: Color(0xFF787878),
+                                                  fontWeight: FontWeight.w400,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                     if (postData['text'].toString().isNotEmpty)
                                       Padding(
-                                        padding: EdgeInsets.only(top: 5),
+                                        padding: const EdgeInsets.only(top: 5),
                                         child: Text(
                                           postData['text'],
-                                          style: TextStyle(
-                                            color: const Color(0xFF343434),
+                                          style: const TextStyle(
+                                            color: Color(0xFF343434),
                                             fontSize: 16,
                                             fontFamily: 'NotoSans',
                                             fontWeight: FontWeight.w400,
                                             height: 1.40,
-                                            letterSpacing: -0.09,
                                           ),
                                         ),
                                       ),
@@ -1061,8 +1066,6 @@ class _PostItemState extends State<PostItem> {
                                       NaturalAspectPageView(
                                         imgUrls: imgUrls,
                                         pageController: _pageController,
-                                        // No explicitWidth — Expanded provides
-                                        // bounded width to LayoutBuilder.
                                       ),
                                   ],
                                 ),
@@ -1138,30 +1141,10 @@ class _OwnPostMenu extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       itemBuilder:
           (_) => [
-            PopupMenuItem<String>(
-              value: 'edit',
-              child: Text(
-                '수정하기',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 14,
-                  fontFamily: 'NotoSans',
-                ),
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'delete',
-              child: Text(
-                '삭제하기',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 14,
-                  fontFamily: 'NotoSans',
-                ),
-              ),
-            ),
+            const PopupMenuItem<String>(value: 'edit', child: Text('수정하기')),
+            const PopupMenuItem<String>(value: 'delete', child: Text('삭제하기')),
           ],
-      child: Icon(Icons.more_horiz, color: Colors.black, size: 22),
+      child: const Icon(Icons.more_horiz, color: Colors.black, size: 22),
     );
   }
 }
@@ -1183,7 +1166,6 @@ class OtherPostMenu extends StatelessWidget {
   final Map<String, dynamic> postData;
 
   const OtherPostMenu({
-    super.key,
     required this.postId,
     required this.userId,
     required this.onRunWithLoading,
@@ -1249,52 +1231,18 @@ class OtherPostMenu extends StatelessWidget {
           ),
           itemBuilder:
               (_) => [
-                PopupMenuItem<String>(
-                  value: 'share',
-                  child: Text(
-                    '공유',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 14,
-                      fontFamily: 'NotoSans',
-                    ),
-                  ),
-                ),
+                const PopupMenuItem<String>(value: 'share', child: Text('공유')),
                 PopupMenuItem<String>(
                   value: 'follow_unfollow',
-                  child: Text(
-                    isFollowing ? '구독취소' : '구독하기',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 14,
-                      fontFamily: 'NotoSans',
-                    ),
-                  ),
+                  child: Text(isFollowing ? '구독취소' : '구독하기'),
                 ),
-                PopupMenuItem<String>(
-                  value: 'block',
-                  child: Text(
-                    '차단',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 14,
-                      fontFamily: 'NotoSans',
-                    ),
-                  ),
-                ),
-                PopupMenuItem<String>(
+                const PopupMenuItem<String>(value: 'block', child: Text('차단')),
+                const PopupMenuItem<String>(
                   value: 'report',
-                  child: Text(
-                    '신고하기',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 14,
-                      fontFamily: 'NotoSans',
-                    ),
-                  ),
+                  child: Text('신고하기'),
                 ),
               ],
-          child: Icon(Icons.more_horiz, color: Colors.black, size: 22),
+          child: const Icon(Icons.more_horiz, color: Colors.black, size: 22),
         );
       },
     );

@@ -19,23 +19,39 @@ class AddressService {
   // Delete an address
   Future<bool> deleteAddress(BuildContext context, String addressId) async {
     try {
-      // Check if we're deleting the default address
       DocumentSnapshot userDoc = await _userDocument.get();
-      Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-      String? defaultAddressId = userData['defaultAddressId'];
+      Map<String, dynamic>? userData = userDoc.data() as Map<String, dynamic>?;
+      String? defaultAddressId = userData?['defaultAddressId'];
 
-      // Use a batch write to ensure consistency
       WriteBatch batch = _firestore.batch();
 
-      // Delete the address
       batch.delete(_addressesCollection.doc(addressId));
 
-      // If we're deleting the default address, clear the defaultAddressId
+      // If we are deleting the default address, we should assign a new one if available
       if (defaultAddressId == addressId) {
-        batch.update(_userDocument, {'defaultAddressId': null});
+        QuerySnapshot remainingAddresses =
+            await _addressesCollection
+                .orderBy('createdAt', descending: true)
+                .get();
+
+        // Find the first address that is NOT the one we are deleting
+        DocumentSnapshot? nextDefault;
+        for (var doc in remainingAddresses.docs) {
+          if (doc.id != addressId) {
+            nextDefault = doc;
+            break;
+          }
+        }
+
+        if (nextDefault != null) {
+          batch.update(_userDocument, {'defaultAddressId': nextDefault.id});
+          batch.update(nextDefault.reference, {'isDefault': true});
+        } else {
+          // No addresses left
+          batch.update(_userDocument, {'defaultAddressId': null});
+        }
       }
 
-      // Commit the batch
       await batch.commit();
 
       return true;
@@ -51,32 +67,31 @@ class AddressService {
     String addressId,
   ) async {
     try {
-      // Use a batch write to update all addresses
       WriteBatch batch = _firestore.batch();
 
-      // First, get all addresses
-      QuerySnapshot addressesSnapshot = await _addressesCollection.get();
+      // Get only addresses that are currently default
+      QuerySnapshot defaultAddresses =
+          await _addressesCollection.where('isDefault', isEqualTo: true).get();
 
-      // Set all addresses to non-default
-      for (var doc in addressesSnapshot.docs) {
-        batch.update(doc.reference, {'isDefault': false});
+      // Set them to non-default
+      for (var doc in defaultAddresses.docs) {
+        if (doc.id != addressId) {
+          batch.update(doc.reference, {'isDefault': false});
+        }
       }
 
       // Set the selected address as default
-
-      // Commit the batch
-      await batch.commit();
+      batch.update(_addressesCollection.doc(addressId), {'isDefault': true});
 
       // Update the user document with the new default address ID
-      await _userDocument.update({'defaultAddressId': addressId});
+      batch.update(_userDocument, {'defaultAddressId': addressId});
 
-      // Also update the isDefault field in the address document if needed
-      await _addressesCollection.doc(addressId).update({'isDefault': true});
+      // Commit everything in one go
+      await batch.commit();
 
       return true;
     } catch (e) {
       print(e);
-
       return false;
     }
   }

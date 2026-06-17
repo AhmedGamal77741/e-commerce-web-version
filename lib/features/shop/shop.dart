@@ -1,6 +1,4 @@
 import 'dart:math';
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/routing/routes.dart';
@@ -16,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class Shop extends StatefulWidget {
   const Shop({super.key});
@@ -32,7 +31,6 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    // no manual loading, categories are obtained via stream in build
   }
 
   void resetToFirstCategory() {
@@ -50,7 +48,6 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    // listen for realtime category changes (with order field)
     return StreamBuilder<QuerySnapshot>(
       stream:
           FirebaseFirestore.instance
@@ -59,7 +56,7 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
               .snapshots(),
       builder: (context, catSnapshot) {
         if (catSnapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(body: SizedBox.shrink());
+          return Scaffold(body: const SizedBox.shrink());
         }
         if (catSnapshot.hasError) {
           return Scaffold(
@@ -67,7 +64,6 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
           );
         }
 
-        // convert docs to simple map list
         final categories =
             catSnapshot.data?.docs
                 .map(
@@ -88,12 +84,11 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
           );
         }
 
-        // now continue with auth/user stream as before
         return StreamBuilder<User?>(
           stream: FirebaseAuth.instance.authStateChanges(),
           builder: (context, authSnapshot) {
             if (authSnapshot.connectionState == ConnectionState.waiting) {
-              return Scaffold(body: SizedBox.shrink());
+              return Scaffold(body: const SizedBox.shrink());
             }
             final firebaseUser = authSnapshot.data;
             if (firebaseUser == null) {
@@ -107,7 +102,7 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                       .snapshots(),
               builder: (context, userSnapshot) {
                 if (userSnapshot.connectionState == ConnectionState.waiting) {
-                  return Scaffold(body: SizedBox.shrink());
+                  return Scaffold(body: const SizedBox.shrink());
                 }
                 if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
                   return Scaffold(
@@ -132,20 +127,6 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
     int initialIndex = 0;
     final bool isSub = userData != null && (userData['isSub'] ?? false);
 
-    // Get default address name
-    if (userData != null &&
-        userData['defaultAddressId'] != null &&
-        userData['defaultAddressId'] != '') {
-      final addressId = userData['defaultAddressId'];
-      final addressSnapshot = FirebaseFirestore.instance
-          .collection('addresses')
-          .doc(addressId);
-      addressSnapshot.get().then((addressDoc) {
-        if (addressDoc.exists) {
-          setState(() {});
-        }
-      });
-    }
     return DefaultTabController(
       key: ValueKey(categories.map((c) => c['id']).join(',')),
       length: categories.length,
@@ -176,14 +157,14 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
               title: Text(''),
               centerTitle: false,
               bottom: PreferredSize(
-                preferredSize: Size.fromHeight(100),
+                preferredSize: const Size.fromHeight(100),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Padding(
-                          padding: EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.only(left: 8),
                           child: FutureBuilder<DocumentSnapshot<Object?>>(
                             future:
                                 (userData != null &&
@@ -216,12 +197,12 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                               }
                               return TextButton(
                                 style: TextButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(
+                                  padding: const EdgeInsets.symmetric(
                                     horizontal: 2,
                                     vertical: 0,
                                   ),
-                                  minimumSize: Size(0, 0),
-                                  maximumSize: Size(200, 80),
+                                  minimumSize: Size.zero,
+                                  maximumSize: const Size(200, 80),
                                   tapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
                                 ),
@@ -241,15 +222,15 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                                         displayName,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           color: Colors.black,
                                           fontSize: 16,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                     ),
-                                    SizedBox(width: 6),
-                                    Icon(
+                                    const SizedBox(width: 6),
+                                    const Icon(
                                       Icons.arrow_drop_down,
                                       color: Colors.black,
                                       size: 18,
@@ -260,7 +241,7 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                             },
                           ),
                         ),
-                        Spacer(),
+                        const Spacer(),
                         InkWell(
                           onTap: () {
                             context.go(Routes.reviewScreen);
@@ -285,17 +266,6 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                           ),
                         ),
                         horizontalSpace(12),
-                        /*                         IconButton(
-                          onPressed: () {
-                            context.go(Routes.shopSearchScreen);
-                          },
-
-                          icon: ImageIcon(
-                            color: Colors.grey,
-                            AssetImage('assets/010no_cropped.png'),
-                            size: 22,
-                          ),
-                        ), */
                       ],
                     ),
 
@@ -303,8 +273,8 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                       tabAlignment: TabAlignment.start,
                       dragStartBehavior: DragStartBehavior.start,
                       padding: EdgeInsets.zero,
-                      labelPadding: EdgeInsets.symmetric(horizontal: 16),
-                      labelStyle: TextStyle(
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      labelStyle: const TextStyle(
                         fontSize: 16,
                         decoration: TextDecoration.none,
                         fontFamily: 'NotoSans',
@@ -331,7 +301,7 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
               ),
             ),
             body: Padding(
-              padding: EdgeInsets.only(right: 8, top: 15, bottom: 4),
+              padding: const EdgeInsets.only(right: 8, top: 15, bottom: 4),
               child: TabBarView(
                 children:
                     categories
@@ -382,31 +352,78 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
   bool get wantKeepAlive => true;
 
   Map<String, dynamic>? userAddressMap;
+  bool _isAddressLoading = false;
   final Map<String, double> _productRandomWeight = {};
+  late Stream<QuerySnapshot> _productsStream;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Get user address from ancestor widget if passed, or fetch from Firestore if needed
-    final shopState = context.findAncestorStateOfType<ShopState>();
-    if (shopState != null && widget.userData != null) {
-      final userData = widget.userData!;
-      if (userData['defaultAddressId'] != null &&
-          userData['defaultAddressId'] != '') {
+  void initState() {
+    super.initState();
+    _productsStream =
         FirebaseFirestore.instance
-            .collection('users')
-            .doc(userData['userId'])
-            .collection('addresses')
-            .doc(userData['defaultAddressId'] as String)
-            .get()
-            .then((doc) {
-              if (doc.exists && mounted) {
-                setState(() {
+            .collection('products')
+            .where('categoryList', arrayContains: widget.categoryId)
+            .orderBy('createdAt', descending: true)
+            .snapshots();
+    _fetchAddress();
+  }
+
+  @override
+  void didUpdateWidget(covariant CategoryProductsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.categoryId != oldWidget.categoryId) {
+      _productsStream =
+          FirebaseFirestore.instance
+              .collection('products')
+              .where('categoryList', arrayContains: widget.categoryId)
+              .orderBy('createdAt', descending: true)
+              .snapshots();
+    }
+    if (widget.userData?['defaultAddressId'] !=
+        oldWidget.userData?['defaultAddressId']) {
+      _fetchAddress();
+    }
+  }
+
+  void _fetchAddress() {
+    if (widget.userData != null &&
+        widget.userData!['defaultAddressId'] != null &&
+        widget.userData!['defaultAddressId'] != '') {
+      setState(() {
+        _isAddressLoading = true;
+      });
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userData!['userId'])
+          .collection('addresses')
+          .doc(widget.userData!['defaultAddressId'] as String)
+          .get()
+          .then((doc) {
+            if (mounted) {
+              setState(() {
+                if (doc.exists) {
                   userAddressMap =
                       (doc.data() as Map<String, dynamic>)['addressMap'];
-                });
-              }
-            });
+                } else {
+                  userAddressMap = null;
+                }
+                _isAddressLoading = false;
+              });
+            }
+          })
+          .catchError((_) {
+            if (mounted) {
+              setState(() {
+                _isAddressLoading = false;
+              });
+            }
+          });
+    } else {
+      if (mounted) {
+        setState(() {
+          userAddressMap = null;
+          _isAddressLoading = false;
+        });
       }
     }
   }
@@ -440,30 +457,23 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    // Display products in a grid
+    if (_isAddressLoading) {
+      return Scaffold(body: const SizedBox.shrink());
+    }
     return Scaffold(
       body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: StreamBuilder<QuerySnapshot>(
-          stream:
-              FirebaseFirestore.instance
-                  .collection('products')
-                  .where('categoryList', arrayContains: widget.categoryId)
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
+          stream: _productsStream,
           builder: (context, snapshot) {
             final formatCurrency = NumberFormat('#,###');
             if (snapshot.hasError) {
               return Center(child: Text('오류: ${snapshot.error}'));
             }
-            /*             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const SizedBox.shrink();
-            } */
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
               return const Center(child: Text('아직 제품이 없습니다'));
             }
             final products = snapshot.data!.docs;
-
             List<Product> sameRegion = [];
             List<Product> otherRegion = [];
             List<Product> soldOut = [];
@@ -500,6 +510,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                 }
               }
             }
+
             final random = Random();
             sameRegion.sort((a, b) {
               final weightA = _productRandomWeight.putIfAbsent(
@@ -512,6 +523,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
               );
               return weightA.compareTo(weightB);
             });
+
             otherRegion.sort((a, b) {
               final weightA = _productRandomWeight.putIfAbsent(
                 a.product_id,
@@ -523,23 +535,16 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
               );
               return weightA.compareTo(weightB);
             });
+
             final sortedProducts = [...sameRegion, ...otherRegion, ...soldOut];
-            /*             // Sort: available products first, then sold out
-            final sortedProducts = List.from(products)..sort((a, b) {
-              final stockA = (a.data() as Map<String, dynamic>)['stock'] ?? 0;
-              final stockB = (b.data() as Map<String, dynamic>)['stock'] ?? 0;
-              if ((stockA > 0 && stockB > 0) || (stockA == 0 && stockB == 0))
-                return 0;
-              if (stockA > 0) return -1;
-              return 1;
-            }); */
+
             return ListView.separated(
               controller: widget.scrollController,
               separatorBuilder: (context, index) {
                 if (index == sortedProducts.length - 1) {
-                  return SizedBox.shrink();
+                  return const SizedBox.shrink();
                 }
-                return Divider();
+                return const Divider();
               },
               itemCount: sortedProducts.length,
               itemBuilder: (context, index) {
@@ -549,14 +554,11 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                   onTap: () {
                     GoRouter.of(context).pushNamed(
                       'productDetails',
-                      pathParameters: {
-                        'productId':
-                            p.product_id.toString(), // <- fills :productId
-                      },
+                      pathParameters: {'productId': p.product_id.toString()},
                     );
                   },
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 1),
+                    padding: const EdgeInsets.symmetric(vertical: 1),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -610,7 +612,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                               ),
                           ],
                         ),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,5 +654,3 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
     );
   }
 }
-
-// Create a ProductCard widget
