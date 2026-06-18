@@ -213,13 +213,17 @@ class _ItemDetailsState extends State<ItemDetails> {
                     ),
                   if (widget.product.stock == 0)
                     Positioned.fill(
-                      child: Container(
-                        color: Colors.transparent,
-                        child: Center(
-                          child: Image.asset(
-                            'assets/sold_out.png',
-                            color: Colors.black,
-                            fit: BoxFit.contain,
+                      child: IgnorePointer(
+                        child: Container(
+                          color: Colors.transparent,
+                          child: Center(
+                            child: Image.asset(
+                              'assets/sold_out.png',
+                              color: Colors.black,
+                              fit: BoxFit.contain,
+                              cacheWidth: 600,
+                              cacheHeight: 600,
+                            ),
                           ),
                         ),
                       ),
@@ -430,13 +434,17 @@ class _ItemDetailsState extends State<ItemDetails> {
                           ),
                         if (widget.product.stock == 0)
                           Positioned.fill(
-                            child: Container(
-                              color: Colors.transparent,
-                              child: Center(
-                                child: Image.asset(
-                                  'assets/sold_out.png',
-                                  color: Colors.black,
-                                  fit: BoxFit.contain,
+                            child: IgnorePointer(
+                              child: Container(
+                                color: Colors.transparent,
+                                child: Center(
+                                  child: Image.asset(
+                                    'assets/sold_out.png',
+                                    color: Colors.black,
+                                    fit: BoxFit.contain,
+                                    cacheWidth: 600,
+                                    cacheHeight: 600,
+                                  ),
                                 ),
                               ),
                             ),

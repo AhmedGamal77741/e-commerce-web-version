@@ -25,35 +25,73 @@ class Shop extends StatefulWidget {
 
 class ShopState extends State<Shop> with TickerProviderStateMixin {
   TabController? _tabController;
-  final ScrollController categoryProductsScreenScrollController =
-      ScrollController();
+  final Map<String, ScrollController> _scrollControllers = {};
+
+  ScrollController _getScrollController(String categoryId) {
+    return _scrollControllers.putIfAbsent(categoryId, () => ScrollController());
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _scrollControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  late Stream<QuerySnapshot> _categoriesStream;
+  late Stream<User?> _authStream;
+  Stream<DocumentSnapshot>? _userStream;
+  String? _lastUserId;
 
   @override
   void initState() {
     super.initState();
+    _categoriesStream =
+        FirebaseFirestore.instance
+            .collection('categories')
+            .orderBy('order')
+            .snapshots();
+    _authStream = FirebaseAuth.instance.authStateChanges();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _lastUserId = user.uid;
+      _userStream =
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .snapshots();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    precacheImage(const AssetImage('assets/003m.png'), context);
+    precacheImage(const AssetImage('assets/order_history.png'), context);
+    precacheImage(const AssetImage('assets/010no_cropped.png'), context);
   }
 
   void resetToFirstCategory() {
     if (_tabController != null) {
       _tabController!.animateTo(0);
     }
-    if (categoryProductsScreenScrollController.hasClients) {
-      categoryProductsScreenScrollController.animateTo(
-        0,
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+    if (_scrollControllers.isNotEmpty) {
+      final firstController = _scrollControllers.values.first;
+      if (firstController.hasClients) {
+        firstController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('categories')
-              .orderBy('order')
-              .snapshots(),
+      stream: _categoriesStream,
       builder: (context, catSnapshot) {
         if (catSnapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(body: const SizedBox.shrink());
@@ -85,7 +123,7 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
         }
 
         return StreamBuilder<User?>(
-          stream: FirebaseAuth.instance.authStateChanges(),
+          stream: _authStream,
           builder: (context, authSnapshot) {
             if (authSnapshot.connectionState == ConnectionState.waiting) {
               return Scaffold(body: const SizedBox.shrink());
@@ -94,12 +132,16 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
             if (firebaseUser == null) {
               return _buildShopTabController(null, categories);
             }
-            return StreamBuilder<DocumentSnapshot>(
-              stream:
+            if (_userStream == null || _lastUserId != firebaseUser.uid) {
+              _lastUserId = firebaseUser.uid;
+              _userStream =
                   FirebaseFirestore.instance
                       .collection('users')
                       .doc(firebaseUser.uid)
-                      .snapshots(),
+                      .snapshots();
+            }
+            return StreamBuilder<DocumentSnapshot>(
+              stream: _userStream!,
               builder: (context, userSnapshot) {
                 if (userSnapshot.connectionState == ConnectionState.waiting) {
                   return Scaffold(body: const SizedBox.shrink());
@@ -311,8 +353,9 @@ class ShopState extends State<Shop> with TickerProviderStateMixin {
                             categoryName: category['name'],
                             userData: userData,
                             isSub: isSub,
-                            scrollController:
-                                categoryProductsScreenScrollController,
+                            scrollController: _getScrollController(
+                              category['id'],
+                            ),
                           ),
                         )
                         .toList(),
@@ -355,6 +398,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
   bool _isAddressLoading = false;
   final Map<String, double> _productRandomWeight = {};
   late Stream<QuerySnapshot> _productsStream;
+  List<Product>? _cachedProducts;
+  QuerySnapshot? _lastSnapshot;
+  Map<String, dynamic>? _lastUserAddressMap;
 
   @override
   void initState() {
@@ -366,6 +412,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
             .orderBy('createdAt', descending: true)
             .snapshots();
     _fetchAddress();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    precacheImage(const AssetImage('assets/sold_out.png'), context);
   }
 
   @override
@@ -458,25 +510,34 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
   Widget build(BuildContext context) {
     super.build(context);
     if (_isAddressLoading) {
-      return Scaffold(body: const SizedBox.shrink());
+      return const SizedBox.shrink();
     }
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: StreamBuilder<QuerySnapshot>(
-          stream: _productsStream,
-          builder: (context, snapshot) {
-            final formatCurrency = NumberFormat('#,###');
-            if (snapshot.hasError) {
-              return Center(child: Text('오류: ${snapshot.error}'));
-            }
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return const Center(child: Text('아직 제품이 없습니다'));
-            }
-            final products = snapshot.data!.docs;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: StreamBuilder<QuerySnapshot>(
+        stream: _productsStream,
+        builder: (context, snapshot) {
+          final formatCurrency = NumberFormat('#,###');
+          if (snapshot.hasError) {
+            return Center(child: Text('오류: ${snapshot.error}'));
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text('아직 제품이 없습니다'));
+          }
+
+          final querySnapshot = snapshot.data!;
+          final bool addressChanged = userAddressMap != _lastUserAddressMap;
+
+          if (_cachedProducts == null ||
+              querySnapshot != _lastSnapshot ||
+              addressChanged) {
+            _lastSnapshot = querySnapshot;
+            _lastUserAddressMap = userAddressMap;
+
+            final products = querySnapshot.docs;
             List<Product> sameRegion = [];
             List<Product> otherRegion = [];
-            List<Product> soldOut = [];
+            List<Product> soldOutList = [];
 
             final bool hasUserAddress =
                 userAddressMap != null && userAddressMap!.isNotEmpty;
@@ -487,14 +548,14 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
               );
               if (product.stock == 0) {
                 if (!hasUserAddress) {
-                  soldOut.add(product);
+                  soldOutList.add(product);
                 } else {
                   if (product.address != null && product.address!.isNotEmpty) {
                     if (_isSameRegion(userAddressMap, product.address)) {
-                      soldOut.add(product);
+                      soldOutList.add(product);
                     }
                   } else {
-                    soldOut.add(product);
+                    soldOutList.add(product);
                   }
                 }
               } else {
@@ -536,120 +597,133 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
               return weightA.compareTo(weightB);
             });
 
-            final sortedProducts = [...sameRegion, ...otherRegion, ...soldOut];
+            _cachedProducts = [...sameRegion, ...otherRegion, ...soldOutList];
+          }
 
-            return ListView.separated(
-              controller: widget.scrollController,
-              separatorBuilder: (context, index) {
-                if (index == sortedProducts.length - 1) {
-                  return const SizedBox.shrink();
-                }
-                return const Divider();
-              },
-              itemCount: sortedProducts.length,
-              itemBuilder: (context, index) {
-                final data2 = sortedProducts[index];
-                Product p = data2;
-                return InkWell(
-                  onTap: () {
-                    GoRouter.of(context).pushNamed(
-                      'productDetails',
-                      pathParameters: {'productId': p.product_id.toString()},
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 1),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: CachedNetworkImage(
-                                imageUrl: p.imgUrl!,
-                                width: 106,
-                                height: 106,
-                                fit: BoxFit.cover,
-                                fadeInDuration: Duration.zero,
-                                fadeOutDuration: Duration.zero,
-                                placeholder:
-                                    (context, url) => Container(
+          final sortedProducts = _cachedProducts!;
+
+          return ListView.separated(
+            controller: widget.scrollController,
+            separatorBuilder: (context, index) {
+              if (index == sortedProducts.length - 1) {
+                return const SizedBox.shrink();
+              }
+              return const Divider();
+            },
+            itemCount: sortedProducts.length,
+            itemBuilder: (context, index) {
+              final data2 = sortedProducts[index];
+              Product p = data2;
+              return InkWell(
+                onTap: () {
+                  GoRouter.of(context).pushNamed(
+                    'productDetails',
+                    pathParameters: {'productId': p.product_id.toString()},
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 1),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child:
+                                p.imgUrl != null && p.imgUrl!.isNotEmpty
+                                    ? CachedNetworkImage(
+                                      imageUrl: p.imgUrl!,
                                       width: 106,
                                       height: 106,
-                                      color: Colors.grey[200],
-                                    ),
-                                errorWidget:
-                                    (context, url, error) => Container(
+                                      fit: BoxFit.cover,
+                                      fadeInDuration: Duration.zero,
+                                      fadeOutDuration: Duration.zero,
+                                      placeholder:
+                                          (context, url) => Container(
+                                            width: 106,
+                                            height: 106,
+                                            color: Colors.grey[200],
+                                          ),
+                                      errorWidget:
+                                          (context, url, error) => Container(
+                                            width: 106,
+                                            height: 106,
+                                            color: Colors.grey[200],
+                                            child: const Center(
+                                              child: Icon(
+                                                Icons.broken_image,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                    )
+                                    : Container(
                                       width: 106,
                                       height: 106,
                                       color: Colors.grey[200],
                                       child: const Center(
                                         child: Icon(
-                                          Icons.broken_image,
+                                          Icons.image_not_supported,
                                           color: Colors.grey,
                                         ),
                                       ),
                                     ),
-                              ),
-                            ),
-                            if (p.stock == 0)
-                              Positioned.fill(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Container(
-                                    width: 150,
-                                    height: 150,
-                                    color: Colors.transparent,
-                                    child: Center(
-                                      child: Image.asset(
-                                        'assets/sold_out.png',
-                                        fit: BoxFit.contain,
-                                      ),
+                          ),
+                          if (p.stock == 0)
+                            Positioned.fill(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  color: Colors.transparent,
+                                  child: const Center(
+                                    child: Image(
+                                      image: AssetImage('assets/sold_out.png'),
+                                      fit: BoxFit.contain,
                                     ),
                                   ),
                                 ),
                               ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.sellerName,
+                              style: TextStyles.abeezee14px400wP600,
+                            ),
+                            verticalSpace(5),
+                            Text(
+                              p.productName,
+                              style: TextStyles.abeezee16px400wPblack,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              widget.isSub
+                                  ? '${formatCurrency.format(p.price)} 원'
+                                  : '${formatCurrency.format(p.price / 0.8)} 원',
+                              style: TextStyles.abeezee16px400wPblack,
+                            ),
+                            verticalSpace(2),
+                            Text(
+                              '${p.arrivalDate ?? ''} ',
+                              style: TextStyles.abeezee14px400wP600,
+                            ),
                           ],
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                p.sellerName,
-                                style: TextStyles.abeezee14px400wP600,
-                              ),
-                              verticalSpace(5),
-                              Text(
-                                p.productName,
-                                style: TextStyles.abeezee16px400wPblack,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                widget.isSub
-                                    ? '${formatCurrency.format(p.price)} 원'
-                                    : '${formatCurrency.format(p.price / 0.8)} 원',
-                                style: TextStyles.abeezee16px400wPblack,
-                              ),
-                              verticalSpace(2),
-                              Text(
-                                '${p.arrivalDate ?? ''} ',
-                                style: TextStyles.abeezee14px400wP600,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                );
-              },
-            );
-          },
-        ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }

@@ -169,13 +169,13 @@ class _ShopSearchState extends State<ShopSearch> {
                         if (product.stock == 0)
                           Positioned.fill(
                             child: Container(
-                              width: 100,
-                              height: 100,
                               color: Colors.transparent,
                               child: Center(
                                 child: Image.asset(
                                   'assets/sold_out.png',
                                   fit: BoxFit.contain,
+                                  cacheWidth: 100,
+                                  cacheHeight: 100,
                                 ),
                               ),
                             ),
