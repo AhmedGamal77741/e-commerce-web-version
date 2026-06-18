@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:ecommerece_app/core/helpers/image_picker_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:image/image.dart' as img;
 
 final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -206,25 +205,20 @@ Future<List<String>> _uploadNewImages(List<XFile> files) async {
 
       final Uint8List rawBytes = await file.readAsBytes();
 
-      // Compress on both mobile and web
+      // Compress on both mobile and web using flutter_image_compress (WASM on web)
       Uint8List uploadBytes;
-      if (kIsWeb) {
-        uploadBytes = await _compressImageForWeb(rawBytes);
-      } else {
-        try {
-          final Uint8List? compressed =
-              await FlutterImageCompress.compressWithList(
-                rawBytes,
-                minWidth: 1080,
-                minHeight: 1080,
-                quality: 82,
-                format: CompressFormat.jpeg,
-              );
-          uploadBytes = compressed ?? rawBytes;
-        } catch (e) {
-          print('Compression failed, uploading raw bytes: $e');
-          uploadBytes = rawBytes;
-        }
+      try {
+        final Uint8List? compressed = await FlutterImageCompress.compressWithList(
+          rawBytes,
+          minWidth: 1080,
+          minHeight: 1080,
+          quality: 82,
+          format: CompressFormat.jpeg,
+        );
+        uploadBytes = compressed ?? rawBytes;
+      } catch (e) {
+        print('Compression failed, uploading raw bytes: $e');
+        uploadBytes = rawBytes;
       }
 
       final UploadTask uploadTask = storageRef.putData(
@@ -330,28 +324,21 @@ Future<List<String>> uploadMultipleImagesToFirebaseHome() async {
 
         final Uint8List rawBytes = await image.readAsBytes();
 
-        // Compress on both mobile and web
+        // Compress on both mobile and web using flutter_image_compress (WASM on web)
         Uint8List uploadBytes;
-        if (kIsWeb) {
-          uploadBytes = await _compressImageForWeb(rawBytes);
-        } else {
-          // Mobile: compress to max 1080px on longest side, quality 82
-          // Visually lossless but typically 60-80% smaller file size
-          try {
-            final Uint8List? compressed =
-                await FlutterImageCompress.compressWithList(
-                  rawBytes,
-                  minWidth: 1080,
-                  minHeight: 1080,
-                  quality: 82,
-                  format: CompressFormat.jpeg,
-                );
-            // Fall back to raw bytes if compression somehow returns null
-            uploadBytes = compressed ?? rawBytes;
-          } catch (e) {
-            print('Compression failed, uploading raw bytes: $e');
-            uploadBytes = rawBytes;
-          }
+        try {
+          final Uint8List? compressed = await FlutterImageCompress.compressWithList(
+            rawBytes,
+            minWidth: 1080,
+            minHeight: 1080,
+            quality: 82,
+            format: CompressFormat.jpeg,
+          );
+          // Fall back to raw bytes if compression somehow returns null
+          uploadBytes = compressed ?? rawBytes;
+        } catch (e) {
+          print('Compression failed, uploading raw bytes: $e');
+          uploadBytes = rawBytes;
         }
 
         final Reference storageRef = FirebaseStorage.instance
@@ -453,27 +440,4 @@ Future<void> migrateLastPostCreatedAt() async {
     print('Error during lastPostCreatedAt migration: $e');
     rethrow;
   }
-}
-
-Future<Uint8List> _compressImageForWeb(Uint8List rawBytes) async {
-  // Use compute to run the compression in an isolate so it doesn't block the UI thread
-  return await compute(_compressImageIsolate, rawBytes);
-}
-
-Uint8List _compressImageIsolate(Uint8List rawBytes) {
-  // Decode image
-  img.Image? image = img.decodeImage(rawBytes);
-  if (image == null) return rawBytes;
-
-  // Resize if too large
-  if (image.width > 1080 || image.height > 1080) {
-    if (image.width > image.height) {
-      image = img.copyResize(image, width: 1080);
-    } else {
-      image = img.copyResize(image, height: 1080);
-    }
-  }
-
-  // Encode to jpeg with quality 82
-  return Uint8List.fromList(img.encodeJpg(image, quality: 82));
 }
