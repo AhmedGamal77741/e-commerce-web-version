@@ -188,54 +188,54 @@ Future<void> uploadPost({
   }
 }
 
-/// Upload new images to Firebase Storage
+/// Upload new images to Firebase Storage concurrently
 Future<List<String>> _uploadNewImages(List<XFile> files) async {
   if (files.isEmpty) return [];
 
-  final List<String> uploadedUrls = [];
+  // Upload all images concurrently to speed up editing significantly
+  final List<Future<String>> uploadTasks =
+      files.map((file) async {
+        try {
+          final String fileName =
+              '${DateTime.now().millisecondsSinceEpoch}_${FirebaseAuth.instance.currentUser!.uid}_${file.name.replaceAll(RegExp(r'[^a-zA-Z0-9.]'), '')}.jpg';
+          final Reference storageRef = FirebaseStorage.instance
+              .ref()
+              .child('posts')
+              .child(fileName);
 
-  for (final file in files) {
-    try {
-      final String fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${FirebaseAuth.instance.currentUser!.uid}.jpg';
-      final Reference storageRef = FirebaseStorage.instance
-          .ref()
-          .child('posts')
-          .child(fileName);
+          final Uint8List rawBytes = await file.readAsBytes();
 
-      final Uint8List rawBytes = await file.readAsBytes();
+          // Compress on both mobile and web using flutter_image_compress (WASM on web)
+          Uint8List uploadBytes;
+          try {
+            final Uint8List? compressed =
+                await FlutterImageCompress.compressWithList(
+                  rawBytes,
+                  minWidth: 1080,
+                  minHeight: 1080,
+                  quality: 82,
+                  format: CompressFormat.jpeg,
+                );
+            uploadBytes = compressed ?? rawBytes;
+          } catch (e) {
+            print('Compression failed, uploading raw bytes: $e');
+            uploadBytes = rawBytes;
+          }
 
-      // Compress on both mobile and web using flutter_image_compress (WASM on web)
-      Uint8List uploadBytes;
-      try {
-        final Uint8List? compressed = await FlutterImageCompress.compressWithList(
-          rawBytes,
-          minWidth: 1080,
-          minHeight: 1080,
-          quality: 82,
-          format: CompressFormat.jpeg,
-        );
-        uploadBytes = compressed ?? rawBytes;
-      } catch (e) {
-        print('Compression failed, uploading raw bytes: $e');
-        uploadBytes = rawBytes;
-      }
+          final UploadTask uploadTask = storageRef.putData(
+            uploadBytes,
+            SettableMetadata(contentType: 'image/jpeg'),
+          );
 
-      final UploadTask uploadTask = storageRef.putData(
-        uploadBytes,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
+          final TaskSnapshot snapshot = await uploadTask;
+          return await snapshot.ref.getDownloadURL();
+        } catch (e) {
+          print('Error uploading image: $e');
+          throw Exception('Failed to upload image during edit: $e');
+        }
+      }).toList();
 
-      final TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-      uploadedUrls.add(downloadUrl);
-    } catch (e) {
-      print('Error uploading image: $e');
-      rethrow;
-    }
-  }
-
-  return uploadedUrls;
+  return await Future.wait(uploadTasks);
 }
 
 /// Update a post with new text and images
@@ -327,13 +327,14 @@ Future<List<String>> uploadMultipleImagesToFirebaseHome() async {
         // Compress on both mobile and web using flutter_image_compress (WASM on web)
         Uint8List uploadBytes;
         try {
-          final Uint8List? compressed = await FlutterImageCompress.compressWithList(
-            rawBytes,
-            minWidth: 1080,
-            minHeight: 1080,
-            quality: 82,
-            format: CompressFormat.jpeg,
-          );
+          final Uint8List? compressed =
+              await FlutterImageCompress.compressWithList(
+                rawBytes,
+                minWidth: 1080,
+                minHeight: 1080,
+                quality: 82,
+                format: CompressFormat.jpeg,
+              );
           // Fall back to raw bytes if compression somehow returns null
           uploadBytes = compressed ?? rawBytes;
         } catch (e) {
@@ -360,6 +361,63 @@ Future<List<String>> uploadMultipleImagesToFirebaseHome() async {
   } catch (e) {
     print('Error uploading multiple images: $e');
     throw Exception('Failed to upload images: $e');
+  }
+}
+
+Future<String> uploadSingleImageToFirebase(
+  XFile image,
+  int index, {
+  Function(double)? onProgress,
+}) async {
+  try {
+    final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final String uid = FirebaseAuth.instance.currentUser?.uid ?? 'anonymous';
+    final String fileName = '${timestamp}_${index}_$uid.jpg';
+
+    final Uint8List rawBytes = await image.readAsBytes();
+
+    // Compress on both mobile and web using flutter_image_compress (WASM on web)
+    Uint8List uploadBytes;
+    try {
+      final Uint8List? compressed = await FlutterImageCompress.compressWithList(
+        rawBytes,
+        minWidth: 1080,
+        minHeight: 1080,
+        quality: 82,
+        format: CompressFormat.jpeg,
+      );
+      // Fall back to raw bytes if compression somehow returns null
+      uploadBytes = compressed ?? rawBytes;
+    } catch (e) {
+      print('Compression failed, uploading raw bytes: $e');
+      uploadBytes = rawBytes;
+    }
+
+    final Reference storageRef = FirebaseStorage.instance
+        .ref()
+        .child('uploads')
+        .child(fileName);
+
+    final UploadTask uploadTask = storageRef.putData(
+      uploadBytes,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+
+    if (onProgress != null) {
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        if (snapshot.totalBytes > 0) {
+          final double progress =
+              snapshot.bytesTransferred / snapshot.totalBytes;
+          onProgress(progress);
+        }
+      });
+    }
+
+    final TaskSnapshot snapshot = await uploadTask;
+    return await snapshot.ref.getDownloadURL();
+  } catch (e) {
+    print('Error uploading single image: $e');
+    throw Exception('Failed to upload single image: $e');
   }
 }
 

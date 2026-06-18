@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:ecommerece_app/core/helpers/image_picker_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
 import 'package:ecommerece_app/core/helpers/spacing.dart';
@@ -5,6 +9,50 @@ import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+class UploadableImage extends ChangeNotifier {
+  final String id = UniqueKey().toString();
+  final XFile localFile;
+  String? _networkUrl;
+  bool _isUploading;
+  bool _hasError;
+  double? _progress;
+
+  UploadableImage({
+    required this.localFile,
+    String? networkUrl,
+    bool isUploading = true,
+    bool hasError = false,
+    double? progress,
+  }) : _networkUrl = networkUrl,
+       _isUploading = isUploading,
+       _hasError = hasError,
+       _progress = progress;
+
+  String? get networkUrl => _networkUrl;
+  set networkUrl(String? value) {
+    _networkUrl = value;
+    notifyListeners();
+  }
+
+  bool get isUploading => _isUploading;
+  set isUploading(bool value) {
+    _isUploading = value;
+    notifyListeners();
+  }
+
+  bool get hasError => _hasError;
+  set hasError(bool value) {
+    _hasError = value;
+    notifyListeners();
+  }
+
+  double? get progress => _progress;
+  set progress(double? value) {
+    _progress = value;
+    notifyListeners();
+  }
+}
 
 class AddPost extends StatefulWidget {
   const AddPost({super.key});
@@ -14,7 +62,7 @@ class AddPost extends StatefulWidget {
 }
 
 class _AddPostState extends State<AddPost> {
-  List<String> imgUrls = [];
+  List<UploadableImage> images = [];
   final currentUser = FirebaseAuth.instance.currentUser;
   TextEditingController _textController = TextEditingController();
   String? selectedCategoryId;
@@ -355,10 +403,46 @@ class _AddPostState extends State<AddPost> {
             children: [
               ElevatedButton(
                 onPressed: () async {
-                  showLoadingDialog(context);
-                  imgUrls = await uploadMultipleImagesToFirebaseHome();
-                  Navigator.pop(context);
-                  setState(() {});
+                  final pickedFiles = await ImagePickerHelper.pickMultiImage();
+                  if (pickedFiles.isEmpty) return;
+
+                  final startIndex = images.length;
+                  setState(() {
+                    for (var file in pickedFiles) {
+                      images.add(UploadableImage(localFile: file));
+                    }
+                  });
+
+                  for (int i = 0; i < pickedFiles.length; i++) {
+                    final file = pickedFiles[i];
+                    final imageItem = images[startIndex + i];
+
+                    // Fire and forget the async operation to allow concurrent uploads
+                    () async {
+                      try {
+                        final url = await uploadSingleImageToFirebase(
+                          file,
+                          startIndex + i,
+                          onProgress: (progress) {
+                            imageItem.progress = progress;
+                          },
+                        );
+                        if (mounted) {
+                          imageItem.networkUrl = url;
+                          imageItem.isUploading = false;
+                          setState(
+                            () {},
+                          ); // Update parent once to enable the Post button
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          imageItem.isUploading = false;
+                          imageItem.hasError = true;
+                          setState(() {}); // Update parent once
+                        }
+                      }
+                    }();
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
@@ -372,13 +456,25 @@ class _AddPostState extends State<AddPost> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  if (_textController.text.isEmpty && imgUrls.isEmpty) return;
+                  if (_textController.text.isEmpty && images.isEmpty) return;
+                  if (images.any((img) => img.isUploading)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('사진이 아직 업로드 중입니다. 잠시만 기다려주세요.')),
+                    );
+                    return;
+                  }
 
                   showLoadingDialog(context);
                   try {
+                    final finalUrls =
+                        images
+                            .map((e) => e.networkUrl)
+                            .where((url) => url != null)
+                            .cast<String>()
+                            .toList();
                     await uploadPost(
                       text: _textController.text,
-                      imgUrls: imgUrls,
+                      imgUrls: finalUrls,
                       categoryId: selectedCategoryId,
                     );
                     Navigator.pop(context);
@@ -398,7 +494,8 @@ class _AddPostState extends State<AddPost> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      _textController.text.isEmpty && imgUrls.isEmpty
+                      (_textController.text.isEmpty && images.isEmpty) ||
+                              images.any((img) => img.isUploading)
                           ? ColorsManager.primary200
                           : Colors.black,
                   shape: RoundedRectangleBorder(
@@ -577,7 +674,6 @@ class _AddPostState extends State<AddPost> {
                                                     isSelected,
                                                     isDeleteMode,
                                                     isEditMode,
-
                                                     category['id'],
                                                   ),
                                                 ),
@@ -608,7 +704,6 @@ class _AddPostState extends State<AddPost> {
                                                       isSelected,
                                                       isDeleteMode,
                                                       isEditMode,
-
                                                       category['id'],
                                                     );
                                                   },
@@ -619,7 +714,6 @@ class _AddPostState extends State<AddPost> {
                                                 isSelected,
                                                 isDeleteMode,
                                                 isEditMode,
-
                                                 category['id'],
                                               ),
                                     );
@@ -654,7 +748,7 @@ class _AddPostState extends State<AddPost> {
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return const Center(child: SizedBox.shrink());
+                            return const SizedBox.shrink();
                           }
                           if (snapshot.hasError) {
                             return const Center(child: Text('Error'));
@@ -699,64 +793,171 @@ class _AddPostState extends State<AddPost> {
                 // ── UPDATED: Image preview with rounded corners ───────────
                 StatefulBuilder(
                   builder: (BuildContext context, StateSetter setInnerState) {
-                    if (imgUrls.isEmpty) return const SizedBox.shrink();
+                    if (images.isEmpty) return const SizedBox.shrink();
 
                     return Container(
                       height: 160,
                       margin: EdgeInsets.only(top: 8),
                       child: ReorderableListView.builder(
                         scrollDirection: Axis.horizontal,
-                        itemCount: imgUrls.length,
+                        itemCount: images.length,
                         onReorder: (oldIndex, newIndex) {
-                          setInnerState(() {
+                          setState(() {
                             if (newIndex > oldIndex) newIndex -= 1;
-                            final String item = imgUrls.removeAt(oldIndex);
-                            imgUrls.insert(newIndex, item);
+                            final UploadableImage item = images.removeAt(
+                              oldIndex,
+                            );
+                            images.insert(newIndex, item);
                           });
+                          setInnerState(() {});
                         },
+                        buildDefaultDragHandles: false,
                         itemBuilder: (context, index) {
-                          return Container(
-                            key: ValueKey(imgUrls[index]),
-                            margin: EdgeInsets.only(right: 8),
-                            width: 120,
-                            child: Stack(
-                              children: [
-                                // ── UPDATED: ClipRRect on the image itself ──
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(25),
-                                  child: Image.network(
-                                    imgUrls[index],
-                                    height: 160,
-                                    width: 120,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      setInnerState(() {
-                                        imgUrls.removeAt(index);
-                                      });
-                                    },
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.6),
-                                        shape: BoxShape.circle,
+                          final imageItem = images[index];
+
+                          Widget content = ListenableBuilder(
+                            key: ValueKey(imageItem.id),
+                            listenable: imageItem,
+                            builder: (context, child) {
+                              Widget imgWidget;
+                              if (imageItem.networkUrl != null) {
+                                imgWidget = Image.network(
+                                  imageItem.networkUrl!,
+                                  height: 160,
+                                  width: 120,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 300,
+                                );
+                              } else if (kIsWeb) {
+                                imgWidget = Image.network(
+                                  imageItem.localFile.path,
+                                  height: 160,
+                                  width: 120,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 300,
+                                );
+                              } else {
+                                imgWidget = Image.file(
+                                  File(imageItem.localFile.path),
+                                  height: 160,
+                                  width: 120,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 300,
+                                );
+                              }
+
+                              return Container(
+                                margin: EdgeInsets.only(right: 8),
+                                width: 120,
+                                child: Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(25),
+                                      child: imgWidget,
+                                    ),
+                                    if (imageItem.isUploading)
+                                      Positioned.fill(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(
+                                              0.5,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              25,
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                value: imageItem.progress,
+                                                color: Colors.white,
+                                                strokeWidth: 2,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      padding: EdgeInsets.all(4),
-                                      child: const Icon(
-                                        Icons.close,
-                                        color: Colors.white,
-                                        size: 14,
+                                    if (imageItem.hasError)
+                                      Positioned.fill(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(
+                                              0.5,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              25,
+                                            ),
+                                          ),
+                                          child: const Center(
+                                            child: Icon(
+                                              Icons.error_outline,
+                                              color: Colors.red,
+                                              size: 30,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    Positioned(
+                                      bottom: 8,
+                                      left: 0,
+                                      right: 0,
+                                      child: Center(
+                                        child: ReorderableDragStartListener(
+                                          index: index,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withOpacity(
+                                                0.6,
+                                              ),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            padding: EdgeInsets.all(4),
+                                            child: const Icon(
+                                              Icons.drag_indicator,
+                                              color: Colors.white,
+                                              size: 14,
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setInnerState(() {
+                                            images.remove(imageItem);
+                                          });
+                                          setState(
+                                            () {},
+                                          ); // Update parent so 'Post' button enables
+                                        },
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(
+                                              0.6,
+                                            ),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          padding: EdgeInsets.all(4),
+                                          child: const Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              );
+                            },
                           );
+
+                          return content;
                         },
                       ),
                     );
