@@ -240,4 +240,15 @@ class FirebaseUserRepo {
       return e.toString();
     }
   }
+
+  Future<String?> sendPasswordReset(String email) async {
+    try {
+      await _firebaseAuth.sendPasswordResetEmail(email: email);
+      return null; // Success
+    } on FirebaseAuthException catch (e) {
+      return getFriendlyAuthError(e.code);
+    } catch (e) {
+      return e.toString();
+    }
+  }
 }

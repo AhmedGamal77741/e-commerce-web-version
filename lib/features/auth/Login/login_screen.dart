@@ -124,9 +124,103 @@ class _LoginScreenState extends State<LoginScreen> {
               color: ColorsManager.primaryblack,
               txtColor: ColorsManager.white,
             ),
+            verticalSpace(20),
+            TextButton(
+              onPressed: () {
+                _showForgotPasswordDialog(context);
+              },
+              child: Text(
+                '비밀번호 찾기',
+                style: TextStyles.abeezee14px400wP600.copyWith(
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showForgotPasswordDialog(BuildContext context) async {
+    final resetEmailController = TextEditingController();
+    String dialogError = '';
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: ColorsManager.white,
+              title: Text('비밀번호 찾기', style: TextStyles.abeezee16px400wPblack),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '가입한 이메일을 입력해주세요.',
+                    style: TextStyles.abeezee13px400wPblack,
+                  ),
+                  verticalSpace(10),
+                  UnderlineTextField(
+                    controller: resetEmailController,
+                    hintText: '이메일',
+                    obscureText: false,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  if (dialogError.isNotEmpty) ...[
+                    verticalSpace(10),
+                    Text(dialogError, style: TextStyles.abeezee16px400wPred),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text('취소', style: TextStyles.abeezee14px400wP600),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (resetEmailController.text.isEmpty) {
+                      setDialogState(() {
+                        dialogError = '이메일을 입력해주세요.';
+                      });
+                      return;
+                    }
+
+                    final result = await fireBaseRepo.sendPasswordReset(
+                      resetEmailController.text,
+                    );
+                    if (result == null) {
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('비밀번호 재설정 이메일이 전송되었습니다.'),
+                          ),
+                        );
+                      }
+                    } else {
+                      setDialogState(() {
+                        dialogError = result;
+                      });
+                    }
+                  },
+                  child: Text(
+                    '전송',
+                    style: TextStyles.abeezee14px400wP600.copyWith(
+                      color: ColorsManager.primaryblack,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
