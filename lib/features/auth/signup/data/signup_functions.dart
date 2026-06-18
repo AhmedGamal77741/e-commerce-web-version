@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/firebase_auth_error_messages.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
@@ -219,19 +218,12 @@ class FirebaseUserRepo {
 
   Future signIn(String email, String password) async {
     try {
-      final sellerCheck =
-          await sellersCollection
-              .where('email', isEqualTo: email)
-              .limit(1)
-              .get();
-      if (sellerCheck.docs.isNotEmpty) {
-        return "판매자 계정으로는 로그인할 수 없습니다.";
-      }
       var result = await _firebaseAuth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
       var user = result.user;
+      print(user);
       return user;
     } on FirebaseAuthException catch (e) {
       final friendlyMessage = getFriendlyAuthError(e.code);
