@@ -343,7 +343,7 @@ class _DirectChatsScreenState extends State<DirectChatsScreen>
                         .toList();
 
                 if (directChats.isEmpty) {
-                  return const Center(child: Text('No direct chats.'));
+                  return const Center(child: Text('직접 채팅 없음.'));
                 }
 
                 return ListView.builder(

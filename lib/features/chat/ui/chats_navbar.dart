@@ -29,17 +29,6 @@ class _ChatsNavbarState extends State<ChatsNavbar>
 
   final String supportUserId = 'JuxEfED9YSc2XyHRFgkPcNCFUSJ3';
   final ChatService _chatService = ChatService();
-  Stream<DocumentSnapshot>? _userStream;
-  String? _cachedUid;
-
-  Stream<DocumentSnapshot> _getUserStream(String uid) {
-    if (_userStream == null || _cachedUid != uid) {
-      _cachedUid = uid;
-      _userStream =
-          FirebaseFirestore.instance.collection('users').doc(uid).snapshots();
-    }
-    return _userStream!;
-  }
 
   final List<Map<String, dynamic>> _tabs = [
     {'label': '친구'},
@@ -143,46 +132,6 @@ class _ChatsNavbarState extends State<ChatsNavbar>
                 SizedBox(height: 10),
                 Text(
                   '로그인 후 친구들과 자유롭게 채팅하세요.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Shown when the user is not subscribed
-  Widget _buildSubscriptionPrompt() {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.card_membership_rounded,
-                  size: 72,
-                  color: Colors.grey,
-                ),
-                SizedBox(height: 24),
-                Text(
-                  '채팅을 이용하려면\n구독이 필요합니다',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                    height: 1.5,
-                  ),
-                ),
-                SizedBox(height: 10),
-                Text(
-                  '멤버십 구독 후 친구들과 자유롭게 채팅하세요.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                 ),
@@ -368,51 +317,32 @@ class _ChatsNavbarState extends State<ChatsNavbar>
       return Scaffold(body: DirectChatsScreen());
     }
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: _getUserStream(user.uid),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final data = snapshot.data?.data() as Map<String, dynamic>?;
-        final bool isSub = data?['isSub'] == true;
-
-        if (!isSub) {
-          return _buildSubscriptionPrompt();
-        }
-
-        return Scaffold(
-          body: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  color: ColorsManager.primary,
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    transitionBuilder:
-                        (child, animation) =>
-                            FadeTransition(opacity: animation, child: child),
-                    child:
-                        _searchMode ? _buildSearchBar() : _buildNormalPillRow(),
-                  ),
-                ),
-                Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    onPageChanged: _onPageChanged,
-                    children: _widgetOptions,
-                  ),
-                ),
-              ],
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              color: ColorsManager.primary,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                transitionBuilder:
+                    (child, animation) =>
+                        FadeTransition(opacity: animation, child: child),
+                child: _searchMode ? _buildSearchBar() : _buildNormalPillRow(),
+              ),
             ),
-          ),
-        );
-      },
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: _onPageChanged,
+                children: _widgetOptions,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

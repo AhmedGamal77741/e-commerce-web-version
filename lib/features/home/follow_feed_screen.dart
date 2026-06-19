@@ -323,6 +323,13 @@ class _FollowingTabState extends State<FollowingTab>
                             snapshot.data!.docs.map((doc) => doc.id).toList();
 
                         if (followingIds.isEmpty) {
+                          if (_selectedUserId.value != null) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) {
+                                _selectedUserId.value = null;
+                              }
+                            });
+                          }
                           return Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -361,11 +368,18 @@ class _FollowingTabState extends State<FollowingTab>
 
                             // Automatically select the account that most recently posted (first item)
                             // if none is selected, or if the selected user is no longer followed.
-                            if (sortedIds.isNotEmpty &&
-                                (_selectedUserId.value == null ||
-                                    !sortedIds.contains(
-                                      _selectedUserId.value,
-                                    ))) {
+                            if (sortedIds.isEmpty) {
+                              if (_selectedUserId.value != null) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (mounted) {
+                                    _selectedUserId.value = null;
+                                  }
+                                });
+                              }
+                            } else if (_selectedUserId.value == null ||
+                                !sortedIds.contains(_selectedUserId.value)) {
                               WidgetsBinding.instance.addPostFrameCallback((_) {
                                 if (mounted &&
                                     (_selectedUserId.value == null ||
