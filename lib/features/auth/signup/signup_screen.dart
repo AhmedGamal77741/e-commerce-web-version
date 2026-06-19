@@ -332,6 +332,12 @@ class _SignupScreenState extends State<SignupScreen> {
                       });
                       return;
                     }
+                    if (selectedImage == null) {
+                      setState(() {
+                        error = '프로필 사진을 등록해야 가입할 수 있습니다.';
+                      });
+                      return;
+                    }
                     if (_formKey.currentState!.validate()) {
                       LoadingService().showLoading();
 

@@ -221,7 +221,7 @@ class _GuestCommentsState extends State<GuestComments> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            '로그인 후 댓글을 남길 수 있습니다.',
+                            '일반 사용자는 댓글을 작성할 수 없습니다.',
                             style: TextStyle(
                               color: Colors.grey[500],
                               fontSize: 14,

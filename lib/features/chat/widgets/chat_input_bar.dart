@@ -12,12 +12,14 @@ class InputBar extends StatelessWidget {
   late final XFile? pickedImage;
   late final VoidCallback onPickImage;
   late final VoidCallback onSend;
+  late final bool autofocus;
 
   InputBar({
     required this.controller,
     required this.pickedImage,
     required this.onPickImage,
     required this.onSend,
+    this.autofocus = false,
   });
 
   @override
@@ -59,7 +61,7 @@ class InputBar extends StatelessWidget {
                     Expanded(
                       child: TextField(
                         controller: controller,
-                        autofocus: true,
+                        autofocus: autofocus,
                         maxLines: 4,
                         minLines: 1,
                         style: TextStyle(fontSize: 14, color: Colors.black),

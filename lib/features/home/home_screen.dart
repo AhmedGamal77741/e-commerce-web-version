@@ -334,77 +334,13 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
   @override
   bool get wantKeepAlive => true;
 
-  late final Stream<QuerySnapshot> _postsStream =
-      FirebaseFirestore.instance
-          .collection('posts')
-          .orderBy('createdAt', descending: true)
-          .snapshots();
-
-  late final Stream<User?> _authStream =
-      FirebaseAuth.instance.authStateChanges();
-
-  String? _cachedProfileUserId;
-  Stream<DocumentSnapshot>? _profileStream;
-
-  String? _cachedFollowingUserId;
-  Stream<QuerySnapshot>? _followingStream;
-  List<String> _currentAuthorIds = [];
-  Stream<Map<String, Map<String, dynamic>>>? _authorDataStream;
-
   // Data caches to prevent StreamBuilder flickering and waiting states
   DocumentSnapshot? _lastProfileDoc;
   QuerySnapshot? _lastFollowingDocs;
   QuerySnapshot? _lastPostsDocs;
   Map<String, Map<String, dynamic>>? _lastAuthorsData;
 
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  Stream<DocumentSnapshot> _getProfileStream(String userId) {
-    if (_cachedProfileUserId != userId || _profileStream == null) {
-      _cachedProfileUserId = userId;
-      _profileStream =
-          FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .snapshots();
-    }
-    return _profileStream!;
-  }
-
-  Stream<QuerySnapshot> _getFollowingStream(String userId) {
-    if (_cachedFollowingUserId != userId || _followingStream == null) {
-      _cachedFollowingUserId = userId;
-      _followingStream =
-          FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .collection('following')
-              .snapshots();
-    }
-    return _followingStream!;
-  }
-
-  Stream<Map<String, Map<String, dynamic>>> _getAuthorDataStream(
-    List<String> authorIds,
-  ) {
-    bool isSame = _currentAuthorIds.length == authorIds.length;
-    if (isSame) {
-      for (int i = 0; i < authorIds.length; i++) {
-        if (_currentAuthorIds[i] != authorIds[i]) {
-          isSame = false;
-          break;
-        }
-      }
-    }
-    if (!isSame || _authorDataStream == null) {
-      _currentAuthorIds = List.from(authorIds);
-      _authorDataStream = _streamAuthorDataRealtime(authorIds);
-    }
-    return _authorDataStream!;
-  }
+  // No more stream caching - inline streams are strictly used with initialData.
 
   @override
   void dispose() {
@@ -504,7 +440,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
     super.build(context);
 
     return StreamBuilder<User?>(
-      stream: _authStream,
+      stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
         if (authSnapshot.connectionState == ConnectionState.waiting) {
           return Center();
@@ -526,7 +462,11 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
 
         if (firebaseUser == null) {
           return StreamBuilder<QuerySnapshot>(
-            stream: _postsStream,
+            stream:
+                FirebaseFirestore.instance
+                    .collection('posts')
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
             initialData: _lastPostsDocs,
             builder: (context, postsSnapshot) {
               if (postsSnapshot.hasData) {
@@ -549,7 +489,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
               }
 
               return StreamBuilder<Map<String, Map<String, dynamic>>>(
-                stream: _getAuthorDataStream(authorIds.toList()),
+                stream: _streamAuthorDataRealtime(authorIds.toList()),
                 initialData: _lastAuthorsData,
                 builder: (context, authorsSnapshot) {
                   if (authorsSnapshot.hasData) {
@@ -595,7 +535,11 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
         }
 
         return StreamBuilder<DocumentSnapshot>(
-          stream: _getProfileStream(firebaseUser.uid),
+          stream:
+              FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(firebaseUser.uid)
+                  .snapshots(),
           initialData: _lastProfileDoc,
           builder: (context, userSnapshot) {
             if (userSnapshot.hasData) {
@@ -616,7 +560,11 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
 
             if (!currentUser.isSub) {
               return StreamBuilder<QuerySnapshot>(
-                stream: _postsStream,
+                stream:
+                    FirebaseFirestore.instance
+                        .collection('posts')
+                        .orderBy('createdAt', descending: true)
+                        .snapshots(),
                 initialData: _lastPostsDocs,
                 builder: (context, postsSnapshot) {
                   if (postsSnapshot.hasData) {
@@ -643,7 +591,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                   }
 
                   return StreamBuilder<Map<String, Map<String, dynamic>>>(
-                    stream: _getAuthorDataStream(authorIds.toList()),
+                    stream: _streamAuthorDataRealtime(authorIds.toList()),
                     initialData: _lastAuthorsData,
                     builder: (context, authorsSnapshot) {
                       if (authorsSnapshot.hasData) {
@@ -659,13 +607,23 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                           posts.where((doc) {
                             final data = doc.data() as Map<String, dynamic>;
                             final postAuthorId = data['userId'] as String;
+
+                            if (postAuthorId == currentUser.userId) {
+                              return false;
+                            }
                             if (blockedUsers.contains(postAuthorId)) {
                               return false;
                             }
+
+                            final notInterestedBy = List<dynamic>.from(
+                              data['notInterestedBy'] ?? [],
+                            );
+                            if (notInterestedBy.contains(currentUser.userId)) {
+                              return false;
+                            }
+
                             final authorData = authorsMap[postAuthorId] ?? {};
-                            return (authorData['isPrivate'] ?? false) ==
-                                    false ||
-                                postAuthorId != currentUser.userId;
+                            return (authorData['isPrivate'] ?? false) == false;
                           }).toList();
 
                       return ListView.builder(
@@ -700,8 +658,17 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
             // (blockedUsers already extracted above)
 
             return StreamBuilder<QuerySnapshot>(
-              stream: _getFollowingStream(currentUser.userId),
+              stream:
+                  FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(currentUser.userId)
+                      .collection('following')
+                      .snapshots(),
+              initialData: _lastFollowingDocs,
               builder: (context, followingSnapshot) {
+                if (followingSnapshot.hasData) {
+                  _lastFollowingDocs = followingSnapshot.data;
+                }
                 final followingSet = <String>{};
                 if (followingSnapshot.hasData) {
                   for (var doc in followingSnapshot.data!.docs) {
@@ -713,10 +680,19 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                 }
 
                 return StreamBuilder<QuerySnapshot>(
-                  stream: _postsStream,
+                  stream:
+                      FirebaseFirestore.instance
+                          .collection('posts')
+                          .orderBy('createdAt', descending: true)
+                          .snapshots(),
+                  initialData: _lastPostsDocs,
                   builder: (context, postsSnapshot) {
+                    if (postsSnapshot.hasData) {
+                      _lastPostsDocs = postsSnapshot.data;
+                    }
                     if (postsSnapshot.connectionState ==
-                        ConnectionState.waiting) {
+                            ConnectionState.waiting &&
+                        !postsSnapshot.hasData) {
                       return Center();
                     }
                     if (postsSnapshot.hasError) {
@@ -737,8 +713,12 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                     }
 
                     return StreamBuilder<Map<String, Map<String, dynamic>>>(
-                      stream: _getAuthorDataStream(authorIds.toList()),
+                      stream: _streamAuthorDataRealtime(authorIds.toList()),
+                      initialData: _lastAuthorsData,
                       builder: (context, authorsSnapshot) {
+                        if (authorsSnapshot.hasData) {
+                          _lastAuthorsData = authorsSnapshot.data;
+                        }
                         if (!authorsSnapshot.hasData) {
                           return Center();
                         }

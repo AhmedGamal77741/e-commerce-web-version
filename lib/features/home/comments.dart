@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:ecommerece_app/core/helpers/image_picker_helper.dart';
 import 'package:ecommerece_app/core/helpers/loading_dialog.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/features/cart/services/cart_service.dart';
@@ -20,6 +19,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:ecommerece_app/core/helpers/image_picker_helper.dart';
 import 'package:provider/provider.dart';
 
 const _kBgColor = Color(0xFFF2F2F2);
@@ -59,7 +59,6 @@ class Comments extends StatefulWidget {
   });
   final String postId;
   final String? commentId;
-
   final bool canInteract;
   @override
   State<Comments> createState() => _CommentsState();
@@ -76,8 +75,11 @@ class _CommentsState extends State<Comments> {
   bool _fetchingPost = false;
   Future<MyUser>? _userFuture;
   String? _loadedUserId;
+  Future<DocumentSnapshot>? _currentUserDocFuture;
+
   bool _hasScrolledToComment = false;
   final Map<String, GlobalKey> _bubbleKeys = {};
+
   @override
   void dispose() {
     _commentController.dispose();
@@ -87,6 +89,13 @@ class _CommentsState extends State<Comments> {
   @override
   void initState() {
     super.initState();
+    if (currentUserId.isNotEmpty) {
+      _currentUserDocFuture =
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUserId)
+              .get();
+    }
     Provider.of<PostsProvider>(context, listen: false).startListening();
     _maybeFetchPost();
   }
@@ -230,7 +239,7 @@ class _CommentsState extends State<Comments> {
               body: SafeArea(
                 child: Column(
                   children: [
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     Container(
                       width: 40,
                       height: 5,
@@ -239,7 +248,7 @@ class _CommentsState extends State<Comments> {
                         borderRadius: BorderRadius.circular(2.5),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     Expanded(
                       child: Selector<PostsProvider, List<Comment>>(
                         selector:
@@ -318,7 +327,6 @@ class _CommentsState extends State<Comments> {
 
                             return Column(
                               key: key,
-
                               children: [
                                 if (showDate)
                                   _DateSeparator(date: item.timestamp),
@@ -374,7 +382,7 @@ class _CommentsState extends State<Comments> {
                     ),
                     if (_pickedImage != null)
                       Padding(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(12),
                         child: Stack(
                           children: [
                             ClipRRect(
@@ -406,21 +414,111 @@ class _CommentsState extends State<Comments> {
                         ),
                       ),
                     if (widget.canInteract)
-                      InputBar(
-                        controller: _commentController,
-                        pickedImage: _pickedImage,
-                        onPickImage: _pickImage,
-                        onSend: () async {
-                          if (_pickedImage != null) {
-                            showLoadingDialog(context);
-                            final navigator = Navigator.of(context);
-                            await _submitImageComment();
-                            navigator.pop();
-                          } else {
-                            await _submitComment();
-                          }
-                        },
-                      ),
+                      currentUserId.isEmpty
+                          ? Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            color: Colors.white,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.add, color: Colors.grey),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF2F2F2),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      '일반 사용자는 댓글을 작성할 수 없습니다.',
+                                      style: TextStyle(
+                                        color: Colors.grey[500],
+                                        fontSize: 14,
+                                        fontFamily: 'NotoSans',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                          : FutureBuilder<DocumentSnapshot>(
+                            future: _currentUserDocFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const SizedBox.shrink();
+                              }
+
+                              final userData =
+                                  snapshot.data?.data()
+                                      as Map<String, dynamic>?;
+                              final isNormalUser =
+                                  userData == null ||
+                                  (userData['type'] == 'user' &&
+                                      userData['isSub'] != true);
+
+                              if (isNormalUser) {
+                                return Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  color: Colors.white,
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.add, color: Colors.grey),
+                                      SizedBox(width: 12),
+                                      Expanded(
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF2F2F2),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '일반 사용자는 댓글을 작성할 수 없습니다.',
+                                            style: TextStyle(
+                                              color: Colors.grey[500],
+                                              fontSize: 14,
+                                              fontFamily: 'NotoSans',
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+
+                              return InputBar(
+                                controller: _commentController,
+                                pickedImage: _pickedImage,
+                                onPickImage: _pickImage,
+                                onSend: () async {
+                                  if (_pickedImage != null) {
+                                    showLoadingDialog(context);
+                                    final navigator = Navigator.of(context);
+                                    await _submitImageComment();
+                                    navigator.pop();
+                                  } else {
+                                    await _submitComment();
+                                  }
+                                },
+                              );
+                            },
+                          ),
                   ],
                 ),
               ),
@@ -466,7 +564,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
     final item = widget.item;
     final isMe = widget.isMe;
     double maxW = MediaQuery.of(context).size.width - 120;
-    if (maxW > 400.0) maxW = 400.0;
+    if (maxW > 400) maxW = 400;
     return Padding(
       padding: EdgeInsets.only(
         bottom: 6,
@@ -509,7 +607,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
           ],
           Flexible(
             child: Column(
@@ -518,7 +616,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
               children: [
                 if (!isMe)
                   Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 3),
+                    padding: EdgeInsets.only(left: 4, bottom: 3),
                     child: FutureBuilder<String?>(
                       future: ContactService().getContactNickname(
                         item.senderId,
@@ -546,15 +644,13 @@ class _CommentBubbleState extends State<_CommentBubble> {
                   children: [
                     Flexible(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 9,
                         ),
                         decoration: BoxDecoration(
                           color: Color(0xFFEEEEEE),
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(16),
-                          ),
+                          borderRadius: BorderRadius.all(Radius.circular(16)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,15 +659,14 @@ class _CommentBubbleState extends State<_CommentBubble> {
                             if (item.content.isNotEmpty)
                               Text(
                                 item.content,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.black,
                                   fontSize: 14,
                                   height: 1.4,
                                 ),
                               ),
                             if (item.postData != null) ...[
-                              if (item.content.isNotEmpty)
-                                const SizedBox(height: 6),
+                              if (item.content.isNotEmpty) SizedBox(height: 6),
                               ChatPostShareWidget(
                                 type: 'post',
                                 imageUrl: item.postData!['imgUrl'] ?? '',
@@ -615,8 +710,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
                               ),
                             ],
                             if (item.productData != null) ...[
-                              if (item.content.isNotEmpty)
-                                const SizedBox(height: 6),
+                              if (item.content.isNotEmpty) SizedBox(height: 6),
                               ChatPostShareWidget(
                                 type: 'product',
                                 imageUrl: item.productData!.imgUrl ?? '',
@@ -644,8 +738,7 @@ class _CommentBubbleState extends State<_CommentBubble> {
                             if (item.imageUrls != null &&
                                 item.imageUrls!.isNotEmpty &&
                                 item.postData == null) ...[
-                              if (item.content.isNotEmpty)
-                                const SizedBox(height: 6),
+                              if (item.content.isNotEmpty) SizedBox(height: 6),
                               if (item.imageUrls!.length == 1)
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
@@ -712,10 +805,10 @@ class _DateSeparator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: EdgeInsets.symmetric(vertical: 10),
       child: Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.07),
             borderRadius: BorderRadius.circular(20),
