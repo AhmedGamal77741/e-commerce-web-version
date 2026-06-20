@@ -59,10 +59,12 @@ class _ChatScreenState extends State<ChatScreen> {
   List<MessageModel> _messages = [];
   bool _messagesLoaded = false;
   StreamSubscription<List<MessageModel>>? _messageSubscription;
+  StreamSubscription<DocumentSnapshot>? _roomSubscription;
 
   // ── Chat room state ───────────────────────────────────────────────────────
   ChatRoomModel? _chatRoom;
   bool _isGroup = false;
+  bool _roomDeleted = false;
 
   // ── Alias state ───────────────────────────────────────────────────────────
   // userId → alias (only populated after _loadAliases completes)
@@ -555,7 +557,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     _messageSubscription?.cancel();
-
+    _roomSubscription?.cancel();
     super.dispose();
   }
 
@@ -912,7 +914,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
 
                   // ── Input bar ───────────────────────────────────────────────
-                  if (!widget.isDeleted)
+                  if (!widget.isDeleted && !_roomDeleted)
                     (_blocked || _isBlocked)
                         ? _BlockedBar(
                           blocked: _blocked,
@@ -935,13 +937,23 @@ class _ChatScreenState extends State<ChatScreen> {
                               await _sendMessage();
                             }
                           },
-                        ),
+                        )
+                  else
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      color: _kBgColor,
+                      alignment: Alignment.center,
+                      child: Text(
+                        '대화에 더 이상 참여할 수 없습니다.',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                      ),
+                    ),
                 ],
               ),
     );
   }
 }
-
 // ─── Date separator ───────────────────────────────────────────────────────────
 
 class _DateSeparator extends StatelessWidget {

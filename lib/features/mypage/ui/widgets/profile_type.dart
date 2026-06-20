@@ -110,6 +110,7 @@ class _ProfileTypeState extends State<ProfileType> {
 
         // Delete the follow request
         batch.delete(requestDoc.reference);
+
         // Check for mutual follow
         final mutualFollowCheck =
             await FirebaseFirestore.instance
