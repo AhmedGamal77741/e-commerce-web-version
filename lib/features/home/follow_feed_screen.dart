@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/home/widgets/following_users_list.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
@@ -948,16 +949,14 @@ class _FollowingPostsListState extends State<FollowingPostsList>
                 return const SizedBox.shrink();
               }
 
-              return Padding(
+              return Column(
                 key: ValueKey(posts[index].id),
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child:
-                    widget.useGuestPostItem
-                        ? GuestPostItem(post: postData)
-                        : PostItem(
-                          postId: posts[index].id,
-                          fromComments: false,
-                        ),
+                children: [
+                  widget.useGuestPostItem
+                      ? GuestPostItem(post: postData)
+                      : PostItem(postId: posts[index].id, fromComments: false),
+                  verticalSpace(10),
+                ],
               );
             } catch (e) {
               // Handle individual post rendering errors

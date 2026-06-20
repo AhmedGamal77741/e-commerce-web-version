@@ -386,15 +386,46 @@ class GuestPostItem extends StatelessWidget {
                                   post['text'].toString().trim().isNotEmpty)
                                 Padding(
                                   padding: EdgeInsets.only(top: 5),
-                                  child: Text(
-                                    post['text'].toString(),
-                                    style: TextStyle(
-                                      color: Color(0xFF343434),
-                                      fontSize: 16,
-                                      fontFamily: 'NotoSans',
-                                      fontWeight: FontWeight.w400,
-                                      height: 1.40,
-                                    ),
+                                  child: Builder(
+                                    builder: (context) {
+                                      final String text =
+                                          post['text'].toString();
+                                      if (text.length > 110) {
+                                        return RichText(
+                                          text: TextSpan(
+                                            text:
+                                                '${text.substring(0, 110)}...\n',
+                                            style: TextStyle(
+                                              color: const Color(0xFF343434),
+                                              fontSize: 16,
+                                              fontFamily: 'NotoSans',
+                                              fontWeight: FontWeight.w400,
+                                              height: 1.40,
+                                              letterSpacing: -0.09,
+                                            ),
+                                            children: [
+                                              TextSpan(
+                                                text: '(더보기)',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                      return Text(
+                                        text,
+                                        style: TextStyle(
+                                          color: const Color(0xFF343434),
+                                          fontSize: 16,
+                                          fontFamily: 'NotoSans',
+                                          fontWeight: FontWeight.w400,
+                                          height: 1.40,
+                                          letterSpacing: -0.09,
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
                               verticalSpace(5),

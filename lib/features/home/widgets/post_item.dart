@@ -1062,16 +1062,49 @@ class _PostItemState extends State<PostItem> {
                                             .trim()
                                             .isNotEmpty)
                                       Padding(
-                                        padding: const EdgeInsets.only(top: 5),
-                                        child: Text(
-                                          postData['text'].toString(),
-                                          style: const TextStyle(
-                                            color: Color(0xFF343434),
-                                            fontSize: 16,
-                                            fontFamily: 'NotoSans',
-                                            fontWeight: FontWeight.w400,
-                                            height: 1.40,
-                                          ),
+                                        padding: EdgeInsets.only(top: 5),
+                                        child: Builder(
+                                          builder: (context) {
+                                            final String text =
+                                                postData['text'].toString();
+                                            if (text.length > 110) {
+                                              return RichText(
+                                                text: TextSpan(
+                                                  text:
+                                                      '${text.substring(0, 110)}...\n',
+                                                  style: TextStyle(
+                                                    color: const Color(
+                                                      0xFF343434,
+                                                    ),
+                                                    fontSize: 16,
+                                                    fontFamily: 'NotoSans',
+                                                    fontWeight: FontWeight.w400,
+                                                    height: 1.40,
+                                                    letterSpacing: -0.09,
+                                                  ),
+                                                  children: [
+                                                    TextSpan(
+                                                      text: '(더보기)',
+                                                      style: TextStyle(
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }
+                                            return Text(
+                                              text,
+                                              style: TextStyle(
+                                                color: const Color(0xFF343434),
+                                                fontSize: 16,
+                                                fontFamily: 'NotoSans',
+                                                fontWeight: FontWeight.w400,
+                                                height: 1.40,
+                                                letterSpacing: -0.09,
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ),
                                     verticalSpace(5),
