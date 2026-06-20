@@ -905,6 +905,7 @@ class _FollowingPostsListState extends State<FollowingPostsList>
               }
 
               return Padding(
+                key: ValueKey(posts[index].id),
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child:
                     widget.useGuestPostItem
