@@ -110,6 +110,49 @@ class _ProfileTypeState extends State<ProfileType> {
 
         // Delete the follow request
         batch.delete(requestDoc.reference);
+        // Check for mutual follow
+        final mutualFollowCheck =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(widget.userId)
+                .collection('following')
+                .doc(requestingUserId)
+                .get();
+
+        if (mutualFollowCheck.exists) {
+          // Create friendship
+          batch.update(
+            FirebaseFirestore.instance.collection('users').doc(widget.userId),
+            {
+              'friends': FieldValue.arrayUnion([requestingUserId]),
+            },
+          );
+          batch.update(
+            FirebaseFirestore.instance
+                .collection('users')
+                .doc(requestingUserId),
+            {
+              'friends': FieldValue.arrayUnion([widget.userId]),
+            },
+          );
+
+          // Restore chat room if it was previously soft-deleted
+          final participants = [widget.userId, requestingUserId]..sort();
+          final chatRoomId = participants.join('_');
+          final chatRoomDoc =
+              await FirebaseFirestore.instance
+                  .collection('chatRooms')
+                  .doc(chatRoomId)
+                  .get();
+          if (chatRoomDoc.exists) {
+            batch.update(chatRoomDoc.reference, {
+              'deletedBy': FieldValue.arrayRemove([
+                widget.userId,
+                requestingUserId,
+              ]),
+            });
+          }
+        }
       }
 
       await batch.commit();

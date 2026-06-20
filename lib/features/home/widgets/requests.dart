@@ -927,6 +927,47 @@ class _RequestsState extends State<Requests> {
           .doc(requestingUserId);
 
       batch.delete(requestRef);
+      // Check for mutual follow
+      final mutualFollowCheck =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUserId)
+              .collection('following')
+              .doc(requestingUserId)
+              .get();
+
+      if (mutualFollowCheck.exists) {
+        // Create friendship
+        batch.update(
+          FirebaseFirestore.instance.collection('users').doc(currentUserId),
+          {
+            'friends': FieldValue.arrayUnion([requestingUserId]),
+          },
+        );
+        batch.update(
+          FirebaseFirestore.instance.collection('users').doc(requestingUserId),
+          {
+            'friends': FieldValue.arrayUnion([currentUserId]),
+          },
+        );
+
+        // Restore chat room if it was previously soft-deleted
+        final participants = [currentUserId, requestingUserId]..sort();
+        final chatRoomId = participants.join('_');
+        final chatRoomDoc =
+            await FirebaseFirestore.instance
+                .collection('chatRooms')
+                .doc(chatRoomId)
+                .get();
+        if (chatRoomDoc.exists) {
+          batch.update(chatRoomDoc.reference, {
+            'deletedBy': FieldValue.arrayRemove([
+              currentUserId,
+              requestingUserId,
+            ]),
+          });
+        }
+      }
 
       await batch.commit();
 
