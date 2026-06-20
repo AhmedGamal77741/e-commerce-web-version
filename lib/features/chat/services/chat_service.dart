@@ -248,6 +248,33 @@ class ChatService {
       throw Exception('You are no longer a participant in this chat.');
     }
 
+    // Strict validation for direct chats
+    if (chatRoom.type == 'direct') {
+      final otherUserId = chatRoom.participants.firstWhere(
+        (id) => id != currentUserId,
+        orElse: () => '',
+      );
+      if (otherUserId.isNotEmpty) {
+        // Check if receiver blocked the sender
+        final receiverDoc =
+            await _firestore.collection('users').doc(otherUserId).get();
+        if (receiverDoc.exists) {
+          final receiverBlocked = List<String>.from(
+            receiverDoc.data()?['blocked'] ?? [],
+          );
+          if (receiverBlocked.contains(currentUserId)) {
+            throw Exception('You are blocked by this user.');
+          }
+        }
+
+        // Check if they are still friends
+        final areFriends = await _friendsService.areFriends(otherUserId);
+        if (!areFriends) {
+          throw Exception('You can only chat with friends.');
+        }
+      }
+    }
+
     final messageRef = _firestore.collection('messages').doc();
     final messageId = messageRef.id;
 

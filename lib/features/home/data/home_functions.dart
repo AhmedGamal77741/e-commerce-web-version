@@ -167,11 +167,11 @@ Future<void> blockUser({required String userIdToBlock}) async {
     final chatRoomId = participants.join('_');
     final chatDoc =
         await FirebaseFirestore.instance
-            .collection('direct_chats')
+            .collection('chatRooms')
             .doc(chatRoomId)
             .get();
     if (chatDoc.exists) {
-      batch.update(chatDoc.reference, {'isDeleted': true});
+      batch.delete(chatDoc.reference);
     }
 
     // Remove from each other's friends array

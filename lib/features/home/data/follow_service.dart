@@ -79,13 +79,34 @@ class FollowService {
         batch.delete(followingRef);
         batch.delete(followerRef);
 
-        // Remove from friends lists
-        batch.update(_firestore.collection('users').doc(currentUserId), {
-          'friends': FieldValue.arrayRemove([targetUserId]),
-        });
-        batch.update(_firestore.collection('users').doc(targetUserId), {
-          'friends': FieldValue.arrayRemove([currentUserId]),
-        });
+        // Check if they were friends (mutual follow)
+        final friendsDoc =
+            await _firestore.collection('users').doc(currentUserId).get();
+        final friendsList = List<String>.from(
+          friendsDoc.data()?['friends'] ?? [],
+        );
+
+        if (friendsList.contains(targetUserId)) {
+          // Remove from friends lists
+          batch.update(_firestore.collection('users').doc(currentUserId), {
+            'friends': FieldValue.arrayRemove([targetUserId]),
+          });
+          batch.update(_firestore.collection('users').doc(targetUserId), {
+            'friends': FieldValue.arrayRemove([currentUserId]),
+          });
+
+          // Soft delete the chat room for both users
+          final participants = [currentUserId, targetUserId]..sort();
+          final chatRoomId = participants.join('_');
+          final chatRoomDoc =
+              await _firestore.collection('chatRooms').doc(chatRoomId).get();
+
+          if (chatRoomDoc.exists) {
+            batch.update(chatRoomDoc.reference, {
+              'deletedBy': FieldValue.arrayUnion([currentUserId, targetUserId]),
+            });
+          }
+        }
       } else {
         // Follow
         batch.set(followingRef, {
@@ -173,6 +194,32 @@ class FollowService {
     // Update following count for the user doing the unfollowing
     final followerUserRef = _firestore.collection('users').doc(followerId);
     batch.update(followerUserRef, {'followingCount': FieldValue.increment(-1)});
+
+    // Check if they were friends (mutual follow)
+    final friendsDoc = await _firestore.collection('users').doc(userId).get();
+    final friendsList = List<String>.from(friendsDoc.data()?['friends'] ?? []);
+
+    if (friendsList.contains(followerId)) {
+      // Remove from friends lists
+      batch.update(userRef, {
+        'friends': FieldValue.arrayRemove([followerId]),
+      });
+      batch.update(followerUserRef, {
+        'friends': FieldValue.arrayRemove([userId]),
+      });
+
+      // Soft delete the chat room for both users
+      final participants = [userId, followerId]..sort();
+      final chatRoomId = participants.join('_');
+      final chatRoomDoc =
+          await _firestore.collection('chatRooms').doc(chatRoomId).get();
+
+      if (chatRoomDoc.exists) {
+        batch.update(chatRoomDoc.reference, {
+          'deletedBy': FieldValue.arrayUnion([userId, followerId]),
+        });
+      }
+    }
 
     await batch.commit();
   }
