@@ -1,20 +1,17 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ecommerece_app/core/helpers/basetime.dart';
-import 'package:ecommerece_app/core/helpers/spacing.dart';
 import 'package:ecommerece_app/core/models/product_model.dart';
 import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/cart/services/cart_service.dart';
-import 'package:ecommerece_app/features/cart/services/favorites_service.dart';
 import 'package:ecommerece_app/features/home/data/follow_service.dart';
 import 'package:ecommerece_app/features/home/data/post_provider.dart';
-import 'package:ecommerece_app/features/home/widgets/guest_preview.dart/guest_post_item.dart';
 import 'package:ecommerece_app/features/home/widgets/post_item.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
-import 'package:ecommerece_app/features/shop/shop_search.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -44,7 +41,6 @@ class _HomeSearchState extends State<HomeSearch> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialTabIndex;
-
     _searchController.addListener(() {
       setState(() {
         searchQuery = _searchController.text.trim().toLowerCase();
@@ -168,7 +164,7 @@ class _HomeSearchState extends State<HomeSearch> {
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          toolbarHeight: 130,
+          toolbarHeight: 130.h,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -179,14 +175,14 @@ class _HomeSearchState extends State<HomeSearch> {
                     icon: const Icon(Icons.arrow_back_ios),
                   ),
                   SizedBox(
-                    width: 270,
+                    width: 270.w,
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
                         hintText: '게시글/프로필',
                         contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 5,
+                          horizontal: 12.w,
+                          vertical: 5.h,
                         ),
                         border: const OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.grey),
@@ -211,7 +207,7 @@ class _HomeSearchState extends State<HomeSearch> {
               ),
               TabBar(
                 labelStyle: TextStyle(
-                  fontSize: 16,
+                  fontSize: 16.sp,
                   decoration: TextDecoration.none,
                   fontFamily: 'NotoSans',
                   fontStyle: FontStyle.normal,
@@ -378,7 +374,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
       builder: (context, authSnapshot) {
         if (authSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            /* child: SizedBox.shrink(), */
+            /* child:const SizedBox.shrink(), */
           );
         }
 
@@ -416,7 +412,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                 builder: (context, userSnapshot) {
                   if (userSnapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
-                      /* child: SizedBox.shrink(), */
+                      /* child:const SizedBox.shrink(), */
                     );
                   }
 
@@ -456,9 +452,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                         if (postsSnapshot.connectionState ==
                             ConnectionState.waiting) {
                           return Center(
-                            /* child: const SizedBox.shrink()(
-                              color: Colors.black,
-                            ), */
+                            /* child: const SizedBox.shrink(), */
                           );
                         }
 
@@ -477,9 +471,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                           builder: (context, authorsSnapshot) {
                             if (!authorsSnapshot.hasData) {
                               return const Center(
-                                /*  child: SizedBox.shrink()(
-                                  color: Colors.black,
-                                ), */
+                                /*  child:const SizedBox.shrink(), */
                               );
                             }
 
@@ -496,6 +488,15 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
 
                                   // Check if post is from a blocked user
                                   if (blockedUsers.contains(data['userId'])) {
+                                    return false;
+                                  }
+
+                                  final authorBlockedUsers = List<dynamic>.from(
+                                    authorData['blocked'] ?? [],
+                                  );
+                                  if (authorBlockedUsers.contains(
+                                    currentUser.uid,
+                                  )) {
                                     return false;
                                   }
 
@@ -584,9 +585,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                           if (postsSnapshot.connectionState ==
                               ConnectionState.waiting) {
                             return const Center(
-                              /* child: SizedBox.shrink()(
-                                color: Colors.black,
-                              ), */
+                              /* child:const SizedBox.shrink(), */
                             );
                           }
 
@@ -609,9 +608,7 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
                             builder: (context, authorsSnapshot) {
                               if (!authorsSnapshot.hasData) {
                                 return const Center(
-                                  /* child: SizedBox.shrink()(
-                                    color: Colors.black,
-                                  ), */
+                                  /* child:const SizedBox.shrink(), */
                                 );
                               }
 
@@ -629,6 +626,16 @@ class _HomeFeedSearchTabState extends State<_HomeFeedSearchTab>
 
                                     // Check if post is from a blocked user
                                     if (blockedUsers.contains(postAuthorId)) {
+                                      return false;
+                                    }
+
+                                    final authorBlockedUsers =
+                                        List<dynamic>.from(
+                                          authorData['blocked'] ?? [],
+                                        );
+                                    if (authorBlockedUsers.contains(
+                                      currentUser.uid,
+                                    )) {
                                       return false;
                                     }
 
@@ -713,141 +720,117 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
     if (searchQuery.trim().isEmpty) {
       return const SizedBox.shrink();
     }
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(/* child: SizedBox.shrink() */);
+    return StreamBuilder<DocumentSnapshot>(
+      stream:
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .snapshots(),
+      builder: (context, currentUserSnapshot) {
+        if (!currentUserSnapshot.hasData) {
+          return const Center();
         }
-        final docs = snapshot.data?.docs ?? [];
+        final currentUserData =
+            currentUserSnapshot.data?.data() as Map<String, dynamic>?;
+        final myBlockedUsers = List<String>.from(
+          currentUserData?['blocked'] ?? [],
+        );
 
-        return ListView.builder(
-          itemCount: docs.length,
-          itemBuilder: (context, index) {
-            final doc = docs[index].data() as Map<String, dynamic>;
-            final user = MyUser.fromDocument(doc);
-
-            // FIX: Safe search query comparison
-            final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-            final searchQuery = widget.searchQuery ?? '';
-            if (user.userId == currentUserId ||
-                (searchQuery.isNotEmpty &&
-                    !user.name.toLowerCase().contains(
-                      searchQuery.toLowerCase(),
-                    ))) {
-              return const SizedBox.shrink();
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('users').snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center();
             }
+            final docs = snapshot.data?.docs ?? [];
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 25,
-                      backgroundColor: Colors.grey[300],
-                      backgroundImage: NetworkImage(user.url),
+            return ListView.builder(
+              itemCount: docs.length,
+              itemBuilder: (context, index) {
+                final doc = docs[index].data() as Map<String, dynamic>;
+                final user = MyUser.fromDocument(doc);
+
+                final currentUserId = currentUser.uid;
+                final userBlockedList = user.blocked ?? [];
+
+                // Hide if mutually blocked
+                if (myBlockedUsers.contains(user.userId) ||
+                    userBlockedList.contains(currentUserId)) {
+                  return const SizedBox.shrink();
+                }
+
+                // FIX: Safe search query comparison
+                final searchQuery = widget.searchQuery ?? '';
+                if (user.userId == currentUserId ||
+                    (searchQuery.isNotEmpty &&
+                        !user.name.toLowerCase().contains(
+                          searchQuery.toLowerCase(),
+                        ))) {
+                  return const SizedBox.shrink();
+                }
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black,
-                            ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Colors.grey[300],
+                          radius: 25,
+                          backgroundImage: NetworkImage(user.url),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user.name,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              if (user.bio != null && user.bio!.isNotEmpty) ...{
+                                const SizedBox(height: 2),
+                                Text(
+                                  user.bio.toString(),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              },
+                            ],
                           ),
-                          if (user.bio != null && user.bio!.isNotEmpty) ...{
-                            const SizedBox(height: 2),
-                            Text(
-                              user.bio.toString(),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          },
-                        ],
-                      ),
-                    ),
-                    StreamBuilder<DocumentSnapshot>(
-                      stream:
-                          FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(currentUserId)
-                              .collection('following')
-                              .doc(user.userId)
-                              .snapshots(),
-                      builder: (context, followingSnapshot) {
-                        final isFollowing =
-                            followingSnapshot.hasData &&
-                            followingSnapshot.data!.exists;
+                        ),
+                        StreamBuilder<DocumentSnapshot>(
+                          stream:
+                              FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(currentUserId)
+                                  .collection('following')
+                                  .doc(user.userId)
+                                  .snapshots(),
+                          builder: (context, followingSnapshot) {
+                            final isFollowing =
+                                followingSnapshot.hasData &&
+                                followingSnapshot.data!.exists;
 
-                        // Check if user is private
-                        final isPrivate = user.isPrivate;
+                            // Check if user is private
+                            final isPrivate = user.isPrivate;
 
-                        if (isFollowing) {
-                          // Already following
-                          return ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey[300],
-                              foregroundColor: Colors.black,
-                              minimumSize: Size(47, 33),
-                              textStyle: TextStyle(
-                                fontSize: 12,
-                                fontFamily: 'NotoSans',
-                                fontWeight: FontWeight.w500,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            ),
-                            onPressed: () async {
-                              FollowService().toggleFollow(user.userId);
-                            },
-                            child: Text(
-                              '구독 취소',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontFamily: 'NotoSans',
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        }
-
-                        // Not following - check if private
-                        if (isPrivate) {
-                          // Check for pending follow request
-                          return StreamBuilder<DocumentSnapshot>(
-                            stream:
-                                FirebaseFirestore.instance
-                                    .collection('users')
-                                    .doc(user.userId)
-                                    .collection('followRequests')
-                                    .doc(currentUserId)
-                                    .snapshots(),
-                            builder: (context, requestSnapshot) {
-                              final hasRequest =
-                                  requestSnapshot.hasData &&
-                                  requestSnapshot.data!.exists;
-
+                            if (isFollowing) {
+                              // Already following
                               return ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      hasRequest
-                                          ? Colors.grey[300]
-                                          : ColorsManager.primary600,
-                                  foregroundColor:
-                                      hasRequest ? Colors.black : Colors.white,
+                                  backgroundColor: Colors.grey[300],
+                                  foregroundColor: Colors.black,
                                   minimumSize: Size(47, 33),
                                   textStyle: TextStyle(
                                     fontSize: 12,
@@ -859,30 +842,10 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
                                   ),
                                 ),
                                 onPressed: () async {
-                                  if (hasRequest) {
-                                    // Cancel request
-                                    await FirebaseFirestore.instance
-                                        .collection('users')
-                                        .doc(user.userId)
-                                        .collection('followRequests')
-                                        .doc(currentUserId)
-                                        .delete();
-                                  } else {
-                                    // Send request
-                                    await FirebaseFirestore.instance
-                                        .collection('users')
-                                        .doc(user.userId)
-                                        .collection('followRequests')
-                                        .doc(currentUserId)
-                                        .set({
-                                          'userId': currentUserId,
-                                          'createdAt':
-                                              FieldValue.serverTimestamp(),
-                                        });
-                                  }
+                                  FollowService().toggleFollow(user.userId);
                                 },
                                 child: Text(
-                                  hasRequest ? '요청 취소' : '요청',
+                                  '구독 취소',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontFamily: 'NotoSans',
@@ -890,42 +853,114 @@ class _FollowingSearchTabState extends State<FollowingSearchTab> {
                                   ),
                                 ),
                               );
-                            },
-                          );
-                        }
+                            }
 
-                        // Public profile - show follow button
-                        return ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: ColorsManager.primary600,
-                            foregroundColor: Colors.white,
-                            minimumSize: Size(47, 33),
-                            textStyle: TextStyle(
-                              fontSize: 12,
-                              fontFamily: 'NotoSans',
-                              fontWeight: FontWeight.w500,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                          onPressed: () async {
-                            FollowService().toggleFollow(user.userId);
+                            // Not following - check if private
+                            if (isPrivate) {
+                              // Check for pending follow request
+                              return StreamBuilder<DocumentSnapshot>(
+                                stream:
+                                    FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(user.userId)
+                                        .collection('followRequests')
+                                        .doc(currentUserId)
+                                        .snapshots(),
+                                builder: (context, requestSnapshot) {
+                                  final hasRequest =
+                                      requestSnapshot.hasData &&
+                                      requestSnapshot.data!.exists;
+
+                                  return ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          hasRequest
+                                              ? Colors.grey[300]
+                                              : ColorsManager.primary600,
+                                      foregroundColor:
+                                          hasRequest
+                                              ? Colors.black
+                                              : Colors.white,
+                                      minimumSize: Size(47, 33),
+                                      textStyle: TextStyle(
+                                        fontSize: 12,
+                                        fontFamily: 'NotoSans',
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                    ),
+                                    onPressed: () async {
+                                      if (hasRequest) {
+                                        // Cancel request
+                                        await FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(user.userId)
+                                            .collection('followRequests')
+                                            .doc(currentUserId)
+                                            .delete();
+                                      } else {
+                                        // Send request
+                                        await FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(user.userId)
+                                            .collection('followRequests')
+                                            .doc(currentUserId)
+                                            .set({
+                                              'userId': currentUserId,
+                                              'createdAt':
+                                                  FieldValue.serverTimestamp(),
+                                            });
+                                      }
+                                    },
+                                    child: Text(
+                                      hasRequest ? '요청 취소' : '요청',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontFamily: 'NotoSans',
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            }
+
+                            // Public profile - show follow button
+                            return ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: ColorsManager.primary600,
+                                foregroundColor: Colors.white,
+                                minimumSize: Size(47, 33),
+                                textStyle: TextStyle(
+                                  fontSize: 12,
+                                  fontFamily: 'NotoSans',
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              onPressed: () async {
+                                FollowService().toggleFollow(user.userId);
+                              },
+                              child: Text(
+                                '구독',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontFamily: 'NotoSans',
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            );
                           },
-                          child: Text(
-                            '구독',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontFamily: 'NotoSans',
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             );
           },
         );
@@ -1013,6 +1048,7 @@ class _ShopSearchScreenState extends State<ShopSearchScreen> {
               product.meridiem,
               product.baselineTime,
             );
+            if (!context.mounted) return;
             Navigator.push(
               context,
               MaterialPageRoute(

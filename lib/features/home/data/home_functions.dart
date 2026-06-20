@@ -96,25 +96,134 @@ Future<void> blockUser({required String userIdToBlock}) async {
         .doc(currentUser.uid);
 
     final blocksCollection = FirebaseFirestore.instance.collection('blocks');
-
     final newBlockRef = blocksCollection.doc();
 
-    await userRef.update({
+    final batch = FirebaseFirestore.instance.batch();
+
+    batch.update(userRef, {
       'blocked': FieldValue.arrayUnion([userIdToBlock]),
     });
 
-    await newBlockRef.set({
+    batch.set(newBlockRef, {
       'blockedUserId': userIdToBlock,
       'blockedBy': currentUser.uid,
       'blockId': newBlockRef.id,
-      /*       'createdAt': FieldValue.serverTimestamp(),
-      'status': 'pending',
-      'resolved': false,  */
     });
+
+    // Check if the user to block actually exists (prevents not-found errors if they deleted their account)
+    final blockedUserRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userIdToBlock);
+    final blockedUserDoc = await blockedUserRef.get();
+    final bool blockedUserExists = blockedUserDoc.exists;
+
+    // Check follow relationships to decrement counts
+    final followingRef1 = FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid)
+        .collection('following')
+        .doc(userIdToBlock);
+    final followerRef1 = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userIdToBlock)
+        .collection('followers')
+        .doc(currentUser.uid);
+    final followingDoc1 = await followingRef1.get();
+    if (followingDoc1.exists) {
+      batch.delete(followingRef1);
+      batch.delete(followerRef1);
+      batch.update(userRef, {'followingCount': FieldValue.increment(-1)});
+      if (blockedUserExists) {
+        batch.update(blockedUserRef, {
+          'followerCount': FieldValue.increment(-1),
+        });
+      }
+    }
+
+    final followingRef2 = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userIdToBlock)
+        .collection('following')
+        .doc(currentUser.uid);
+    final followerRef2 = FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid)
+        .collection('followers')
+        .doc(userIdToBlock);
+    final followingDoc2 = await followingRef2.get();
+    if (followingDoc2.exists) {
+      batch.delete(followingRef2);
+      batch.delete(followerRef2);
+      if (blockedUserExists) {
+        batch.update(blockedUserRef, {
+          'followingCount': FieldValue.increment(-1),
+        });
+      }
+      batch.update(userRef, {'followerCount': FieldValue.increment(-1)});
+    }
+
+    // Delete the direct chat room between the users if it exists
+    final participants = [currentUser.uid, userIdToBlock]..sort();
+    final chatRoomId = participants.join('_');
+    final chatDoc =
+        await FirebaseFirestore.instance
+            .collection('direct_chats')
+            .doc(chatRoomId)
+            .get();
+    if (chatDoc.exists) {
+      batch.update(chatDoc.reference, {'isDeleted': true});
+    }
+
+    // Remove from each other's friends array
+    batch.update(userRef, {
+      'friends': FieldValue.arrayRemove([userIdToBlock]),
+    });
+    if (blockedUserExists) {
+      batch.update(blockedUserRef, {
+        'friends': FieldValue.arrayRemove([currentUser.uid]),
+      });
+    }
+
+    await batch.commit();
+
     print('User blocked successfully!');
   } catch (e) {
     print('Error blocking user: $e');
     throw e; // Re-throw to handle in UI
+  }
+}
+
+Future<void> unblockUser({required String userIdToUnblock}) async {
+  try {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) throw Exception("User not logged in");
+
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid);
+
+    final batch = FirebaseFirestore.instance.batch();
+
+    batch.update(userRef, {
+      'blocked': FieldValue.arrayRemove([userIdToUnblock]),
+    });
+
+    final blocksQuery =
+        await FirebaseFirestore.instance
+            .collection('blocks')
+            .where('blockedBy', isEqualTo: currentUser.uid)
+            .where('blockedUserId', isEqualTo: userIdToUnblock)
+            .get();
+
+    for (final doc in blocksQuery.docs) {
+      batch.delete(doc.reference);
+    }
+
+    await batch.commit();
+    print('User unblocked successfully!');
+  } catch (e) {
+    print('Error unblocking user: $e');
+    throw e;
   }
 }
 

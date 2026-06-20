@@ -108,14 +108,22 @@ class NaturalAspectPageViewState extends State<NaturalAspectPageView> {
         stream.removeListener(listener);
         if (mounted) {
           setState(() {
-            _ratios[index] =
-                info.image.width.toDouble() / info.image.height.toDouble();
+            if (index < _ratios.length) {
+              _ratios[index] =
+                  info.image.width.toDouble() / info.image.height.toDouble();
+            }
           });
         }
       },
       onError: (_, __) {
         stream.removeListener(listener);
-        if (mounted) setState(() => _ratios[index] = 1.0);
+        if (mounted) {
+          setState(() {
+            if (index < _ratios.length) {
+              _ratios[index] = 1.0;
+            }
+          });
+        }
       },
     );
     stream.addListener(listener);

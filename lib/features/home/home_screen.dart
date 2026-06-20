@@ -340,6 +340,17 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
   QuerySnapshot? _lastPostsDocs;
   Map<String, Map<String, dynamic>>? _lastAuthorsData;
 
+  final Stream<QuerySnapshot> _postsStream =
+      FirebaseFirestore.instance
+          .collection('posts')
+          .orderBy('createdAt', descending: true)
+          .snapshots();
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
   // No more stream caching - inline streams are strictly used with initialData.
 
   @override
@@ -462,11 +473,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
 
         if (firebaseUser == null) {
           return StreamBuilder<QuerySnapshot>(
-            stream:
-                FirebaseFirestore.instance
-                    .collection('posts')
-                    .orderBy('createdAt', descending: true)
-                    .snapshots(),
+            stream: _postsStream,
             initialData: _lastPostsDocs,
             builder: (context, postsSnapshot) {
               if (postsSnapshot.hasData) {
@@ -560,11 +567,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
 
             if (!currentUser.isSub) {
               return StreamBuilder<QuerySnapshot>(
-                stream:
-                    FirebaseFirestore.instance
-                        .collection('posts')
-                        .orderBy('createdAt', descending: true)
-                        .snapshots(),
+                stream: _postsStream,
                 initialData: _lastPostsDocs,
                 builder: (context, postsSnapshot) {
                   if (postsSnapshot.hasData) {
@@ -615,6 +618,16 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                               return false;
                             }
 
+                            final authorData = authorsMap[postAuthorId] ?? {};
+                            final authorBlockedUsers = List<dynamic>.from(
+                              authorData['blocked'] ?? [],
+                            );
+                            if (authorBlockedUsers.contains(
+                              currentUser.userId,
+                            )) {
+                              return false;
+                            }
+
                             final notInterestedBy = List<dynamic>.from(
                               data['notInterestedBy'] ?? [],
                             );
@@ -622,7 +635,6 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                               return false;
                             }
 
-                            final authorData = authorsMap[postAuthorId] ?? {};
                             return (authorData['isPrivate'] ?? false) == false;
                           }).toList();
 
@@ -680,11 +692,7 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                 }
 
                 return StreamBuilder<QuerySnapshot>(
-                  stream:
-                      FirebaseFirestore.instance
-                          .collection('posts')
-                          .orderBy('createdAt', descending: true)
-                          .snapshots(),
+                  stream: _postsStream,
                   initialData: _lastPostsDocs,
                   builder: (context, postsSnapshot) {
                     if (postsSnapshot.hasData) {
@@ -732,6 +740,15 @@ class _HomeFeedTabState extends State<_HomeFeedTab>
                               final authorData = authorsMap[postAuthorId] ?? {};
 
                               if (blockedUsers.contains(postAuthorId)) {
+                                return false;
+                              }
+
+                              final authorBlockedUsers = List<dynamic>.from(
+                                authorData['blocked'] ?? [],
+                              );
+                              if (authorBlockedUsers.contains(
+                                currentUser.userId,
+                              )) {
                                 return false;
                               }
 

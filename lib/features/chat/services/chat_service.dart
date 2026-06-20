@@ -236,6 +236,18 @@ class ChatService {
     Map<String, dynamic>? postData,
     Product? productData,
   }) async {
+    // Verify chat room still exists (prevents blocked users from sending messages)
+    final chatRoomDoc =
+        await _firestore.collection('chatRooms').doc(chatRoomId).get();
+    if (!chatRoomDoc.exists) {
+      throw Exception('Chat room no longer exists or you are blocked.');
+    }
+
+    final chatRoom = ChatRoomModel.fromMap(chatRoomDoc.data()!);
+    if (!chatRoom.participants.contains(currentUserId)) {
+      throw Exception('You are no longer a participant in this chat.');
+    }
+
     final messageRef = _firestore.collection('messages').doc();
     final messageId = messageRef.id;
 
@@ -288,10 +300,6 @@ class ChatService {
     });
 
     // Update unread count for other participants
-    final chatRoomDoc =
-        await _firestore.collection('chatRooms').doc(chatRoomId).get();
-    final chatRoom = ChatRoomModel.fromMap(chatRoomDoc.data()!);
-
     final updatedUnreadCount = Map<String, int>.from(chatRoom.unreadCount);
     for (String participantId in chatRoom.participants) {
       if (participantId != currentUserId) {

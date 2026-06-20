@@ -7,6 +7,7 @@ import 'package:ecommerece_app/features/chat/models/chat_room_model.dart';
 import 'package:ecommerece_app/features/chat/services/chat_service.dart';
 import 'package:ecommerece_app/features/chat/services/favorites_service.dart';
 import 'package:ecommerece_app/features/chat/services/friends_service.dart';
+import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -290,9 +291,7 @@ class _ContactsEditTabState extends State<_ContactsEditTab> {
   }
 
   Future<void> _unblock(String blockedUserId) async {
-    await FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'blocked': FieldValue.arrayRemove([blockedUserId]),
-    });
+    await unblockUser(userIdToUnblock: blockedUserId);
   }
 
   Future<void> _reorderFavorites(List<MyUser> newOrder) async {

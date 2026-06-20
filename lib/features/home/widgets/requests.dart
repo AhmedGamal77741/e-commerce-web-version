@@ -3,6 +3,7 @@ import 'package:ecommerece_app/core/theming/colors.dart';
 import 'package:ecommerece_app/features/auth/signup/data/models/user_model.dart';
 import 'package:ecommerece_app/features/home/data/follow_service.dart';
 import 'package:ecommerece_app/features/chat/services/contacts_service.dart';
+import 'package:ecommerece_app/features/home/data/home_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -1090,19 +1091,7 @@ class _RequestsState extends State<Requests> {
 
   Future<void> _unblockUser(String blockedUserId, String currentUserId) async {
     try {
-      final userDoc = FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUserId);
-
-      // Get current blocked list
-      final currentUser = await userDoc.get();
-      final blockedList = List<String>.from(currentUser.get('blocked') ?? []);
-
-      // Remove from blocked list
-      blockedList.remove(blockedUserId);
-
-      // Update the document
-      await userDoc.update({'blocked': blockedList});
+      await unblockUser(userIdToUnblock: blockedUserId);
 
       if (mounted) {
         ScaffoldMessenger.of(

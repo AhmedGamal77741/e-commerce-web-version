@@ -145,18 +145,87 @@ class FriendsService {
         throw Exception('Already blocked this user');
       }
 
-      await currentUserDoc.reference.update({
+      final batch = _firestore.batch();
+
+      // Add to blocked array and remove from friends array
+      batch.update(currentUserDoc.reference, {
         'blocked': FieldValue.arrayUnion([friendId]),
+        'friends': FieldValue.arrayRemove([friendId]),
+      });
+
+      // Remove current user from the blocked user's friends list
+      batch.update(_firestore.collection('users').doc(friendId), {
+        'friends': FieldValue.arrayRemove([currentUserId]),
       });
 
       final blocksCollection = FirebaseFirestore.instance.collection('blocks');
-
       final newBlockRef = blocksCollection.doc();
-      await newBlockRef.set({
+      batch.set(newBlockRef, {
         'blockedUserId': friendId,
         'blockedBy': currentUser.userId,
         'blockId': newBlockRef.id,
       });
+
+      // Check follow relationships to decrement counts
+      final followingRef1 = _firestore
+          .collection('users')
+          .doc(currentUserId)
+          .collection('following')
+          .doc(friendId);
+      final followerRef1 = _firestore
+          .collection('users')
+          .doc(friendId)
+          .collection('followers')
+          .doc(currentUserId);
+      final followingDoc1 = await followingRef1.get();
+      if (followingDoc1.exists) {
+        batch.delete(followingRef1);
+        batch.delete(followerRef1);
+        batch.update(currentUserDoc.reference, {
+          'followingCount': FieldValue.increment(-1),
+        });
+        batch.update(_firestore.collection('users').doc(friendId), {
+          'followerCount': FieldValue.increment(-1),
+        });
+      }
+
+      final followingRef2 = _firestore
+          .collection('users')
+          .doc(friendId)
+          .collection('following')
+          .doc(currentUserId);
+      final followerRef2 = _firestore
+          .collection('users')
+          .doc(currentUserId)
+          .collection('followers')
+          .doc(friendId);
+      final followingDoc2 = await followingRef2.get();
+      if (followingDoc2.exists) {
+        batch.delete(followingRef2);
+        batch.delete(followerRef2);
+        batch.update(_firestore.collection('users').doc(friendId), {
+          'followingCount': FieldValue.increment(-1),
+        });
+        batch.update(currentUserDoc.reference, {
+          'followerCount': FieldValue.increment(-1),
+        });
+      }
+
+      // Delete the direct chat room between the users
+      final participants = [currentUserId, friendId]..sort();
+      final chatRoomId = participants.join('_');
+      batch.delete(_firestore.collection('chatRooms').doc(chatRoomId));
+
+      // Remove the chatRoomId from both users' chatRooms array
+      batch.update(_firestore.collection('users').doc(currentUserId), {
+        'chatRooms': FieldValue.arrayRemove([chatRoomId]),
+      });
+      batch.update(_firestore.collection('users').doc(friendId), {
+        'chatRooms': FieldValue.arrayRemove([chatRoomId]),
+      });
+
+      await batch.commit();
+
       print('User blocked successfully!');
       return true;
     } catch (e) {
@@ -177,6 +246,19 @@ class FriendsService {
 
       batch.update(_firestore.collection('users').doc(friendId), {
         'friends': FieldValue.arrayRemove([currentUserId]),
+      });
+
+      // Delete the direct chat room between the users
+      final participants = [currentUserId, friendId]..sort();
+      final chatRoomId = participants.join('_');
+      batch.delete(_firestore.collection('chatRooms').doc(chatRoomId));
+
+      // Remove the chatRoomId from both users' chatRooms array
+      batch.update(_firestore.collection('users').doc(currentUserId), {
+        'chatRooms': FieldValue.arrayRemove([chatRoomId]),
+      });
+      batch.update(_firestore.collection('users').doc(friendId), {
+        'chatRooms': FieldValue.arrayRemove([chatRoomId]),
       });
 
       await batch.commit();
