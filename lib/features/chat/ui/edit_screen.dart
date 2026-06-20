@@ -604,16 +604,16 @@ class _ContactsEditTabState extends State<_ContactsEditTab> {
                                           user: u,
                                           aliases: aliases,
                                           trailing: _pillButton(
-                                            '숨김',
+                                            '거리두기',
                                             () => _hide(u),
                                           ),
                                         ),
                                       ),
                                     ],
 
-                                    // ── 숨긴 친구 ───────────────────────────
+                                    // ── 거리두기한 친구 ───────────────────────────
                                     if (hiddenUsers.isNotEmpty) ...[
-                                      _sectionHeader('숨긴 친구'),
+                                      _sectionHeader('거리두기한 친구'),
                                       ...hiddenUsers.map(
                                         (u) => _friendRow(
                                           user: u,

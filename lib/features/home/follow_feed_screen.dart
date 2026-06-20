@@ -32,6 +32,7 @@ class _FollowingTabState extends State<FollowingTab>
   User? _currentUser;
   Stream<DocumentSnapshot>? _userStream;
   Stream<QuerySnapshot>? _followingStream;
+  Stream<QuerySnapshot>? _hiddenFriendsStream;
   late PageController _categoryPageController;
   List<String?> _categoryPages = [null]; // null represents "All" category
   bool get wantKeepAlive => true;
@@ -79,6 +80,12 @@ class _FollowingTabState extends State<FollowingTab>
               .doc(_currentUser!.uid)
               .collection('following')
               .snapshots();
+      _hiddenFriendsStream =
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(_currentUser!.uid)
+              .collection('hiddenFriends')
+              .snapshots();
     }
 
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
@@ -97,9 +104,16 @@ class _FollowingTabState extends State<FollowingTab>
                     .doc(user.uid)
                     .collection('following')
                     .snapshots();
+            _hiddenFriendsStream =
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .collection('hiddenFriends')
+                    .snapshots();
           } else {
             _userStream = null;
             _followingStream = null;
+            _hiddenFriendsStream = null;
           }
         });
       }
@@ -324,256 +338,286 @@ class _FollowingTabState extends State<FollowingTab>
                 (data?['blocked'] as List<dynamic>?) ?? [],
               );
 
-              return Column(
-                children: [
-                  // Following users horizontal list
-                  SizedBox(
-                    height: 100,
-                    child: StreamBuilder<QuerySnapshot>(
-                      stream: _followingStream,
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text(
-                              '팔로우 목록을 불러올 수 없습니다',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.red[300],
-                              ),
-                            ),
-                          );
-                        }
+              return StreamBuilder<QuerySnapshot>(
+                stream: _hiddenFriendsStream,
+                builder: (context, hiddenFriendsSnapshot) {
+                  final hiddenFriendsSet = <String>{};
+                  if (hiddenFriendsSnapshot.hasData) {
+                    for (var doc in hiddenFriendsSnapshot.data!.docs) {
+                      hiddenFriendsSet.add(doc.id);
+                    }
+                  }
 
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              /* child:const SizedBox.shrink(), */
-                            ),
-                          );
-                        }
+                  final effectiveBlockedUsers =
+                      [...blockedUsers, ...hiddenFriendsSet].toSet().toList();
 
-                        if (!snapshot.hasData) {
-                          return const Center(
-                            child: Text('팔로우 데이터를 불러올 수 없습니다'),
-                          );
-                        }
-
-                        final followingIds =
-                            snapshot.data!.docs.map((doc) => doc.id).toList();
-
-                        if (followingIds.isEmpty) {
-                          if (_selectedUserId.value != null) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted) {
-                                _selectedUserId.value = null;
-                              }
-                            });
-                          }
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.people_outline,
-                                  size: 32,
-                                  color: Colors.grey[300],
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  '팔로우한 사용자가 없습니다',
+                  return Column(
+                    children: [
+                      // Following users horizontal list
+                      SizedBox(
+                        height: 100,
+                        child: StreamBuilder<QuerySnapshot>(
+                          stream: _followingStream,
+                          builder: (context, snapshot) {
+                            if (snapshot.hasError) {
+                              return Center(
+                                child: Text(
+                                  '팔로우 목록을 불러올 수 없습니다',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: Colors.grey[500],
+                                    color: Colors.red[300],
                                   ),
                                 ),
-                              ],
-                            ),
-                          );
-                        }
-
-                        // Check if we need to fetch users
-                        bool needsFetch = false;
-                        if (_cachedFollowingUsers == null) {
-                          needsFetch = true;
-                        } else {
-                          // Compare ids
-                          if (followingIds.length != _lastFollowingIds.length) {
-                            needsFetch = true;
-                          } else {
-                            for (var id in followingIds) {
-                              if (!_lastFollowingIds.contains(id)) {
-                                needsFetch = true;
-                                break;
-                              }
-                            }
-                          }
-                          // Compare blocked users
-                          if (!needsFetch) {
-                            if (blockedUsers.length !=
-                                _lastBlockedUsers.length) {
-                              needsFetch = true;
-                            } else {
-                              for (var id in blockedUsers) {
-                                if (!_lastBlockedUsers.contains(id)) {
-                                  needsFetch = true;
-                                  break;
-                                }
-                              }
-                            }
-                          }
-                        }
-
-                        if (needsFetch && !_isFetchingUsers) {
-                          _isFetchingUsers = true;
-                          WidgetsBinding.instance.addPostFrameCallback((
-                            _,
-                          ) async {
-                            final users = await _fetchAndSortFollowingUsers(
-                              followingIds,
-                              blockedUsers,
-                            );
-                            if (mounted) {
-                              setState(() {
-                                _cachedFollowingUsers = users;
-                                _lastFollowingIds = followingIds;
-                                _lastBlockedUsers = blockedUsers;
-                                _isFetchingUsers = false;
-                              });
-                            }
-                          });
-                        }
-
-                        if (_cachedFollowingUsers == null) {
-                          return const Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          );
-                        }
-
-                        final sortedUsers = _cachedFollowingUsers!;
-                        final sortedIds =
-                            sortedUsers.map((u) => u.userId).toList();
-
-                        // Automatically select the account that most recently posted (first item)
-                        // if none is selected, or if the selected user is no longer followed.
-                        if (sortedIds.isEmpty) {
-                          if (_selectedUserId.value != null) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted) {
-                                _selectedUserId.value = null;
-                              }
-                            });
-                          }
-                        } else if (_selectedUserId.value == null ||
-                            !sortedIds.contains(_selectedUserId.value)) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted &&
-                                (_selectedUserId.value == null ||
-                                    !sortedIds.contains(
-                                      _selectedUserId.value,
-                                    ))) {
-                              _selectedUserId.value = sortedIds.first;
-                            }
-                          });
-                        }
-
-                        return ValueListenableBuilder(
-                          valueListenable: _selectedUserId,
-                          builder: (context, selectedUserId, child) {
-                            return FollowingUsersList(
-                              followingUsers: sortedUsers,
-                              onUserTap: _handleUserSelection,
-                              selectedUserId: selectedUserId,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Categories bar + PageView
-                  Expanded(
-                    child: ValueListenableBuilder<String?>(
-                      valueListenable: _selectedUserId,
-                      builder: (context, selectedUserId, _) {
-                        if (selectedUserId == null ||
-                            blockedUsers.contains(selectedUserId)) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return StreamBuilder<QuerySnapshot>(
-                          stream: _getCategoriesStream(selectedUserId),
-                          builder: (context, categoriesSnapshot) {
-                            if (categoriesSnapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Center(
-                                child: SizedBox(width: 20, height: 20),
                               );
                             }
 
-                            final List<QueryDocumentSnapshot> categories =
-                                categoriesSnapshot.hasData
-                                    ? categoriesSnapshot.data!.docs
-                                    : const [];
-
-                            _categoryPages = [
-                              null,
-                              ...categories.map((doc) => doc.id),
-                            ];
-
-                            return Column(
-                              children: [
-                                ValueListenableBuilder<String?>(
-                                  valueListenable: _selectedCategoryId,
-                                  builder: (context, selectedCategoryId, _) {
-                                    return UserCategoriesBar(
-                                      categories: categories,
-                                      selectedCategoryId: selectedCategoryId,
-                                      onCategorySelected:
-                                          _handleCategorySelection,
-                                    );
-                                  },
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  /* child:const SizedBox.shrink(), */
                                 ),
-                                Expanded(
-                                  child: PageView.builder(
-                                    controller: _categoryPageController,
-                                    onPageChanged: _onCategoryPageChanged,
-                                    itemCount: _categoryPages.length,
-                                    itemBuilder: (context, index) {
-                                      return ValueListenableBuilder<int>(
-                                        valueListenable: _currentPageIndex,
-                                        builder: (context, activeIndex, _) {
-                                          return FollowingPostsList(
-                                            currentUserId: currentUserId,
-                                            selectedUserId: selectedUserId,
-                                            selectedCategoryId:
-                                                _categoryPages[index],
-                                            useGuestPostItem: false,
-                                            blockedUsers: blockedUsers,
-                                            scrollController:
-                                                (index == activeIndex)
-                                                    ? _scrollController
-                                                    : null,
-                                          );
-                                        },
-                                      );
-                                    },
+                              );
+                            }
+
+                            if (!snapshot.hasData) {
+                              return const Center(
+                                child: Text('팔로우 데이터를 불러올 수 없습니다'),
+                              );
+                            }
+
+                            final followingIds =
+                                snapshot.data!.docs
+                                    .map((doc) => doc.id)
+                                    .toList();
+
+                            if (followingIds.isEmpty) {
+                              if (_selectedUserId.value != null) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (mounted) {
+                                    _selectedUserId.value = null;
+                                  }
+                                });
+                              }
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.people_outline,
+                                      size: 32,
+                                      color: Colors.grey[300],
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      '팔로우한 사용자가 없습니다',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            // Check if we need to fetch users
+                            bool needsFetch = false;
+                            if (_cachedFollowingUsers == null) {
+                              needsFetch = true;
+                            } else {
+                              // Compare ids
+                              if (followingIds.length !=
+                                  _lastFollowingIds.length) {
+                                needsFetch = true;
+                              } else {
+                                for (var id in followingIds) {
+                                  if (!_lastFollowingIds.contains(id)) {
+                                    needsFetch = true;
+                                    break;
+                                  }
+                                }
+                              }
+                              // Compare blocked users
+                              if (!needsFetch) {
+                                if (effectiveBlockedUsers.length !=
+                                    _lastBlockedUsers.length) {
+                                  needsFetch = true;
+                                } else {
+                                  for (var id in effectiveBlockedUsers) {
+                                    if (!_lastBlockedUsers.contains(id)) {
+                                      needsFetch = true;
+                                      break;
+                                    }
+                                  }
+                                }
+                              }
+                            }
+
+                            if (needsFetch && !_isFetchingUsers) {
+                              _isFetchingUsers = true;
+                              WidgetsBinding.instance.addPostFrameCallback((
+                                _,
+                              ) async {
+                                final users = await _fetchAndSortFollowingUsers(
+                                  followingIds,
+                                  effectiveBlockedUsers,
+                                );
+                                if (mounted) {
+                                  setState(() {
+                                    _cachedFollowingUsers = users;
+                                    _lastFollowingIds = followingIds;
+                                    _lastBlockedUsers = effectiveBlockedUsers;
+                                    _isFetchingUsers = false;
+                                  });
+                                }
+                              });
+                            }
+
+                            if (_cachedFollowingUsers == null) {
+                              return const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
                                 ),
-                              ],
+                              );
+                            }
+
+                            final sortedUsers = _cachedFollowingUsers!;
+                            final sortedIds =
+                                sortedUsers.map((u) => u.userId).toList();
+
+                            // Automatically select the account that most recently posted (first item)
+                            // if none is selected, or if the selected user is no longer followed.
+                            if (sortedIds.isEmpty) {
+                              if (_selectedUserId.value != null) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (mounted) {
+                                    _selectedUserId.value = null;
+                                  }
+                                });
+                              }
+                            } else if (_selectedUserId.value == null ||
+                                !sortedIds.contains(_selectedUserId.value)) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted &&
+                                    (_selectedUserId.value == null ||
+                                        !sortedIds.contains(
+                                          _selectedUserId.value,
+                                        ))) {
+                                  _selectedUserId.value = sortedIds.first;
+                                }
+                              });
+                            }
+
+                            return ValueListenableBuilder(
+                              valueListenable: _selectedUserId,
+                              builder: (context, selectedUserId, child) {
+                                return FollowingUsersList(
+                                  followingUsers: sortedUsers,
+                                  onUserTap: _handleUserSelection,
+                                  selectedUserId: selectedUserId,
+                                );
+                              },
                             );
                           },
-                        );
-                      },
-                    ),
-                  ),
-                ],
+                        ),
+                      ),
+
+                      // Categories bar + PageView
+                      Expanded(
+                        child: ValueListenableBuilder<String?>(
+                          valueListenable: _selectedUserId,
+                          builder: (context, selectedUserId, _) {
+                            if (selectedUserId == null ||
+                                blockedUsers.contains(selectedUserId)) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return StreamBuilder<QuerySnapshot>(
+                              stream: _getCategoriesStream(selectedUserId),
+                              builder: (context, categoriesSnapshot) {
+                                if (categoriesSnapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                    child: SizedBox(width: 20, height: 20),
+                                  );
+                                }
+
+                                final List<QueryDocumentSnapshot> categories =
+                                    categoriesSnapshot.hasData
+                                        ? categoriesSnapshot.data!.docs
+                                        : const [];
+
+                                _categoryPages = [
+                                  null,
+                                  ...categories.map((doc) => doc.id),
+                                ];
+
+                                return Column(
+                                  children: [
+                                    ValueListenableBuilder<String?>(
+                                      valueListenable: _selectedCategoryId,
+                                      builder: (
+                                        context,
+                                        selectedCategoryId,
+                                        _,
+                                      ) {
+                                        return UserCategoriesBar(
+                                          categories: categories,
+                                          selectedCategoryId:
+                                              selectedCategoryId,
+                                          onCategorySelected:
+                                              _handleCategorySelection,
+                                        );
+                                      },
+                                    ),
+                                    Expanded(
+                                      child: PageView.builder(
+                                        controller: _categoryPageController,
+                                        onPageChanged: _onCategoryPageChanged,
+                                        itemCount: _categoryPages.length,
+                                        itemBuilder: (context, index) {
+                                          return ValueListenableBuilder<int>(
+                                            valueListenable: _currentPageIndex,
+                                            builder: (context, activeIndex, _) {
+                                              return FollowingPostsList(
+                                                currentUserId: currentUserId,
+                                                selectedUserId: selectedUserId,
+                                                selectedCategoryId:
+                                                    _categoryPages[index],
+                                                useGuestPostItem: false,
+                                                blockedUsers:
+                                                    effectiveBlockedUsers,
+                                                scrollController:
+                                                    (index == activeIndex)
+                                                        ? _scrollController
+                                                        : null,
+                                              );
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           );
@@ -644,7 +688,7 @@ class UserCategoriesBar extends StatelessWidget {
                     () => onCategorySelected(category.id),
                   ),
                 );
-              }).toList(),
+              }),
 
               // Add right padding for centering
               SizedBox(width: 16),

@@ -87,7 +87,7 @@ class PostsProvider extends ChangeNotifier {
         .doc(currentUserId)
         .get()
         .then(
-          (userDoc) {
+          (userDoc) async {
             if (!userDoc.exists) {
               print("User document doesn't exist for ID: $currentUserId");
               return;
@@ -97,6 +97,16 @@ class PostsProvider extends ChangeNotifier {
             List<String> blockedUsers = List<String>.from(
               userDoc.data()?['blocked'] ?? [],
             );
+
+            // Fetch hidden friends
+            final hiddenFriendsSnapshot =
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(currentUserId)
+                    .collection('hiddenFriends')
+                    .get();
+            final List<String> hiddenFriends =
+                hiddenFriendsSnapshot.docs.map((doc) => doc.id).toList();
 
             // Listen to posts collection
             _firestore
@@ -110,8 +120,9 @@ class PostsProvider extends ChangeNotifier {
                       final String postUserId = postData['userId'];
                       final String postId = change.doc.id;
 
-                      // Skip posts from blocked users
-                      if (blockedUsers.contains(postUserId)) {
+                      // Skip posts from blocked or hidden users
+                      if (blockedUsers.contains(postUserId) ||
+                          hiddenFriends.contains(postUserId)) {
                         continue;
                       }
 

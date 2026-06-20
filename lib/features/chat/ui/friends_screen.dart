@@ -2089,7 +2089,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                             },
                           ),
                           _buildMenuOption(
-                            label: '숨김',
+                            label: '거리두기',
                             onTap: () {
                               Navigator.pop(context);
                               _hideFriend(friend);
