@@ -60,7 +60,7 @@ class AppRouter {
       ),
 
       // ── Bank registered deep link landing ─────────────────────────────────
-      // Reached when OS intercepts app.pang2chocolate.com/bank-registered
+      // Reached when OS intercepts www.pang2chocolate.com/bank-registered
       // after Payple bank account registration callback redirects here.
       // Top-level route (not nested under navBar) so it works from cold start.
       GoRoute(

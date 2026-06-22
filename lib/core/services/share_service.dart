@@ -1,7 +1,7 @@
 import 'package:share_plus/share_plus.dart';
 
 class ShareService {
-  static const String _appDomain = 'https://app.pang2chocolate.com';
+  static const String _appDomain = 'https://www.pang2chocolate.com';
 
   static Future<void> shareProduct(String productId, String productName) async {
     final link = '$_appDomain/product/$productId';

@@ -709,7 +709,7 @@ class _PostItemState extends State<PostItem> {
                                             showShareDialog(
                                               context,
                                               'post',
-                                              'https://app.pang2chocolate.com/comment?postId=${widget.postId}',
+                                              'https://www.pang2chocolate.com/comment?postId=${widget.postId}',
                                               widget.postId,
                                               myuser.name,
                                               myuser.url,
@@ -1242,7 +1242,7 @@ class OtherPostMenu extends StatelessWidget {
                 showShareDialog(
                   context,
                   'post',
-                  'https://app.pang2chocolate.com/comment?postId=$postId',
+                  'https://www.pang2chocolate.com/comment?postId=$postId',
                   postId,
                   displayName,
                   profileUrl,

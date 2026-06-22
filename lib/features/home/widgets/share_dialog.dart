@@ -457,10 +457,10 @@ void showShareDialog(
                             final String link;
                             if (type == 'post') {
                               link =
-                                  'https://app.pang2chocolate.com/comment?postId=$id';
+                                  'https://www.pang2chocolate.com/comment?postId=$id';
                             } else {
                               link =
-                                  'https://app.pang2chocolate.com/product/$id';
+                                  'https://www.pang2chocolate.com/product/$id';
                             }
                             _copyToClipboard(context, link);
                           },
