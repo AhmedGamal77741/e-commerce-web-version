@@ -307,6 +307,7 @@ Widget _buildFriendItem({
   required BuildContext context,
   required Map<String, dynamic> postData,
   required String type,
+  required String url,
 }) {
   return Container(
     margin: const EdgeInsets.only(bottom: 16),
@@ -319,15 +320,16 @@ Widget _buildFriendItem({
           );
           if (chatRoomId != null) {
             if (type == 'post') {
+              final contentText = postData['text'] ?? '';
               ChatService().sendMessage(
                 chatRoomId: chatRoomId,
-                content: postData['text'] ?? '',
+                content: contentText.isEmpty ? url : '$url\n$contentText',
                 postData: postData,
               );
             } else if (type == 'product') {
               ChatService().sendMessage(
                 chatRoomId: chatRoomId,
-                content: '',
+                content: url,
                 productData: Product.fromMap(postData),
               );
             }
@@ -523,6 +525,7 @@ void showShareDialog(
                                 context: context,
                                 postData: mapData,
                                 type: type,
+                                url: url,
                               );
                             },
                           );

@@ -225,6 +225,54 @@ class ChatService {
     return _friendsService.getFriendsStream();
   }
 
+  Future<Map<String, dynamic>?> _fetchProductFromUrl(String urlString) async {
+    try {
+      final uri = Uri.parse(urlString);
+      if (uri.pathSegments.length < 2) return null;
+
+      String productId = uri.pathSegments[1];
+      DocumentSnapshot doc =
+          await _firestore.collection('products').doc(productId).get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }
+    } catch (e) {
+      print("Error fetching linked product: $e");
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _fetchPostFromUrl(String urlString) async {
+    try {
+      final uri = Uri.parse(urlString);
+
+      // 1. Try to get ID from Query Parameters (?postId=...)
+      String? linkedPostId = uri.queryParameters['postId'];
+
+      // 2. Fallback: Try to get ID from Path Segments (/post/ID)
+      if (linkedPostId == null && uri.pathSegments.length >= 2) {
+        linkedPostId = uri.pathSegments[1];
+      }
+
+      if (linkedPostId == null) return null;
+
+      DocumentSnapshot doc =
+          await _firestore.collection('posts').doc(linkedPostId).get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }
+    } catch (e) {
+      print("Error fetching linked post: $e");
+    }
+    return null;
+  }
+
   // ─── Send message ─────────────────────────────────────────────────────────
   Future<void> sendMessage({
     required String chatRoomId,
@@ -271,6 +319,22 @@ class ChatService {
         final areFriends = await _friendsService.areFriends(otherUserId);
         if (!areFriends) {
           throw Exception('You can only chat with friends.');
+        }
+      }
+    }
+
+    if (postData == null && productData == null && content.isNotEmpty) {
+      final urlRegExp = RegExp(r'(https?://[^\s]+)');
+      final match = urlRegExp.firstMatch(content);
+      if (match != null) {
+        String url = match.group(0)!;
+        if (url.contains('pang2chocolate.com/product/')) {
+          final pData = await _fetchProductFromUrl(url);
+          if (pData != null) {
+            productData = Product.fromMap(pData);
+          }
+        } else if (url.contains('/comment') || url.contains('/post/')) {
+          postData = await _fetchPostFromUrl(url);
         }
       }
     }
