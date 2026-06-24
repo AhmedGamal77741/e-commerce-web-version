@@ -8,12 +8,12 @@ import 'package:ecommerece_app/features/mypage/ui/widgets/profile_type.dart';
 import 'package:ecommerece_app/features/mypage/ui/widgets/user_info_container.dart';
 import 'package:ecommerece_app/features/mypage/ui/widgets/user_options_container.dart';
 import 'package:ecommerece_app/features/shop/item_details.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MyPage extends StatefulWidget {
-  const MyPage({super.key});
+  final MyUser currentUser;
+  const MyPage({super.key, required this.currentUser});
 
   @override
   State<MyPage> createState() => _MyPageState();
@@ -25,153 +25,123 @@ class _MyPageState extends State<MyPage> {
 
   @override
   Widget build(BuildContext context) {
-    final String userId = FirebaseAuth.instance.currentUser!.uid;
+    final myuser = widget.currentUser;
+    final bool isSub = myuser.isSub;
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
-        }
-
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          return const Center(child: Text("User data not found."));
-        }
-
-        final userData = snapshot.data!.data() as Map<String, dynamic>;
-        final bool isSub = userData['isSub'] == true;
-        final myuser = MyUser.fromDocument(userData);
-        return SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-              child: Column(
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+          child: Column(
+            children: [
+              if (!isSub) ...[
+                Container(
+                  width: double.infinity,
+                  height: 500,
+                  color: Colors.black,
+                  child: Center(child: ShiningPremiumBanner()),
+                ),
+                verticalSpace(20),
+              ],
+              ProfileType(
+                key: _profileTypeKey,
+                isPrivate: myuser.isPrivate,
+                userId: myuser.userId,
+                currentUser: myuser,
+              ),
+              verticalSpace(20),
+              isSub
+                  ? Text('멤버십 회원', style: TextStyles.abeezee17px800wPblack)
+                  : Text('일반 회원', style: TextStyles.abeezee17px800wPblack),
+              verticalSpace(20),
+              UserOptionsContainer(isSub: isSub),
+              verticalSpace(20),
+              Text('개인정보', style: TextStyles.abeezee17px800wPblack),
+              verticalSpace(20),
+              UserInfoContainer(key: _userInfoKey, currentUser: myuser),
+              verticalSpace(20),
+              WideTextButton(
+                txt: '저장',
+                func: () async {
+                  final profileState = _profileTypeKey.currentState as dynamic;
+                  final newNickname = profileState?.getNickname() ?? '';
+                  final userState = _userInfoKey.currentState as dynamic;
+                  await userState?.performUpdate(newNickname: newNickname);
+                },
+                color: Colors.black,
+                txtColor: Colors.white,
+              ),
+              verticalSpace(20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (!isSub) ...[
-                    Container(
-                      width: double.infinity,
-                      height: 500,
-                      color: Colors.black,
-                      child: Center(child: ShiningPremiumBanner()),
-                    ),
-                    verticalSpace(20),
-                  ],
-
-                  ProfileType(
-                    key: _profileTypeKey,
-                    isPrivate: myuser.isPrivate,
-                    userId: userId,
-                    currentUser: myuser,
-                  ),
-                  verticalSpace(20),
-                  isSub
-                      ? Text('프리미엄 회원', style: TextStyles.abeezee17px800wPblack)
-                      : Text('일반 회원', style: TextStyles.abeezee17px800wPblack),
-                  verticalSpace(20),
-                  UserOptionsContainer(isSub: isSub),
-                  verticalSpace(20),
-                  Text('개인정보', style: TextStyles.abeezee17px800wPblack),
-                  verticalSpace(20),
-                  UserInfoContainer(key: _userInfoKey),
-                  verticalSpace(20),
-                  WideTextButton(
-                    txt: '저장',
-                    func: () async {
-                      final profileState =
-                          _profileTypeKey.currentState as dynamic;
-                      final newNickname = profileState?.getNickname() ?? '';
-                      final userState = _userInfoKey.currentState as dynamic;
-                      await userState?.performUpdate(newNickname: newNickname);
+                  GestureDetector(
+                    onTap: () {
+                      _launchTermsPage();
                     },
-                    color: Colors.black,
-                    txtColor: Colors.white,
+                    child: Text('이용약관', style: TextStyles.abeezee13px400wP600),
                   ),
-                  verticalSpace(20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          _launchTermsPage();
-                        },
-                        child: Text(
-                          '이용약관',
-                          style: TextStyles.abeezee13px400wP600,
-                        ),
-                      ),
-                      horizontalSpace(5),
-                      Text('/', style: TextStyles.abeezee13px400wP600),
-                      horizontalSpace(5),
-                      GestureDetector(
-                        onTap: () async {
-                          final shouldSignOut = await showDialog<bool>(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (dialogContext) {
-                              return AlertDialog(
-                                backgroundColor: Colors.white,
-                                title: Text(
-                                  '로그아웃 확인',
-                                  style: TextStyle(color: Colors.black),
+                  horizontalSpace(5),
+                  Text('/', style: TextStyles.abeezee13px400wP600),
+                  horizontalSpace(5),
+                  GestureDetector(
+                    onTap: () async {
+                      final shouldSignOut = await showDialog<bool>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (dialogContext) {
+                          return AlertDialog(
+                            backgroundColor: Colors.white,
+                            title: Text(
+                              '로그아웃 확인',
+                              style: TextStyle(color: Colors.black),
+                            ),
+                            content: Text(
+                              '정말 로그아웃 하시겠습니까?',
+                              style: TextStyle(color: Colors.black),
+                            ),
+                            actions: [
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  backgroundColor: Colors.black,
                                 ),
-                                content: Text(
-                                  '정말 로그아웃 하시겠습니까?',
-                                  style: TextStyle(color: Colors.black),
+                                onPressed:
+                                    () =>
+                                        Navigator.of(dialogContext).pop(false),
+                                child: Text(
+                                  '취소',
+                                  style: TextStyle(color: Colors.white),
                                 ),
-                                actions: [
-                                  TextButton(
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      backgroundColor: Colors.black,
-                                    ),
-                                    onPressed:
-                                        () => Navigator.of(
-                                          dialogContext,
-                                        ).pop(false),
-                                    child: Text(
-                                      '취소',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      backgroundColor: Colors.black,
-                                    ),
-                                    onPressed:
-                                        () => Navigator.of(
-                                          dialogContext,
-                                        ).pop(true),
-                                    child: Text(
-                                      '로그아웃',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
+                              ),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  backgroundColor: Colors.black,
+                                ),
+                                onPressed:
+                                    () => Navigator.of(dialogContext).pop(true),
+                                child: Text(
+                                  '로그아웃',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
                           );
-                          if (shouldSignOut == true) {
-                            await signOut();
-                          }
                         },
-                        child: Text(
-                          '로그아웃',
-                          style: TextStyles.abeezee13px400wP600,
-                        ),
-                      ),
-                    ],
+                      );
+                      if (shouldSignOut == true) {
+                        await signOut();
+                      }
+                    },
+                    child: Text('로그아웃', style: TextStyles.abeezee13px400wP600),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

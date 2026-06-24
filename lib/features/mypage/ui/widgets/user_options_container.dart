@@ -28,6 +28,23 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
   final String supportUserId = 'JuxEfED9YSc2XyHRFgkPcNCFUSJ3';
 
   bool _isLoading = false;
+  late Stream<QuerySnapshot<Map<String, dynamic>>>? _subStream;
+
+  @override
+  void initState() {
+    super.initState();
+    if (user != null) {
+      _subStream =
+          FirebaseFirestore.instance
+              .collection('subscriptions')
+              .where('userId', isEqualTo: user!.uid)
+              .orderBy('nextBillingDate', descending: true)
+              .limit(1)
+              .snapshots();
+    } else {
+      _subStream = null;
+    }
+  }
 
   Future<void> openSupportChat(BuildContext context) async {
     if (_isLoading) return;
@@ -168,23 +185,18 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
 
   @override
   Widget build(BuildContext context) {
-    if (user == null) {
+    if (user == null || _subStream == null) {
       return Center(child: Text('로그인이 필요합니다.'));
     }
     final isSupport = user?.uid == supportUserId;
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('subscriptions')
-              .where('userId', isEqualTo: user!.uid)
-              .orderBy('nextBillingDate', descending: true)
-              .limit(1)
-              .snapshots(),
+      stream: _subStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return SizedBox.shrink();
+          // Return default/empty state instead of a loader to achieve zero loading animations
+          // We will gracefully show the normal member UI until the stream resolves.
         }
-        bool? isSub;
+        bool? isSub = widget.isSub;
         String? subStatus;
         DateTime? nextBillingDate;
         if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
@@ -253,12 +265,7 @@ class _UserOptionsContainerState extends State<UserOptionsContainer>
                               ),
                             ],
                           ),
-                          if (_isLoading)
-                            const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: SizedBox.shrink(),
-                            ),
+                          if (_isLoading) const SizedBox.shrink(),
                         ],
                       ),
                     ),

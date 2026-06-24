@@ -13,7 +13,6 @@ import 'package:ecommerece_app/landing.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:ecommerece_app/core/widgets/deleted_account.dart';
-
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,17 +37,15 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
     super.initState();
     homeTabController = TabController(length: 2, vsync: this);
     widgetOptions = [
-      _buildMainWidget(
-        () => HomeScreen(
-          key: homeKey,
-          scrollController: homeScrollController,
-          tabController: homeTabController,
-        ),
+      HomeScreen(
+        key: homeKey,
+        scrollController: homeScrollController,
+        tabController: homeTabController,
       ),
-      _buildMainWidget(() => ChatsNavbar()),
-      _buildMainWidget(() => const Center(child: Text('멤버십 라운지'))),
-      _buildMainWidget(() => Shop(key: shopKey)),
-      _buildMainWidget(() => LandingScreen()),
+      ChatsNavbar(),
+      const Center(child: Text('멤버십 라운지')),
+      Shop(key: shopKey),
+      LandingScreen(),
     ];
 
     // Check if we need to resume a pending navigation after bank registration
@@ -143,54 +140,7 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildMainWidget(Widget Function() builder) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, authSnapshot) {
-        final user = authSnapshot.data;
-        if (user == null) {
-          return builder();
-        }
-        return StreamBuilder<DocumentSnapshot>(
-          stream:
-              FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .snapshots(),
-          builder: (context, userSnapshot) {
-            if (!userSnapshot.hasData) {
-              return builder();
-            }
-            final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
-            if (userData == null) {
-              return const Center(child: Text('User profile not found'));
-            }
-            if (userData['deleted'] == true) {
-              return DeletedAccount(
-                deletedAt: userData['deletedAt']?.toString() ?? '',
-                onRecover: () async {
-                  final uid = FirebaseAuth.instance.currentUser?.uid;
-                  if (uid != null) {
-                    await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(uid)
-                        .update({'deleted': false, 'deletedAt': null});
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('계정이 복구되었습니다.')),
-                    );
-                  }
-                },
-                onSignOut: () async {
-                  await FirebaseAuth.instance.signOut();
-                },
-              );
-            }
-            return builder();
-          },
-        );
-      },
-    );
-  }
+  // Removed _buildMainWidget as it was causing massive rebuilds of all tabs
 
   Future<void> _onItemTapped(int index) async {
     if (_selectedIndex == index && index == 3) {
@@ -298,7 +248,56 @@ class _NavBarState extends State<NavBar> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: widgetOptions),
+      body: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, authSnapshot) {
+          final user = authSnapshot.data;
+          if (user == null) {
+            return IndexedStack(index: _selectedIndex, children: widgetOptions);
+          }
+          return StreamBuilder<DocumentSnapshot>(
+            stream:
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .snapshots(),
+            builder: (context, userSnapshot) {
+              if (userSnapshot.hasData) {
+                final userData =
+                    userSnapshot.data!.data() as Map<String, dynamic>?;
+                if (userData != null && userData['deleted'] == true) {
+                  return DeletedAccount(
+                    deletedAt: userData['deletedAt']?.toString() ?? '',
+                    onRecover: () async {
+                      final uid = FirebaseAuth.instance.currentUser?.uid;
+                      if (uid != null) {
+                        await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(uid)
+                            .update({'deleted': false, 'deletedAt': null});
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('계정이 복구되었습니다.')),
+                          );
+                        }
+                      }
+                    },
+                    onSignOut: () async {
+                      await FirebaseAuth.instance.signOut();
+                    },
+                  );
+                }
+              }
+              // Return the cached widgetOptions list. This prevents the children from rebuilding
+              // when the user document updates!
+              return IndexedStack(
+                index: _selectedIndex,
+                children: widgetOptions,
+              );
+            },
+          );
+        },
+      ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: ColorsManager.primary,
         showSelectedLabels: false,

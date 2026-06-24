@@ -122,6 +122,7 @@ class _ChatScreenState extends State<ChatScreen> {
               if (mounted) {
                 setState(() {
                   _roomDeleted = true;
+                  _loadingBlockState = false;
                 });
               }
               return;
@@ -136,6 +137,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 setState(() {
                   _chatRoom = room;
                   _isGroup = true;
+                  _loadingBlockState = false;
                 });
               }
             } else {

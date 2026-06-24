@@ -9,7 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class UserInfoContainer extends StatefulWidget {
-  const UserInfoContainer({super.key});
+  final MyUser currentUser;
+  const UserInfoContainer({super.key, required this.currentUser});
 
   @override
   State<UserInfoContainer> createState() => _UserInfoContainerState();
@@ -27,21 +28,19 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
   String error = '';
   final fireBaseRepo = FirebaseUserRepo();
 
-  MyUser? currentUser;
-  bool _isLoading = true;
+  late MyUser currentUser;
 
   Future<void> performUpdate({String? newNickname}) async {
     if (!_formKey.currentState!.validate()) return;
-    if (currentUser == null) return;
     // Check which fields are being updated
     final isUpdatingName =
         newNickname != null &&
         newNickname.isNotEmpty &&
-        newNickname != currentUser!.name;
+        newNickname != currentUser.name;
     final isUpdatingPassword = passwordController.text.isNotEmpty;
     final isUpdatingPhone =
         phoneController.text.isNotEmpty &&
-        phoneController.text != (currentUser!.phoneNumber ?? '');
+        phoneController.text != (currentUser.phoneNumber ?? '');
 
     if (!isUpdatingName && !isUpdatingPassword && !isUpdatingPhone) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -55,7 +54,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
       final name = newNickname.trim();
       final existing = await fireBaseRepo.checkNameExists(name);
       // Only block if the name exists and is not the current user's name
-      if (existing && name != currentUser!.name) {
+      if (existing && name != currentUser.name) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('이미 사용 중인 닉네임입니다', style: TextStyle(fontSize: 14)),
@@ -67,22 +66,22 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
 
     // Prepare updated user
     final updatedUser = MyUser(
-      userId: currentUser!.userId,
-      email: currentUser!.email,
-      name: isUpdatingName ? newNickname : currentUser!.name,
-      url: imgUrl.isEmpty ? currentUser!.url : imgUrl,
-      isSub: currentUser!.isSub,
-      defaultAddressId: currentUser!.defaultAddressId,
-      blocked: currentUser!.blocked,
-      payerId: currentUser!.payerId,
-      isOnline: currentUser!.isOnline,
-      lastSeen: currentUser!.lastSeen,
-      chatRooms: currentUser!.chatRooms,
-      friends: currentUser!.friends,
-      friendRequestsSent: currentUser!.friendRequestsSent,
-      friendRequestsReceived: currentUser!.friendRequestsReceived,
+      userId: currentUser.userId,
+      email: currentUser.email,
+      name: isUpdatingName ? newNickname : currentUser.name,
+      url: imgUrl.isEmpty ? currentUser.url : imgUrl,
+      isSub: currentUser.isSub,
+      defaultAddressId: currentUser.defaultAddressId,
+      blocked: currentUser.blocked,
+      payerId: currentUser.payerId,
+      isOnline: currentUser.isOnline,
+      lastSeen: currentUser.lastSeen,
+      chatRooms: currentUser.chatRooms,
+      friends: currentUser.friends,
+      friendRequestsSent: currentUser.friendRequestsSent,
+      friendRequestsReceived: currentUser.friendRequestsReceived,
       phoneNumber:
-          isUpdatingPhone ? phoneController.text : currentUser!.phoneNumber,
+          isUpdatingPhone ? phoneController.text : currentUser.phoneNumber,
     );
     try {
       if (isUpdatingPassword) {
@@ -116,7 +115,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            "업데이트 중 오류가 발생했습니다: " + e.toString(),
+            "업데이트 중 오류가 발생했습니다: $e",
             style: TextStyle(fontSize: 14),
           ),
         ),
@@ -127,38 +126,31 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
   @override
   void initState() {
     super.initState();
+    currentUser = widget.currentUser;
     Provider.of<PostsProvider>(context, listen: false).startListening();
-    _loadData();
+    _initData();
   }
 
-  Future<void> _loadData() async {
-    try {
-      final user = await FirebaseUserRepo().user.first;
-      if (!mounted) return;
-      if (user != null) {
-        setState(() {
-          currentUser = user;
-          nameController.text = user.name.isNotEmpty ? user.name : '';
-          emailController.text = user.email;
-          phoneController.text =
-              (user.phoneNumber != null && user.phoneNumber!.isNotEmpty)
-                  ? user.phoneNumber!
-                  : '';
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      debugPrint('Error loading user: $e');
+  @override
+  void didUpdateWidget(UserInfoContainer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentUser != oldWidget.currentUser) {
+      setState(() {
+        currentUser = widget.currentUser;
+      });
+      // Optionally update controllers if they haven't been modified by user
+      // but since form fields usually maintain their state until saved,
+      // it's safer not to override them unless they are empty or we want to force sync.
     }
+  }
+
+  void _initData() {
+    nameController.text = currentUser.name.isNotEmpty ? currentUser.name : '';
+    emailController.text = currentUser.email;
+    phoneController.text =
+        (currentUser.phoneNumber != null && currentUser.phoneNumber!.isNotEmpty)
+            ? currentUser.phoneNumber!
+            : '';
   }
 
   Future<bool> _reauthenticateUser(BuildContext context) async {
@@ -282,9 +274,6 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return SizedBox.shrink();
-    }
     return Container(
       decoration: ShapeDecoration(
         color: ColorsManager.white,
@@ -300,6 +289,38 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // userId combo
+              // Text(
+              //   '아이디', // Translated to Korean
+              //   style: TextStyles.abeezee16px400wPblack.copyWith(
+              //     fontSize: 16.sp,
+              //   ),
+              // ),
+              // SizedBox(height: 5.h),
+              // Container(
+              //   width: double.infinity,
+              //   padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 8.w),
+              //   decoration: BoxDecoration(
+              //     border: Border(
+              //       bottom: BorderSide(
+              //         color: ColorsManager.primary100,
+              //         width: 1.w,
+              //       ),
+              //     ),
+              //   ),
+              //   child: Text(
+              //     (currentUser?.tag != null && currentUser!.tag!.isNotEmpty)
+              //         ? currentUser!.tag!
+              //         : '지정되지 않음',
+              //     style: TextStyles.abeezee16px400wPblack.copyWith(
+              //       color: Colors.grey[700],
+              //       fontSize: 16.sp,
+              //     ),
+              //   ),
+              // ),
+              // SizedBox(height: 20.h),
+
+              // User bio combo
               Text(
                 '아이디', // Translated to Korean
                 style: TextStyles.abeezee16px400wPblack.copyWith(fontSize: 16),
@@ -309,7 +330,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
                 ignoring: true,
                 child: UnderlineTextField(
                   controller: emailController,
-                  hintText: currentUser!.email,
+                  hintText: currentUser.email,
                   obscureText: false,
                   keyboardType: TextInputType.emailAddress,
                 ),
@@ -325,9 +346,9 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
               UnderlineTextField(
                 controller: phoneController,
                 hintText:
-                    (currentUser?.phoneNumber != null &&
-                            currentUser!.phoneNumber!.isNotEmpty)
-                        ? currentUser!.phoneNumber!
+                    (currentUser.phoneNumber != null &&
+                            currentUser.phoneNumber!.isNotEmpty)
+                        ? currentUser.phoneNumber!
                         : '지정되지 않음',
                 obscureText: false,
                 keyboardType: TextInputType.phone,
@@ -352,6 +373,7 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
               SizedBox(height: 5),
               Builder(
                 builder: (context) {
+                  // Use a local stateful widget to persist the obscure/icon state
                   return _PasswordFieldWithVisibility(
                     controller: passwordController,
                   );
@@ -374,11 +396,10 @@ class _UserInfoContainerState extends State<UserInfoContainer> {
   }
 }
 
-// Add this widget at the bottom of the file
+// Add this widget at the bottom of the file (or above the class if you prefer)
 class _PasswordFieldWithVisibility extends StatefulWidget {
   final TextEditingController controller;
-  const _PasswordFieldWithVisibility({Key? key, required this.controller})
-    : super(key: key);
+  const _PasswordFieldWithVisibility({super.key, required this.controller});
 
   @override
   State<_PasswordFieldWithVisibility> createState() =>

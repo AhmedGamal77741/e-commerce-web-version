@@ -22,7 +22,7 @@ class LandingScreen extends StatelessWidget {
         if (user == null) {
           return AuthScreen();
         } else {
-          return MyPageScreen();
+          return MyPageScreen(currentUser: user);
         }
       },
     );
